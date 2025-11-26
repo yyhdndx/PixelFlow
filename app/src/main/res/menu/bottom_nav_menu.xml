@@ -2,21 +2,28 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/nav_home"
-        android:icon="@drawable/ic_home"
+        android:icon="@drawable/home"
         android:title="首页" />
 
     <item
         android:id="@+id/nav_friends"
-        android:icon="@drawable/ic_friends"
+        android:icon="@drawable/friends"
         android:title="朋友" />
+
+    <!-- 相机占位 - 保持对称，但用户不会点击这个 -->
+    <item
+        android:id="@+id/nav_camera_placeholder"
+        android:icon="@android:color/transparent"
+        android:title=""
+        android:enabled="false" />
 
     <item
         android:id="@+id/nav_messages"
-        android:icon="@drawable/ic_messages"
+        android:icon="@drawable/messages"
         android:title="消息" />
 
     <item
         android:id="@+id/nav_profile"
-        android:icon="@drawable/ic_profiles"
+        android:icon="@drawable/profiles"
         android:title="我" />
 </menu>

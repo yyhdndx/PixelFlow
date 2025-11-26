@@ -1,25 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#FFFFFF">
 
-    <TextView
-        android:id="@+id/title_text"
+    <!-- 上层Tab导航 -->
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tab_layout"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="16dp"
-        android:text="首页"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:background="#F5F5F5" />
+        android:layout_height="48dp"
+        android:background="#FFFFFF"
+        app:tabTextColor="#666666"
+        app:tabSelectedTextColor="#FF0000"
+        app:tabIndicatorColor="#FF0000"
+        app:tabIndicatorHeight="2dp"
+        app:tabMode="scrollable" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recycler_view"
+    <!-- 下拉刷新容器 -->
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipe_refresh_layout"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <!-- 瀑布流RecyclerView -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:padding="8dp" />
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    <!-- 空状态页面 -->
+    <LinearLayout
+        android:id="@+id/empty_state_layout"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:padding="8dp" />
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone"
+        android:padding="32dp">
+
+        <ImageView
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:src="@drawable/ic_empty_state"
+            android:contentDescription="@string/emptyContent" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/nullContent"
+            android:textSize="16sp"
+            android:textColor="#666666" />
+
+        <Button
+            android:id="@+id/retry_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/reloading"
+            android:backgroundTint="#FF0000"
+            android:textColor="@android:color/white" />
+
+    </LinearLayout>
 
 </LinearLayout>

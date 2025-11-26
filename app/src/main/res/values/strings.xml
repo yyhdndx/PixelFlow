@@ -1,3 +1,11 @@
 <resources>
     <string name="app_name">PixelFlow</string>
+    <string name="camera">camera</string>
+    <string name="reloading">重新加载</string>
+    <string name="nullContent">暂无内容</string>
+    <string name="emptyContent">空状态</string>
+    <string name="workOutline">作品封面</string>
+    <string name="authorAvatar">作者头像</string>
+    <string name="praise">点赞</string>
+    <string name="loadingMore">加载更多...</string>
 </resources>
