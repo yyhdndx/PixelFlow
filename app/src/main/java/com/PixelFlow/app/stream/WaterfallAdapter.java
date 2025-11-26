@@ -52,6 +52,8 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         this.onLikeClickListener = listener;
     }
 
+    // 启用适配器模式，对于新加入的WorkItem，选择之前划走的View进行填充，减小内存开销
+    // 同样这里也有工厂模式的体现，这两个函数分别表示的是创建容器，后面是组装
     @NonNull
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {

@@ -2,22 +2,27 @@ package com.PixelFlow.app;
 
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.PixelFlow.app.API.ApiClient;
+import com.PixelFlow.app.API.ApiResponse;
+import com.PixelFlow.app.API.PostItem;
 import com.PixelFlow.app.stream.WaterfallAdapter;
 import com.PixelFlow.app.stream.WorkItem;
 import com.google.android.material.tabs.TabLayout;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 public class HomeFragment extends Fragment {
 
@@ -93,6 +98,7 @@ public class HomeFragment extends Fragment {
                 StaggeredGridLayoutManager layoutManager = (StaggeredGridLayoutManager) recyclerView.getLayoutManager();
                 if (layoutManager == null) return;
 
+                // 获取最后的可见项的位置
                 int[] lastVisiblePositions = layoutManager.findLastVisibleItemPositions(null);
                 int lastVisibleItem = getMaxValue(lastVisiblePositions);
                 int totalItemCount = layoutManager.getItemCount();
@@ -125,6 +131,12 @@ public class HomeFragment extends Fragment {
             tabLayout.addTab(tabLayout.newTab().setText(tabName));
         }
 
+        // 默认显示社区
+        TabLayout.Tab communityTab=tabLayout.getTabAt(3);
+        if(communityTab!=null){
+            communityTab.select();
+        }
+
         tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
             public void onTabSelected(TabLayout.Tab tab) {
@@ -146,6 +158,13 @@ public class HomeFragment extends Fragment {
     }
 
     private void loadData(boolean isRefresh) {
+        if(isRefresh&&isRefreshing){
+            return;
+        }
+        if(!isRefresh&&adapter.isLoading()){
+            return ;
+        }
+
         if (isRefresh) {
             currentPage = 0;
             hasMoreData = true;
@@ -155,105 +174,81 @@ public class HomeFragment extends Fragment {
             adapter.setLoading(true);
         }
 
-        // 模拟网络请求延迟
-        handler.postDelayed(() -> {
-            List<WorkItem> newData = generateMockData(currentPage);
+        final int requestCount=10;
+        final boolean shouldAcceptVideoClip=false;
 
-            if (isRefresh) {
-                // 首刷：模拟10%的失败率
-                if (new Random().nextInt(10) == 0) {
-                    showEmptyState();
-                } else {
-                    hideEmptyState();
-                    adapter.setData(newData);
+        ApiClient.getInstance(requireContext()).getFeed(requestCount, shouldAcceptVideoClip, new ApiClient.ApiCallback() {
+
+            @Override
+            public void onSuccess(ApiResponse response) {
+
+                if (!isAdded() || getActivity() == null) {
+                    Log.w("HomeFragment", "Fragment已销毁，忽略网络响应");
+                    return;
                 }
-                isRefreshing = false;
-                swipeRefreshLayout.setRefreshing(false);
-            } else {
-                // 加载更多
-                if (newData.isEmpty()) {
-                    hasMoreData = false;
-                } else {
-                    adapter.addData(newData);
-                }
-                adapter.setLoading(false);
+
+                requireActivity().runOnUiThread(()->{
+                    // 将API中的数据转为WorkItem的列表中的数据
+                    List<WorkItem> newData=new ArrayList<>();
+                    if(response.getPostList()!=null){
+                        for(PostItem itm:response.getPostList()){
+                            newData.add(new WorkItem(itm));
+                        }
+                    }
+
+                    hasMoreData=response.getHasMore()==1;
+
+                    if(isRefresh){
+                        // 下拉刷新，已经触底加载了
+                        if(newData.isEmpty()){
+                            showEmptyState(); // 刷到底了
+                        }else{
+                            hideEmptyState();
+                            adapter.setData(newData);
+                        }
+                        isRefreshing=false;
+                        swipeRefreshLayout.setRefreshing(false);
+                    }else{
+                        if(newData.isEmpty()){
+                            hasMoreData=false;
+                            Toast.makeText(getContext(),"刷到底了捏亲亲，该休息一下嘞",Toast.LENGTH_SHORT).show();
+                        }else{
+                            adapter.addData(newData);
+                        }
+                        adapter.setLoading(false);
+                    }
+                    currentPage++;
+                    adapter.setLoading(false);
+                });
             }
 
-            currentPage++;
-        }, 1500);
-    }
+            @Override
+            public void onFailure(String errorMessage) {
 
-    private List<WorkItem> generateMockData(int page) {
-        List<WorkItem> data = new ArrayList<>();
+                if (!isAdded() || getActivity() == null) {
+                    Log.w("HomeFragment", "Fragment已销毁，忽略网络错误");
+                    return;
+                }
 
-        // 模拟没有更多数据的情况
-        if (page >= 3) {
-            return data;
-        }
+                requireActivity().runOnUiThread(()->{
+                    Log.e("HomePage","API Fail "+errorMessage);
 
-        int itemsPerPage = 10;
-        Random random = new Random();
+                    if(isRefresh){
+                        showEmptyState();
+                        isRefreshing=false;
+                        swipeRefreshLayout.setRefreshing(false);
+                    }else{
+                        adapter.setLoading(false);
+                        Toast.makeText(getContext(),"页面飞走了捏？？？"+errorMessage,Toast.LENGTH_SHORT).show();
+                    }
 
-        for (int i = 0; i < itemsPerPage; i++) {
-            String id = "work_" + page + "_" + i;
-            String title = getRandomTitle(random);
-            String content = getRandomContent(random);
-            String authorName = getRandomAuthorName(random);
-
-            // 随机图片尺寸，但限制在合理范围内
-            int width = 300 + random.nextInt(400);
-            int height = 400 + random.nextInt(300);
-
-            WorkItem item = new WorkItem(
-                    id,
-                    "https://picsum.photos/" + width + "/" + height, // 随机图片
-                    title,
-                    content,
-                    authorName,
-                    "https://i.pravatar.cc/150?img=" + (1 + random.nextInt(70)), // 随机头像
-                    100 + random.nextInt(1000),
-                    width,
-                    height
-            );
-
-            data.add(item);
-        }
-
-        return data;
-    }
-
-    private String getRandomTitle(Random random) {
-        String[] titles = {
-                "美丽的风景摄影",
-                "城市夜景",
-                "美食分享",
-                "旅行日记",
-                "创意设计",
-                "生活小技巧",
-                "艺术作品展示",
-                "摄影教程",
-                null // 模拟没有标题的情况
-        };
-        return titles[random.nextInt(titles.length)];
-    }
-
-    private String getRandomContent(Random random) {
-        String[] contents = {
-                "这是一段作品描述，讲述了创作的过程和灵感来源...",
-                "分享生活中的美好瞬间，记录每一个值得纪念的时刻",
-                "通过这个作品想表达对自然的热爱和对生活的热情",
-                "创作过程中的心得体会和经验分享",
-                "希望能给大家带来一些启发和思考"
-        };
-        return contents[random.nextInt(contents.length)];
-    }
-
-    private String getRandomAuthorName(Random random) {
-        String[] names = {
-                "摄影师小明", "旅行达人小红", "美食家小李",
-                "设计师小王", "艺术家小张", "创作者小刘"
-        };
-        return names[random.nextInt(names.length)];
+                    // 如果是首次的加载失败，尝试重试
+                    if(isRefresh&&adapter.getData().isEmpty()){
+                        showEmptyState();
+                    }
+                });
+            }
+        });
     }
 
     private void showEmptyState() {

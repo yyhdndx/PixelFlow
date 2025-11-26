@@ -1,5 +1,7 @@
 package com.PixelFlow.app.stream;
 
+import com.PixelFlow.app.API.PostItem;
+
 public class WorkItem {
     private String id;
     private String coverUrl;
@@ -7,12 +9,38 @@ public class WorkItem {
     private String content;
     private String authorName;
     private String authorAvatarUrl;
-    private int likeCount;
+    private int likeCount;  // 注意：API没有点赞数，我们使用模拟数据
     private boolean isLiked;
     private int imageWidth;
     private int imageHeight;
 
-    // 构造函数
+    // 从API的PostItem创建WorkItem的构造方法
+    public WorkItem(PostItem postItem) {
+        this.id = postItem.getPostId();
+        this.title = postItem.getTitle();
+        this.content = postItem.getContent();
+        this.authorName = postItem.getAuthor().getNickname();
+        this.authorAvatarUrl = postItem.getAuthor().getAvatar();
+
+        // 模拟点赞数（因为API没有提供）
+        this.likeCount = (int) (Math.random() * 1000);
+        this.isLiked = false;
+
+        // 使用第一个clip作为封面
+        if (postItem.getClips() != null && !postItem.getClips().isEmpty()) {
+            PostItem.Clip firstClip = postItem.getClips().get(0);
+            this.coverUrl = firstClip.getUrl();
+            this.imageWidth = firstClip.getWidth();
+            this.imageHeight = firstClip.getHeight();
+        } else {
+            // 如果没有clip，使用默认图片
+            this.coverUrl = "";
+            this.imageWidth = 400;
+            this.imageHeight = 600;
+        }
+    }
+
+    // 原有的构造函数保持不变
     public WorkItem(String id, String coverUrl, String title, String content,
                     String authorName, String authorAvatarUrl, int likeCount,
                     int imageWidth, int imageHeight) {
@@ -25,10 +53,10 @@ public class WorkItem {
         this.likeCount = likeCount;
         this.imageWidth = imageWidth;
         this.imageHeight = imageHeight;
-        this.isLiked = false; // 默认未点赞
+        this.isLiked = false;
     }
 
-    // Getters and Setters
+    // Getters and Setters (保持不变)
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 

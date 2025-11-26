@@ -41,5 +41,9 @@ dependencies {
     androidTestImplementation(libs.espresso.core)
 
     implementation(libs.glide)
+
+    implementation(libs.okhttp)
+    implementation(libs.gson)
+
     annotationProcessor(libs.glide.compiler)
 }

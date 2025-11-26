@@ -23,7 +23,7 @@ public class MainActivity extends AppCompatActivity {
 
         // 默认显示首页
         if (savedInstanceState == null) {
-//            showFragment(HomeFragment.newInstance());
+            showFragment(HomeFragment.newInstance());
             bottomNavigationView.setSelectedItemId(R.id.nav_home);
         }
     }

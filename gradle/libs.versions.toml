@@ -7,6 +7,8 @@ appcompat = "1.6.1"
 material = "1.9.0"
 swiperefreshlayout = "1.1.0"
 glide = "4.16.0"
+okhttp = "4.11.0"
+gson = "2.10.1"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -17,6 +19,8 @@ material = { group = "com.google.android.material", name = "material", version.r
 swiperefreshlayout = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefreshlayout" }
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
 glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", version.ref = "glide" }
+okhttp={group="com.squareup.okhttp3" , name = "okhttp" , version.ref="okhttp"}
+gson={group="com.google.code.gson",name="gson",version.ref="gson"}
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

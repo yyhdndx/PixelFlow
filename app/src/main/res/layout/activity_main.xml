@@ -9,7 +9,7 @@
         android:id="@+id/fragment_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@+id/bottom_navigation" />
+        android:layout_above="@id/bottom_navigation" />
 
     <!-- 底部导航栏 -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
@@ -24,15 +24,15 @@
         android:id="@+id/fab_camera"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
+        android:layout_above="@id/bottom_navigation"
         android:layout_centerHorizontal="true"
-        android:layout_marginBottom="8dp"
+        android:layout_marginBottom="16dp"
         android:src="@android:drawable/ic_menu_camera"
         android:contentDescription="@string/camera"
         android:alpha="0.9"
-        app:backgroundTint="#FF0000"
-        app:tint="@android:color/black"
+        app:backgroundTint="@color/red_500"
+        app:tint="@android:color/white"
         app:elevation="8dp"
-        app:rippleColor="#CC0000"/>   <!-- 按下时抬升的高度 -->
+        app:rippleColor="@color/red_700" />
 
 </RelativeLayout>
