@@ -1,16 +1,19 @@
 package com.PixelFlow.app.stream;
 
 import android.content.Context;
-import android.content.SharedPreferences;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.PixelFlow.app.DAO.DataType;
+import com.PixelFlow.app.DAO.PersistState.LikeStatus;
+import com.PixelFlow.app.DAO.StorageManager;
+import com.PixelFlow.app.DAO.impl.GenericStorageRepository;
 import com.PixelFlow.app.R;
 import com.bumptech.glide.Glide;
 import java.util.ArrayList;
@@ -24,7 +27,9 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     private Context context;
     private List<WorkItem> workItems;
     private boolean isLoading = false;
-    private SharedPreferences likePreferences;
+
+    // 数据库的接口
+    private GenericStorageRepository<LikeStatus> likeRepository;
 
     // 回调接口
     public interface OnLoadMoreListener {
@@ -41,7 +46,10 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     public WaterfallAdapter(Context context) {
         this.context = context;
         this.workItems = new ArrayList<>();
-        this.likePreferences = context.getSharedPreferences("like_preferences", Context.MODE_PRIVATE);
+
+        this.likeRepository= StorageManager.getInstance(context)
+                .getRepository(DataType.LIKE_STATUS,LikeStatus.class);
+        Log.d("WaterFall","likeRepo初始化完成");
     }
 
     public void setOnLoadMoreListener(OnLoadMoreListener listener) {
@@ -129,16 +137,20 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     // 恢复点赞状态
     private void restoreLikeStatus() {
         for (WorkItem item : workItems) {
-            boolean isLiked = likePreferences.getBoolean(item.getId(), false);
-            item.setLiked(isLiked);
+            LikeStatus likeStatus=likeRepository.get(item.getId());
+            if(likeStatus!=null){
+                item.setLiked(likeStatus.isLiked());
+                if(likeStatus.getLikeCount()>0){
+                    item.setLikeCount(likeStatus.getLikeCount());
+                }
+            }
         }
     }
 
     // 保存点赞状态到持久化存储
-    private void saveLikeStatus(String workId, boolean isLiked) {
-        SharedPreferences.Editor editor = likePreferences.edit();
-        editor.putBoolean(workId, isLiked);
-        editor.apply();
+    private void saveLikeStatus(String workId, boolean isLiked,int likeCount) {
+        LikeStatus likeStatus=new LikeStatus(workId,isLiked,likeCount);
+        likeRepository.save(workId,likeStatus);
     }
 
     // 更新点赞状态
@@ -154,7 +166,7 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             }
 
             // 保存到持久化存储
-            saveLikeStatus(workItem.getId(), isLiked);
+            saveLikeStatus(workItem.getId(), isLiked,workItem.getLikeCount());
 
             notifyItemChanged(position);
         }

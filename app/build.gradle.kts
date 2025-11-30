@@ -46,4 +46,8 @@ dependencies {
     implementation(libs.gson)
 
     annotationProcessor(libs.glide.compiler)
+
+    implementation(libs.room)
+
+    annotationProcessor(libs.room.compiler)
 }
