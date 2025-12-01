@@ -1,5 +1,6 @@
 package com.PixelFlow.app;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -12,6 +13,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
@@ -28,7 +30,7 @@ public class HomeFragment extends Fragment {
 
     private TabLayout tabLayout;
     private SwipeRefreshLayout swipeRefreshLayout;
-    private androidx.recyclerview.widget.RecyclerView recyclerView;
+    private RecyclerView recyclerView;
     private View emptyStateLayout;
     private Button retryButton;
 
@@ -76,23 +78,43 @@ public class HomeFragment extends Fragment {
         adapter = new WaterfallAdapter(requireContext());
         recyclerView.setAdapter(adapter);
 
-        // 设置加载更多监听
-        adapter.setOnLoadMoreListener(() -> {
-            if (!adapter.isLoading() && hasMoreData) {
-                loadData(false);
+        // 设置统一的回调监听器 - 替换原来的多个监听器
+        adapter.setOnWorkActionListener(new WaterfallAdapter.OnWorkActionListener() {
+            @Override
+            public void onLoadMore() {
+                // 当到达底部时加载更多数据
+                if (!adapter.isLoading() && hasMoreData) {
+                    loadData(false);
+                }
+            }
+
+            @Override
+            public void onLikeClick(WorkItem workItem, int position) {
+                // 处理点赞点击
+                boolean newLikeState = !workItem.isLiked();
+                adapter.updateLikeStatus(position, newLikeState);
+            }
+
+            @Override
+            public void onItemClick(WorkItem workItem, int position) {
+                // item被点击，可以在这里做一些额外的处理
+                Log.d("HomeFragment", "Item clicked: " + workItem.getTitle());
             }
         });
 
-        // 设置点赞点击监听
-        adapter.setOnLikeClickListener((workItem, position) -> {
-            boolean newLikeState = !workItem.isLiked();
-            adapter.updateLikeStatus(position, newLikeState);
+        // 设置Activity启动监听器 - 用于启动详情页
+        adapter.setOnStartActivityListener(new WaterfallAdapter.OnStartActivityListener() {
+            @Override
+            public void onStartActivityForResult(Intent intent, int requestCode) {
+                // 启动详情页（需要处理返回结果）
+                startActivityForResult(intent, requestCode);
+            }
         });
 
         // 添加滚动监听，检测是否到达底部
-        recyclerView.addOnScrollListener(new androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+        recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
-           public void onScrolled(@NonNull androidx.recyclerview.widget.RecyclerView recyclerView, int dx, int dy) {
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
 
                 StaggeredGridLayoutManager layoutManager = (StaggeredGridLayoutManager) recyclerView.getLayoutManager();
@@ -132,8 +154,8 @@ public class HomeFragment extends Fragment {
         }
 
         // 默认显示社区
-        TabLayout.Tab communityTab=tabLayout.getTabAt(3);
-        if(communityTab!=null){
+        TabLayout.Tab communityTab = tabLayout.getTabAt(3);
+        if (communityTab != null) {
             communityTab.select();
         }
 
@@ -158,11 +180,11 @@ public class HomeFragment extends Fragment {
     }
 
     private void loadData(boolean isRefresh) {
-        if(isRefresh&&isRefreshing){
+        if (isRefresh && isRefreshing) {
             return;
         }
-        if(!isRefresh&&adapter.isLoading()){
-            return ;
+        if (!isRefresh && adapter.isLoading()) {
+            return;
         }
 
         if (isRefresh) {
@@ -174,8 +196,8 @@ public class HomeFragment extends Fragment {
             adapter.setLoading(true);
         }
 
-        final int requestCount=10;
-        final boolean shouldAcceptVideoClip=false;
+        final int requestCount = 10;
+        final boolean shouldAcceptVideoClip = false;
 
         ApiClient.getInstance(requireContext()).getFeed(requestCount, shouldAcceptVideoClip, new ApiClient.ApiCallback() {
 
@@ -187,32 +209,32 @@ public class HomeFragment extends Fragment {
                     return;
                 }
 
-                requireActivity().runOnUiThread(()->{
+                requireActivity().runOnUiThread(() -> {
                     // 将API中的数据转为WorkItem的列表中的数据
-                    List<WorkItem> newData=new ArrayList<>();
-                    if(response.getPostList()!=null){
-                        for(PostItem itm:response.getPostList()){
+                    List<WorkItem> newData = new ArrayList<>();
+                    if (response.getPostList() != null) {
+                        for (PostItem itm : response.getPostList()) {
                             newData.add(new WorkItem(itm));
                         }
                     }
 
-                    hasMoreData=response.getHasMore()==1;
+                    hasMoreData = response.getHasMore() == 1;
 
-                    if(isRefresh){
+                    if (isRefresh) {
                         // 下拉刷新，已经触底加载了
-                        if(newData.isEmpty()){
+                        if (newData.isEmpty()) {
                             showEmptyState(); // 刷到底了
-                        }else{
+                        } else {
                             hideEmptyState();
                             adapter.setData(newData);
                         }
-                        isRefreshing=false;
+                        isRefreshing = false;
                         swipeRefreshLayout.setRefreshing(false);
-                    }else{
-                        if(newData.isEmpty()){
-                            hasMoreData=false;
-                            Toast.makeText(getContext(),"刷到底了捏亲亲，该休息一下嘞",Toast.LENGTH_SHORT).show();
-                        }else{
+                    } else {
+                        if (newData.isEmpty()) {
+                            hasMoreData = false;
+                            Toast.makeText(getContext(), "刷到底了捏亲亲，该休息一下嘞", Toast.LENGTH_SHORT).show();
+                        } else {
                             adapter.addData(newData);
                         }
                         adapter.setLoading(false);
@@ -230,20 +252,20 @@ public class HomeFragment extends Fragment {
                     return;
                 }
 
-                requireActivity().runOnUiThread(()->{
-                    Log.e("HomePage","API Fail "+errorMessage);
+                requireActivity().runOnUiThread(() -> {
+                    Log.e("HomePage", "API Fail " + errorMessage);
 
-                    if(isRefresh){
+                    if (isRefresh) {
                         showEmptyState();
-                        isRefreshing=false;
+                        isRefreshing = false;
                         swipeRefreshLayout.setRefreshing(false);
-                    }else{
+                    } else {
                         adapter.setLoading(false);
-                        Toast.makeText(getContext(),"页面飞走了捏？？？"+errorMessage,Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(), "页面飞走了捏？？？" + errorMessage, Toast.LENGTH_SHORT).show();
                     }
 
                     // 如果是首次的加载失败，尝试重试
-                    if(isRefresh&&adapter.getData().isEmpty()){
+                    if (isRefresh && adapter.getData().isEmpty()) {
                         showEmptyState();
                     }
                 });
@@ -269,6 +291,18 @@ public class HomeFragment extends Fragment {
             }
         }
         return max;
+    }
+
+    // 处理从详情页返回的结果
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        // 检查是否是从WorkDetailActivity返回
+        if (requestCode == WaterfallAdapter.REQUEST_CODE_DETAIL) {
+            // 处理详情页返回的数据
+            adapter.handleDetailResult(resultCode, data);
+        }
     }
 
     @Override

@@ -1,16 +1,43 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Theme.App" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
-        <!-- Primary brand color. -->
+    <!-- 主应用主题 - 使用 Material Components -->
+    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- 基础颜色 -->
         <item name="colorPrimary">@color/purple_500</item>
         <item name="colorPrimaryVariant">@color/purple_700</item>
         <item name="colorOnPrimary">@color/white</item>
-        <!-- Secondary brand color. -->
+
+        <!-- 次要颜色 -->
         <item name="colorSecondary">@color/teal_200</item>
         <item name="colorSecondaryVariant">@color/teal_700</item>
         <item name="colorOnSecondary">@color/black</item>
-        <!-- Status bar color. -->
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-        <!-- Customize your theme here. -->
+
+        <!-- 状态栏 -->
+        <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimaryVariant</item>
+
+        <!-- Material Components 配置 -->
+        <item name="materialButtonStyle">@style/Widget.MaterialComponents.Button</item>
+        <item name="textAppearanceButton">@style/TextAppearance.MaterialComponents.Button</item>
+    </style>
+
+    <!-- 详情页专用主题 -->
+    <style name="Theme.Detail" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- 状态栏 -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+
+        <!-- 导航栏 -->
+        <item name="android:navigationBarColor">@color/white</item>
+
+        <!-- 窗口 -->
+        <item name="android:windowBackground">@color/white</item>
+        <item name="android:windowTranslucentStatus">true</item>
+
+        <!-- 确保 MaterialButton 能正常工作 -->
+        <item name="materialButtonStyle">@style/Widget.MaterialComponents.Button</item>
+    </style>
+
+    <!-- 夜间模式主题（如果需要） -->
+    <style name="AppTheme.Night" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- 夜间模式配置 -->
     </style>
 </resources>

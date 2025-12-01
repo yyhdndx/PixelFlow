@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+
+    <!-- 灰色，半透明 -->
+    <solid android:color="#80FFFFFF" /> <!-- #80 表示 50% 透明度 -->
+
+    <!-- 圆形，直径6dp -->
+    <size
+        android:width="6dp"
+        android:height="6dp" />
+
+</shape>

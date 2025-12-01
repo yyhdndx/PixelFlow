@@ -2,6 +2,7 @@ package com.PixelFlow.app.DAO;
 
 public enum DataType {
     LIKE_STATUS("like_status"),           // 点赞状态
+    FOLLOW_STATUS("follow_status"),
     FAVORITE("favorite"),                 // 收藏状态
     USER_PROFILE("user_profile"),         // 用户资料
     BROWSE_HISTORY("browse_history"),     // 浏览历史

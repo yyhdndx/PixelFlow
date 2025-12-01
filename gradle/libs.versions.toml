@@ -10,6 +10,7 @@ glide = "4.16.0"
 okhttp = "4.11.0"
 gson = "2.10.1"
 room="2.6.0"
+flowlayout="1.3.3"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -24,6 +25,7 @@ okhttp={group="com.squareup.okhttp3" , name = "okhttp" , version.ref="okhttp"}
 gson={group="com.google.code.gson",name="gson",version.ref="gson"}
 room={group="androidx.room",name="room-runtime",version.ref="room"}
 room-compiler={group="androidx.room",name="room-compiler",version.ref="room"}
+flowlayout={group="com.nex3z",name="flow-layout",version.ref="flowlayout"}
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

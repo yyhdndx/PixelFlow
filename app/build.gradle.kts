@@ -50,4 +50,6 @@ dependencies {
     implementation(libs.room)
 
     annotationProcessor(libs.room.compiler)
+
+    implementation(libs.flowlayout)
 }

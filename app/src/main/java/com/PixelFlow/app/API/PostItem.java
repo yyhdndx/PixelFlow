@@ -17,6 +17,10 @@ public class PostItem {
     private List<Clip> clips;
     private Music music;
 
+    // 新增hashtag字段
+    @SerializedName("hashtag")
+    private List<Hashtag> hashtags;
+
     // Getters and Setters
     public String getPostId() { return postId; }
     public void setPostId(String postId) { this.postId = postId; }
@@ -39,6 +43,23 @@ public class PostItem {
     public Music getMusic() { return music; }
     public void setMusic(Music music) { this.music = music; }
 
+    // 新增hashtags的getter和setter
+    public List<Hashtag> getHashtag() { return hashtags; }
+    public void setHashtag(List<Hashtag> hashtags) { this.hashtags = hashtags; }
+
+    // Hashtag内部类
+    public static class Hashtag {
+        private int start;
+        private int end;
+
+        public int getStart() { return start; }
+        public void setStart(int start) { this.start = start; }
+
+        public int getEnd() { return end; }
+        public void setEnd(int end) { this.end = end; }
+    }
+
+    // 其他内部类保持不变
     public static class Author {
         @SerializedName("user_id")
         private String userId;
