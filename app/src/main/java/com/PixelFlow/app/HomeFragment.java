@@ -28,6 +28,13 @@ import java.util.List;
 
 public class HomeFragment extends Fragment {
 
+    // 滚动监听接口
+    public interface OnScrollListener {
+        void onScrollDown();    // 向下滚动
+        void onScrollUp();      // 向上滚动
+        void onScrollToTop();   // 滚动到顶部
+    }
+
     private TabLayout tabLayout;
     private SwipeRefreshLayout swipeRefreshLayout;
     private RecyclerView recyclerView;
@@ -40,9 +47,24 @@ public class HomeFragment extends Fragment {
     private int currentPage = 0;
 
     private Handler handler = new Handler();
+    private OnScrollListener scrollListener;
+
+    // 滚动状态跟踪
+    private int lastScrollY = 0;
+    private boolean isScrollingDown = false;
+    private final int SCROLL_THRESHOLD = 20; // 滚动阈值，避免频繁触发
 
     public static HomeFragment newInstance() {
         return new HomeFragment();
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // 获取 Activity 的滚动监听接口
+        if (getActivity() instanceof OnScrollListener) {
+            scrollListener = (OnScrollListener) getActivity();
+        }
     }
 
     @Nullable
@@ -78,7 +100,7 @@ public class HomeFragment extends Fragment {
         adapter = new WaterfallAdapter(requireContext());
         recyclerView.setAdapter(adapter);
 
-        // 设置统一的回调监听器 - 替换原来的多个监听器
+        // 设置统一的回调监听器
         adapter.setOnWorkActionListener(new WaterfallAdapter.OnWorkActionListener() {
             @Override
             public void onLoadMore() {
@@ -102,25 +124,47 @@ public class HomeFragment extends Fragment {
             }
         });
 
-        // 设置Activity启动监听器 - 用于启动详情页
+        // 设置Activity启动监听器
         adapter.setOnStartActivityListener(new WaterfallAdapter.OnStartActivityListener() {
             @Override
             public void onStartActivityForResult(Intent intent, int requestCode) {
-                // 启动详情页（需要处理返回结果）
                 startActivityForResult(intent, requestCode);
             }
         });
 
-        // 添加滚动监听，检测是否到达底部
+        // 添加滚动监听，检测滚动方向和是否到达底部
         recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            private int scrolledDistance = 0;
+            private boolean controlsVisible = true;
+            private static final int MINIMUM_SCROLL_DISTANCE = 50; // 最小滚动距离，避免小幅度滚动触发
+
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
 
+                // 更新滚动距离
+                scrolledDistance += dy;
+
+                // 判断滚动方向
+                boolean currentScrollingDown = dy > 0;
+
+                // 只有当滚动方向改变并且滚动距离超过阈值时才触发
+                if (currentScrollingDown != isScrollingDown && Math.abs(dy) > SCROLL_THRESHOLD) {
+                    isScrollingDown = currentScrollingDown;
+
+                    if (scrollListener != null) {
+                        if (isScrollingDown) {
+                            scrollListener.onScrollDown();  // 向下滚动，隐藏FAB
+                        } else {
+                            scrollListener.onScrollUp();    // 向上滚动，显示FAB
+                        }
+                    }
+                }
+
+                // 检查是否到达底部
                 StaggeredGridLayoutManager layoutManager = (StaggeredGridLayoutManager) recyclerView.getLayoutManager();
                 if (layoutManager == null) return;
 
-                // 获取最后的可见项的位置
                 int[] lastVisiblePositions = layoutManager.findLastVisibleItemPositions(null);
                 int lastVisibleItem = getMaxValue(lastVisiblePositions);
                 int totalItemCount = layoutManager.getItemCount();
@@ -129,6 +173,43 @@ public class HomeFragment extends Fragment {
                 if (!adapter.isLoading() && hasMoreData && lastVisibleItem >= totalItemCount - 5) {
                     loadData(false);
                 }
+
+                // 检查是否滚动到顶部
+                int[] firstVisiblePositions = layoutManager.findFirstVisibleItemPositions(null);
+                int firstVisibleItem = getMinValue(firstVisiblePositions);
+
+                if (firstVisibleItem == 0 && scrollListener != null) {
+                    scrollListener.onScrollToTop();  // 滚动到顶部，显示FAB
+                }
+            }
+
+            @Override
+            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+                super.onScrollStateChanged(recyclerView, newState);
+
+                // 当停止滚动时，如果接近顶部，显示FAB
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                    StaggeredGridLayoutManager layoutManager = (StaggeredGridLayoutManager) recyclerView.getLayoutManager();
+                    if (layoutManager != null) {
+                        int[] firstVisiblePositions = layoutManager.findFirstVisibleItemPositions(null);
+                        int firstVisibleItem = getMinValue(firstVisiblePositions);
+
+                        // 如果第一个可见项在顶部附近，显示FAB
+                        if (firstVisibleItem <= 3 && scrollListener != null) {
+                            scrollListener.onScrollToTop();
+                        }
+                    }
+                }
+            }
+
+            private int getMinValue(int[] values) {
+                int min = values[0];
+                for (int value : values) {
+                    if (value < min) {
+                        min = value;
+                    }
+                }
+                return min;
             }
         });
     }

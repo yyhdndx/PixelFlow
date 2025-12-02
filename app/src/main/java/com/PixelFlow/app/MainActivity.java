@@ -2,15 +2,20 @@ package com.PixelFlow.app;
 
 import android.os.Bundle;
 import android.view.View;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.Interpolator;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements HomeFragment.OnScrollListener {
 
     private BottomNavigationView bottomNavigationView;
     private FloatingActionButton fabCamera;
+    private boolean isFabVisible = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,14 +46,14 @@ public class MainActivity extends AppCompatActivity {
             if (itemId == R.id.nav_home) {
                 selectedFragment = HomeFragment.newInstance();
             }
-//            else if (itemId == R.id.nav_friends) {
-//                selectedFragment = FriendsFragment.newInstance();
-//            } else if (itemId == R.id.nav_messages) {
-//                selectedFragment = MessagesFragment.newInstance();
-//            } else if (itemId == R.id.nav_profile) {
-//                selectedFragment = ProfileFragment.newInstance();
-//            }
-            // 注意：我们不处理相机占位项的点击
+            // 其他导航项可以在这里添加
+            // else if (itemId == R.id.nav_friends) {
+            //     selectedFragment = FriendsFragment.newInstance();
+            // } else if (itemId == R.id.nav_messages) {
+            //     selectedFragment = MessagesFragment.newInstance();
+            // } else if (itemId == R.id.nav_profile) {
+            //     selectedFragment = ProfileFragment.newInstance();
+            // }
 
             if (selectedFragment != null) {
                 showFragment(selectedFragment);
@@ -60,12 +65,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupCameraButton() {
-        fabCamera.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // 处理相机按钮点击事件
-                openCamera();
-            }
+        fabCamera.setOnClickListener(v -> {
+            // 处理相机按钮点击事件
+            openCamera();
         });
     }
 
@@ -83,5 +85,70 @@ public class MainActivity extends AppCompatActivity {
         getSupportFragmentManager().beginTransaction()
                 .replace(R.id.fragment_container, fragment)
                 .commit();
+    }
+
+    // 实现HomeFragment的滚动监听接口
+    @Override
+    public void onScrollDown() {
+        // 向下滚动时隐藏FAB
+        if (isFabVisible && fabCamera != null) {
+            hideFab();
+        }
+    }
+
+    @Override
+    public void onScrollUp() {
+        // 向上滚动时显示FAB
+        if (!isFabVisible && fabCamera != null) {
+            showFab();
+        }
+    }
+
+    @Override
+    public void onScrollToTop() {
+        // 滚动到顶部时显示FAB
+        if (!isFabVisible && fabCamera != null) {
+            showFab();
+        }
+    }
+
+    private void hideFab() {
+        if (fabCamera != null) {
+            // 使用动画将FAB滑出屏幕
+            fabCamera.animate()
+                    .translationY(fabCamera.getHeight() + getBottomNavigationHeight() + 50)
+                    .setInterpolator(new AccelerateInterpolator())
+                    .setDuration(250)
+                    .withEndAction(() -> isFabVisible = false)
+                    .start();
+        }
+    }
+
+    private void showFab() {
+        if (fabCamera != null) {
+            // 使用动画将FAB滑入屏幕
+            fabCamera.animate()
+                    .translationY(0)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .setDuration(250)
+                    .withEndAction(() -> isFabVisible = true)
+                    .start();
+        }
+    }
+
+    private int getBottomNavigationHeight() {
+        View bottomNav = findViewById(R.id.bottom_navigation);
+        return bottomNav != null ? bottomNav.getHeight() : 0;
+    }
+
+    // 可选：添加一个方法来手动显示/隐藏FAB
+    public void setFabVisible(boolean visible) {
+        if (fabCamera != null) {
+            if (visible && !isFabVisible) {
+                showFab();
+            } else if (!visible && isFabVisible) {
+                hideFab();
+            }
+        }
     }
 }

@@ -3,6 +3,7 @@ package com.PixelFlow.app.stream;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -259,17 +260,35 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
 
         void bind(WorkItem workItem, int position) {
-            // 设置封面图片
-            int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
-            int itemWidth = (screenWidth - 24) / 2; // 减去padding和margin
+            // 计算图片尺寸
+            DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
+            int screenWidth = displayMetrics.widthPixels;
 
+            // 计算每个卡片的宽度（考虑间距）
+            // 新间距计算：左padding(4dp) + 右padding(4dp) + 卡片间距(2dp*2) = 12dp
+            int totalPaddingDp = 12;
+            int totalPaddingPx = (int) (totalPaddingDp * displayMetrics.density);
+            int itemWidth = (screenWidth - totalPaddingPx) / 2;
+
+            // 设置图片尺寸（保持3:4比例）
+            int itemHeight = (int) (itemWidth * 1.33f);
+
+            // 如果workItem有自己的高度计算，优先使用
+            if (workItem.getDisplayHeight(itemWidth) > 0) {
+                itemHeight = workItem.getDisplayHeight(itemWidth);
+            }
+
+            // 设置图片容器尺寸
             ViewGroup.LayoutParams layoutParams = coverImage.getLayoutParams();
-            layoutParams.height = workItem.getDisplayHeight(itemWidth);
+            layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT;
+            layoutParams.height = itemHeight;
             coverImage.setLayoutParams(layoutParams);
 
             // 使用Glide加载图片
             Glide.with(context)
                     .load(workItem.getCoverUrl())
+                    .override(itemWidth, itemHeight)
+                    .centerCrop()
                     .placeholder(R.drawable.ic_image_placeholder)
                     .error(R.drawable.version)
                     .into(coverImage);
@@ -283,6 +302,7 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                     .load(workItem.getAuthorAvatarUrl())
                     .placeholder(R.drawable.ic_avatar_placeholder)
                     .circleCrop()
+                    .override(80, 80)  // 减小头像加载尺寸
                     .into(authorAvatar);
 
             // 设置点赞状态

@@ -17,7 +17,8 @@ public class StorageManager {
     private static StorageManager instance;
 
     private final Context context;
-    private final Map<DataType, GenericStorageRepository<?>> repositories;
+    // 使用复合键：DataType + Class 类型，确保每种类型都有唯一的仓库
+    private final Map<String, GenericStorageRepository<?>> repositories;
 
     private StorageManager(Context context) {
         this.context = context.getApplicationContext();
@@ -36,17 +37,27 @@ public class StorageManager {
      */
     @SuppressWarnings("unchecked")
     public <T> GenericStorageRepository<T> getRepository(DataType dataType, Class<T> dataClass) {
-        if (!repositories.containsKey(dataType)) {
+        // 创建唯一的键：DataType + Class全名
+        String key = createKey(dataType, dataClass);
+
+        if (!repositories.containsKey(key)) {
             synchronized (this) {
-                if (!repositories.containsKey(dataType)) {
+                if (!repositories.containsKey(key)) {
                     GenericStorageRepository<T> repository =
-                            GenericStorageRepository.getInstance(context, dataType, dataClass);
-                    repositories.put(dataType, repository);
-                    Log.d(TAG, "创建存储仓库: " + dataType);
+                            GenericStorageRepository.getInstance(context, key, dataClass);
+                    repositories.put(key, repository);
+                    Log.d(TAG, "创建存储仓库: " + key + " for " + dataClass.getSimpleName());
                 }
             }
         }
-        return (GenericStorageRepository<T>) repositories.get(dataType);
+        return (GenericStorageRepository<T>) repositories.get(key);
+    }
+
+    /**
+     * 创建唯一的存储键
+     */
+    private String createKey(DataType dataType, Class<?> dataClass) {
+        return dataType.name() + "_" + dataClass.getSimpleName();
     }
 
     /**
@@ -75,8 +86,20 @@ public class StorageManager {
     public void printStorageStats() {
         Log.d(TAG, "存储管理器统计:");
         Log.d(TAG, "管理的存储仓库数量: " + repositories.size());
-        for (DataType type : repositories.keySet()) {
-            Log.d(TAG, " - " + type + ": " + repositories.get(type));
+        for (String key : repositories.keySet()) {
+            Log.d(TAG, " - " + key + ": " + repositories.get(key));
+        }
+    }
+
+    /**
+     * 清理特定类型的损坏数据（用于修复类型混淆问题）
+     */
+    public void clearCorruptedData(DataType dataType, Class<?> dataClass) {
+        String key = createKey(dataType, dataClass);
+        GenericStorageRepository<?> repository = repositories.get(key);
+        if (repository != null) {
+            repository.clearAll();
+            Log.d(TAG, "已清理损坏数据: " + key);
         }
     }
 }

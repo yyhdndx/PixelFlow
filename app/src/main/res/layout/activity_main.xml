@@ -2,7 +2,8 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/gray_100">
 
     <!-- Fragment容器 -->
     <FrameLayout
@@ -18,8 +19,12 @@
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:background="@android:color/white"
-        app:menu="@menu/bottom_nav_menu" />
+        app:menu="@menu/bottom_nav_menu"
+        app:elevation="6dp"
+        app:itemIconTint="@color/nav_item_color"
+        app:itemTextColor="@color/nav_item_color" />
 
+    <!-- 相机按钮 -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab_camera"
         android:layout_width="wrap_content"
@@ -29,7 +34,6 @@
         android:layout_marginBottom="16dp"
         android:src="@android:drawable/ic_menu_camera"
         android:contentDescription="@string/camera"
-        android:alpha="0.9"
         app:backgroundTint="@color/red_500"
         app:tint="@android:color/white"
         app:elevation="8dp"

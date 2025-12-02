@@ -1,0 +1,5 @@
+<resources>
+    <declare-styleable name="RatioImageView">
+        <attr name="layout_ratio" format="string"/>
+    </declare-styleable>
+</resources>

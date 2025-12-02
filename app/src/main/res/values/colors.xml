@@ -39,4 +39,8 @@
     <color name="error_color">#FFF44336</color>
     <color name="success_color">#FF4CAF50</color>
     <color name="warning_color">#FFFF9800</color>
+
+    <!-- 底部导航栏颜色 -->
+    <color name="bottom_nav_icon_color">@android:color/white</color>
+    <color name="bottom_nav_text_color">@android:color/white</color>
 </resources>

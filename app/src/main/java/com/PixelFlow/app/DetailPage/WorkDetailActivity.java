@@ -17,7 +17,6 @@ import com.PixelFlow.app.R;
 import com.PixelFlow.app.stream.WorkItem;
 import com.PixelFlow.app.util.DateUtils;
 import com.bumptech.glide.Glide;
-import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.nex3z.flowlayout.FlowLayout;
 
@@ -29,8 +28,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class WorkDetailActivity extends AppCompatActivity {
-    // 顶部作者区
-    private MaterialToolbar toolbar;
+    // 顶部作者区（不再使用MaterialToolbar）
+    private ImageView backButton;
     private ImageView authorAvatar;
     private TextView authorName;
     private MaterialButton followButton;
@@ -75,9 +74,6 @@ public class WorkDetailActivity extends AppCompatActivity {
         }
 
         initViews();
-        initRepositories();
-        setupData();
-        setupListeners();
 
         isChanged=false;
 
@@ -113,8 +109,8 @@ public class WorkDetailActivity extends AppCompatActivity {
     }
 
     private void initViews() {
-        // 顶部作者区
-        toolbar = findViewById(R.id.toolbar);
+        // 顶部作者区（不再使用MaterialToolbar）
+        backButton = findViewById(R.id.back_button);
         authorAvatar = findViewById(R.id.author_avatar);
         authorName = findViewById(R.id.author_name);
         followButton = findViewById(R.id.follow_button);
@@ -143,7 +139,7 @@ public class WorkDetailActivity extends AppCompatActivity {
 
     private void setupData() {
         // 设置返回按钮
-        toolbar.setNavigationOnClickListener(v -> {
+        backButton.setOnClickListener(v -> {
             returnWithResult();
         });
 
@@ -316,10 +312,14 @@ public class WorkDetailActivity extends AppCompatActivity {
                     followButton.setText("已关注");
                     followButton.setBackgroundColor(getResources().getColor(R.color.gray_200));
                     followButton.setTextColor(getResources().getColor(R.color.gray_600));
+                    // 移除边框
+                    followButton.setStrokeWidth(0);
                 } else {
                     followButton.setText("关注");
                     followButton.setBackgroundColor(getResources().getColor(android.R.color.transparent));
                     followButton.setTextColor(getResources().getColor(R.color.primary_color));
+                    // 添加边框
+                    followButton.setStrokeWidth(2);
                 }
             });
         });
