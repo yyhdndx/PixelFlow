@@ -1,12 +1,22 @@
 package com.PixelFlow.app.DetailPage;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.content.Intent;
+import android.graphics.Rect;
 import android.os.Bundle;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.*;
+
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.GestureDetectorCompat;
 import androidx.viewpager2.widget.ViewPager2;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 
 import com.PixelFlow.app.DAO.DataType;
 import com.PixelFlow.app.DAO.PersistState.FollowStatus;
@@ -27,9 +37,9 @@ import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class WorkDetailActivity extends AppCompatActivity {
-    // 顶部作者区（不再使用MaterialToolbar）
-    private ImageView backButton;
+public class WorkDetailActivity extends AppCompatActivity implements GestureDetector.OnGestureListener {
+    // 顶部作者区（修改：移除MaterialToolbar，添加backButton）
+    private ImageView backButton;  // 新增：返回按钮
     private ImageView authorAvatar;
     private TextView authorName;
     private MaterialButton followButton;
@@ -37,6 +47,7 @@ public class WorkDetailActivity extends AppCompatActivity {
     // 图片区域
     private ViewPager2 imagePager;
     private LinearLayout progressIndicator;
+    private ViewGroup imageContainer;
 
     // 内容区域
     private TextView titleText;
@@ -44,8 +55,11 @@ public class WorkDetailActivity extends AppCompatActivity {
     private FlowLayout tagsContainer;
     private TextView publishDate;
 
-    // 底部交互区
+    // 底部交互区（保持所有你原有的元素）
+    private EditText commentInput;  // 保持
     private ImageView likeButton;
+    private ImageView commentButton;  // 保持
+    private ImageView collectButton;  // 保持
     private ImageView shareButton;
 
     // 数据
@@ -59,9 +73,23 @@ public class WorkDetailActivity extends AppCompatActivity {
 
     private final ExecutorService databaseExecutor = Executors.newSingleThreadExecutor();
 
+    // 动画相关
+    private View contentLayout;
+    private View bottomBar;
+    private GestureDetectorCompat gestureDetector;
+    private boolean isAnimating = false;
+    private boolean isExiting = false;
+    private float startX, startY;
+    private Rect startRect;
+    private String transitionName;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         setTheme(R.style.Theme_Detail);
+
+        // 启用窗口内容转场动画
+        getWindow().setEnterTransition(null);
+        getWindow().setExitTransition(null);
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_detail);
@@ -75,6 +103,18 @@ public class WorkDetailActivity extends AppCompatActivity {
 
         initViews();
 
+        // 获取转场动画参数
+        transitionName = getIntent().getStringExtra("transition_name");
+        startRect = new Rect(
+                getIntent().getIntExtra("start_left", 0),
+                getIntent().getIntExtra("start_top", 0),
+                getIntent().getIntExtra("start_left", 0) + getIntent().getIntExtra("start_width", 0),
+                getIntent().getIntExtra("start_top", 0) + getIntent().getIntExtra("start_height", 0)
+        );
+
+        // 初始化手势检测
+        gestureDetector = new GestureDetectorCompat(this, this);
+
         isChanged=false;
 
         // 初始化数据（在后台线程）
@@ -86,8 +126,374 @@ public class WorkDetailActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 setupData();
                 setupListeners();
+                // 延迟进行入场动画
+                getWindow().getDecorView().postDelayed(this::runEnterAnimation, 50);
             });
         });
+    }
+
+    private void runEnterAnimation() {
+        if (isAnimating || startRect.isEmpty()) return;
+
+        isAnimating = true;
+
+        // 获取结束位置（详情页图片容器的位置）
+        int[] location = new int[2];
+        imageContainer.getLocationOnScreen(location);
+        Rect endRect = new Rect(
+                location[0],
+                location[1],
+                location[0] + imageContainer.getWidth(),
+                location[1] + imageContainer.getHeight()
+        );
+
+        // 计算缩放比例
+        float scaleX = (float) startRect.width() / endRect.width();
+        float scaleY = (float) startRect.height() / endRect.height();
+
+        // 设置初始状态
+        imageContainer.setScaleX(scaleX);
+        imageContainer.setScaleY(scaleY);
+        imageContainer.setTranslationX(startRect.left - endRect.left);
+        imageContainer.setTranslationY(startRect.top - endRect.top);
+
+        contentLayout.setAlpha(0f);
+        bottomBar.setAlpha(0f);
+        backButton.setAlpha(0f);
+        authorAvatar.setAlpha(0f);
+        authorName.setAlpha(0f);
+        followButton.setAlpha(0f);
+        titleText.setAlpha(0f);
+        contentText.setAlpha(0f);
+        tagsContainer.setAlpha(0f);
+        publishDate.setAlpha(0f);
+
+        // 执行图片放大动画
+        imageContainer.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .translationX(0)
+                .translationY(0)
+                .setDuration(300)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+
+        // 执行内容渐显动画
+        contentLayout.animate()
+                .alpha(1f)
+                .setDuration(300)
+                .setStartDelay(100)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+
+        // 底部栏渐显
+        bottomBar.animate()
+                .alpha(1f)
+                .setDuration(300)
+                .setStartDelay(150)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+
+        // 顶部栏渐显
+        ValueAnimator topBarAnimator = ValueAnimator.ofFloat(0f, 1f);
+        topBarAnimator.setDuration(300);
+        topBarAnimator.setStartDelay(100);
+        topBarAnimator.setInterpolator(new DecelerateInterpolator());
+        topBarAnimator.addUpdateListener(animation -> {
+            float alpha = (float) animation.getAnimatedValue();
+            backButton.setAlpha(alpha);
+            authorAvatar.setAlpha(alpha);
+            authorName.setAlpha(alpha);
+            followButton.setAlpha(alpha);
+        });
+        topBarAnimator.start();
+
+        // 内容文本渐显
+        ValueAnimator contentAnimator = ValueAnimator.ofFloat(0f, 1f);
+        contentAnimator.setDuration(300);
+        contentAnimator.setStartDelay(200);
+        contentAnimator.setInterpolator(new DecelerateInterpolator());
+        contentAnimator.addUpdateListener(animation -> {
+            float alpha = (float) animation.getAnimatedValue();
+            titleText.setAlpha(alpha);
+            contentText.setAlpha(alpha);
+            tagsContainer.setAlpha(alpha);
+            publishDate.setAlpha(alpha);
+        });
+        contentAnimator.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                isAnimating = false;
+            }
+        });
+        contentAnimator.start();
+    }
+
+    // 退场动画
+    private void runExitAnimation() {
+        if (isAnimating || isExiting) return;
+
+        isAnimating = true;
+        isExiting = true;
+
+        // 获取当前位置
+        int[] location = new int[2];
+        imageContainer.getLocationOnScreen(location);
+        Rect currentRect = new Rect(
+                location[0],
+                location[1],
+                location[0] + imageContainer.getWidth(),
+                location[1] + imageContainer.getHeight()
+        );
+
+        // 计算缩放比例
+        float scaleX = (float) startRect.width() / currentRect.width();
+        float scaleY = (float) startRect.height() / currentRect.height();
+
+        // 执行图片缩小动画
+        imageContainer.animate()
+                .scaleX(scaleX)
+                .scaleY(scaleY)
+                .translationX(startRect.left - currentRect.left)
+                .translationY(startRect.top - currentRect.top)
+                .setDuration(300)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+
+        // 执行内容渐隐动画
+        contentLayout.animate()
+                .alpha(0f)
+                .setDuration(300)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+
+        // 底部栏渐隐
+        bottomBar.animate()
+                .alpha(0f)
+                .setDuration(300)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+
+        // 顶部栏渐隐
+        ValueAnimator topBarAnimator = ValueAnimator.ofFloat(1f, 0f);
+        topBarAnimator.setDuration(300);
+        topBarAnimator.setInterpolator(new DecelerateInterpolator());
+        topBarAnimator.addUpdateListener(animation -> {
+            float alpha = (float) animation.getAnimatedValue();
+            backButton.setAlpha(alpha);
+            authorAvatar.setAlpha(alpha);
+            authorName.setAlpha(alpha);
+            followButton.setAlpha(alpha);
+        });
+        topBarAnimator.start();
+
+        // 内容文本渐隐
+        ValueAnimator contentAnimator = ValueAnimator.ofFloat(1f, 0f);
+        contentAnimator.setDuration(300);
+        contentAnimator.setInterpolator(new DecelerateInterpolator());
+        contentAnimator.addUpdateListener(animation -> {
+            float alpha = (float) animation.getAnimatedValue();
+            titleText.setAlpha(alpha);
+            contentText.setAlpha(alpha);
+            tagsContainer.setAlpha(alpha);
+            publishDate.setAlpha(alpha);
+        });
+        contentAnimator.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                // 动画结束后返回结果
+                returnWithResult();
+            }
+        });
+        contentAnimator.start();
+    }
+
+
+    private void runDragExitAnimation(float velocityX, float velocityY) {
+        if (isAnimating || isExiting) return;
+
+        isAnimating = true;
+        isExiting = true;
+
+        // 判断滑动方向
+        boolean isHorizontalSwipe = Math.abs(velocityX) > Math.abs(velocityY);
+        boolean isSwipeRight = velocityX > 0;
+        boolean isSwipeDown = velocityY > 0;
+
+        // 获取当前位置
+        int[] location = new int[2];
+        imageContainer.getLocationOnScreen(location);
+        Rect currentRect = new Rect(
+                location[0],
+                location[1],
+                location[0] + imageContainer.getWidth(),
+                location[1] + imageContainer.getHeight()
+        );
+
+        // 计算最终位置
+        float targetScale, targetX, targetY;
+
+        if (isHorizontalSwipe && isSwipeRight) {
+            // 右滑退出
+            targetScale = 0.8f;
+            targetX = getWindow().getDecorView().getWidth();
+            targetY = currentRect.top;
+        } else if (!isHorizontalSwipe && isSwipeDown) {
+            // 下滑退出
+            targetScale = 0.8f;
+            targetX = currentRect.left;
+            targetY = getWindow().getDecorView().getHeight();
+        } else {
+            // 回到原位
+            targetScale = 1f;
+            targetX = 0;
+            targetY = 0;
+            isExiting = false;
+        }
+
+        // 执行动画
+        imageContainer.animate()
+                .scaleX(targetScale)
+                .scaleY(targetScale)
+                .translationX(targetX)
+                .translationY(targetY)
+                .setDuration(300)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+
+        contentLayout.animate()
+                .alpha(targetScale == 0.8f ? 0f : 1f)
+                .setDuration(300)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+
+        bottomBar.animate()
+                .alpha(targetScale == 0.8f ? 0f : 1f)
+                .setDuration(300)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+
+        if (targetScale == 0.8f) {
+            // 退出动画完成后关闭页面
+            imageContainer.animate().withEndAction(() -> {
+                finish();
+                overridePendingTransition(0, 0);
+            });
+        } else {
+            // 回到原位动画完成后重置状态
+            imageContainer.animate().withEndAction(() -> {
+                isAnimating = false;
+            });
+        }
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        gestureDetector.onTouchEvent(event);
+        return super.onTouchEvent(event);
+    }
+
+    @Override
+    public boolean onDown(MotionEvent e) {
+        startX = e.getRawX();
+        startY = e.getRawY();
+        return true;
+    }
+
+    @Override
+    public void onShowPress(MotionEvent e) {}
+
+    @Override
+    public boolean onSingleTapUp(MotionEvent e) {
+        return false;
+    }
+
+    @Override
+    public boolean onScroll(MotionEvent e1, @NonNull MotionEvent e2, float distanceX, float distanceY) {
+        if (isAnimating) return false;
+
+        float deltaX = e2.getRawX() - startX;
+        float deltaY = e2.getRawY() - startY;
+
+        // 计算滑动比例
+        float screenWidth = getWindow().getDecorView().getWidth();
+        float screenHeight = getWindow().getDecorView().getHeight();
+
+        float progressX = Math.abs(deltaX) / screenWidth;
+        float progressY = Math.abs(deltaY) / screenHeight;
+
+        // 判断是否为主要滑动方向
+        boolean isHorizontalDrag = Math.abs(deltaX) > Math.abs(deltaY);
+        float progress = isHorizontalDrag ? progressX : progressY;
+
+        // 限制进度在0-1之间
+        progress = Math.min(1f, progress);
+
+        // 计算缩放比例（跟随滑动距离缩小）
+        float scale = 1f - progress * 0.2f; // 最多缩小到80%
+
+        // 更新图片容器位置和缩放
+        imageContainer.setTranslationX(deltaX);
+        imageContainer.setTranslationY(deltaY);
+        imageContainer.setScaleX(scale);
+        imageContainer.setScaleY(scale);
+
+        // 更新内容透明度
+        float alpha = 1f - progress;
+        contentLayout.setAlpha(alpha);
+        bottomBar.setAlpha(alpha);
+
+        return true;
+    }
+
+    @Override
+    public void onLongPress(@NonNull MotionEvent e) {}
+
+    @Override
+    public boolean onFling(MotionEvent e1, @NonNull MotionEvent e2, float velocityX, float velocityY) {
+        if (isAnimating) return false;
+
+        // 判断是否达到退出阈值
+        float screenWidth = getWindow().getDecorView().getWidth();
+        float screenHeight = getWindow().getDecorView().getHeight();
+
+        float deltaX = e2.getRawX() - startX;
+        float deltaY = e2.getRawY() - startY;
+
+        float progressX = Math.abs(deltaX) / screenWidth;
+        float progressY = Math.abs(deltaY) / screenHeight;
+
+        boolean isHorizontalDrag = Math.abs(deltaX) > Math.abs(deltaY);
+        float progress = isHorizontalDrag ? progressX : progressY;
+
+        // 如果滑动超过屏幕的30%，或者速度足够大，则执行退出动画
+        if (progress > 0.3f || Math.abs(velocityX) > 1000 || Math.abs(velocityY) > 1000) {
+            runDragExitAnimation(velocityX, velocityY);
+        } else {
+            // 否则回到原位
+            imageContainer.animate()
+                    .translationX(0)
+                    .translationY(0)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(200)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+
+            contentLayout.animate()
+                    .alpha(1f)
+                    .setDuration(200)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+
+            bottomBar.animate()
+                    .alpha(1f)
+                    .setDuration(200)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        }
+
+        return true;
     }
 
     private void ensureDataExists() {
@@ -109,8 +515,8 @@ public class WorkDetailActivity extends AppCompatActivity {
     }
 
     private void initViews() {
-        // 顶部作者区（不再使用MaterialToolbar）
-        backButton = findViewById(R.id.back_button);
+        // 顶部作者区（修改：初始化backButton）
+        backButton = findViewById(R.id.back_button);  // 新增
         authorAvatar = findViewById(R.id.author_avatar);
         authorName = findViewById(R.id.author_name);
         followButton = findViewById(R.id.follow_button);
@@ -118,6 +524,7 @@ public class WorkDetailActivity extends AppCompatActivity {
         // 图片区域
         imagePager = findViewById(R.id.image_pager);
         progressIndicator = findViewById(R.id.progress_indicator);
+        imageContainer = findViewById(R.id.image_container);
 
         // 内容区域
         titleText = findViewById(R.id.title_text);
@@ -125,8 +532,15 @@ public class WorkDetailActivity extends AppCompatActivity {
         tagsContainer = findViewById(R.id.tags_container);
         publishDate = findViewById(R.id.publish_date);
 
-        // 底部交互区
+        // 内容布局（用于动画）
+        contentLayout = findViewById(R.id.content_layout);
+
+        // 底部交互区（保持所有你原有的元素）
+        bottomBar = findViewById(R.id.bottom_bar);
+        commentInput = findViewById(R.id.comment_input);  // 保持
         likeButton = findViewById(R.id.like_button);
+        commentButton = findViewById(R.id.comment_button);  // 保持
+        collectButton = findViewById(R.id.collect_button);  // 保持
         shareButton = findViewById(R.id.share_button);
     }
 
@@ -138,9 +552,10 @@ public class WorkDetailActivity extends AppCompatActivity {
     }
 
     private void setupData() {
-        // 设置返回按钮
         backButton.setOnClickListener(v -> {
-            returnWithResult();
+            if (!isAnimating) {
+                runExitAnimation();
+            }
         });
 
         // 设置作者信息
@@ -189,8 +604,7 @@ public class WorkDetailActivity extends AppCompatActivity {
         // 设置图片高度
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
         ViewGroup.LayoutParams params = imagePager.getLayoutParams();
-        int imageHeight = workItem.getDisplayHeight(screenWidth);
-        params.height = imageHeight;
+        params.height = workItem.getDisplayHeight(screenWidth);
         imagePager.setLayoutParams(params);
 
         // 设置进度指示器
@@ -291,6 +705,11 @@ public class WorkDetailActivity extends AppCompatActivity {
 
         // 分享按钮
         shareButton.setOnClickListener(v -> shareWork());
+
+        // 这里可以添加其他按钮的监听器，如评论按钮、收藏按钮等
+        // commentButton.setOnClickListener(v -> { ... });
+        // collectButton.setOnClickListener(v -> { ... });
+        // commentInput.setOnEditorActionListener(...);
     }
 
     // 其他方法也要确保在后台线程调用数据库操作
@@ -404,6 +823,7 @@ public class WorkDetailActivity extends AppCompatActivity {
         // startActivity(Intent.createChooser(shareIntent, "分享到"));
     }
 
+    // 修改原有的 returnWithResult 方法，移除 finish() 调用（因为已经在 runExitAnimation 中调用了）
     private void returnWithResult() {
         Intent resultIntent = new Intent();
 
@@ -426,6 +846,7 @@ public class WorkDetailActivity extends AppCompatActivity {
             setResult(0);
         }
         finish();
+        overridePendingTransition(0, 0);
     }
 
     @Override

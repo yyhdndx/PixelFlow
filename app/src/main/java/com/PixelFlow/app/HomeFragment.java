@@ -127,8 +127,13 @@ public class HomeFragment extends Fragment {
         // 设置Activity启动监听器
         adapter.setOnStartActivityListener(new WaterfallAdapter.OnStartActivityListener() {
             @Override
-            public void onStartActivityForResult(Intent intent, int requestCode) {
-                startActivityForResult(intent, requestCode);
+            public void onStartActivityForResult(Intent intent, int requestCode, Bundle options) {
+                // 启动详情页（需要处理返回结果）
+                if (options != null) {
+                    startActivityForResult(intent, requestCode, options);
+                } else {
+                    startActivityForResult(intent, requestCode);
+                }
             }
         });
 

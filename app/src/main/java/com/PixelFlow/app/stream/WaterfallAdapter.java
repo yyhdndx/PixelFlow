@@ -1,8 +1,10 @@
 package com.PixelFlow.app.stream;
 
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -35,7 +37,6 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     private Context context;
     private List<WorkItem> workItems;
     private boolean isLoading = false;
-
     // 数据库的接口
     private GenericStorageRepository<LikeStatus> likeRepository;
 
@@ -47,7 +48,7 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     public interface OnStartActivityListener {
-        void onStartActivityForResult(Intent intent, int requestCode);
+        void onStartActivityForResult(Intent intent, int requestCode, Bundle options);
     }
 
     private OnWorkActionListener onWorkActionListener;
@@ -190,29 +191,6 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
     }
 
-    // 打开详情页的方法
-    private void openDetailPage(int position) {
-        if (position >= 0 && position < workItems.size()) {
-            WorkItem workItem = workItems.get(position);
-
-            // 创建详情页Intent
-            Intent intent = new Intent(context, WorkDetailActivity.class);
-            intent.putExtra("work_item", workItem);
-
-            // 通知外部Activity启动详情页
-            if (onWorkActionListener != null) {
-                onWorkActionListener.onItemClick(workItem, position);
-            }
-
-            if (onStartActivityListener != null) {
-                onStartActivityListener.onStartActivityForResult(intent, REQUEST_CODE_DETAIL);
-            } else {
-                // 如果没有设置监听器，直接启动Activity（但这样无法接收返回结果）
-                context.startActivity(intent);
-            }
-        }
-    }
-
     // 从详情页返回后更新数据 - 这个方法需要外部Activity在onActivityResult中调用
     public void handleDetailResult(int resultCode, Intent data) {
         if (resultCode == 1 && data != null) {
@@ -317,7 +295,7 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
             // 整个item点击事件 - 进入详情页
             itemView.setOnClickListener(v -> {
-                openDetailPage(position);
+                openDetailPageWithAnimation(workItem, position);
             });
         }
 
@@ -330,6 +308,37 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 likeIcon.setColorFilter(context.getResources().getColor(android.R.color.darker_gray));
             }
             likeCount.setText(String.valueOf(workItem.getLikeCount()));
+        }
+
+        private void openDetailPageWithAnimation(WorkItem workItem, int position) {
+            // 获取屏幕位置
+            int[] location = new int[2];
+            coverImage.getLocationOnScreen(location);
+
+            // 创建详情页Intent
+            Intent intent = new Intent(context, WorkDetailActivity.class);
+            intent.putExtra("work_item", workItem);
+            intent.putExtra("transition_name", "image_" + workItem.getId());
+            intent.putExtra("start_left", location[0]);
+            intent.putExtra("start_top", location[1]);
+            intent.putExtra("start_width", coverImage.getWidth());
+            intent.putExtra("start_height", coverImage.getHeight());
+
+            // 创建共享元素动画
+            Bundle options = null;
+            coverImage.setTransitionName("image_" + workItem.getId());
+            options = ActivityOptions.makeSceneTransitionAnimation(
+                    (Activity) context,
+                    coverImage,
+                    "image_" + workItem.getId()
+            ).toBundle();
+
+            // 通过监听器启动Activity
+            if (onStartActivityListener != null) {
+                onStartActivityListener.onStartActivityForResult(intent, WaterfallAdapter.REQUEST_CODE_DETAIL, options);
+            } else {
+                context.startActivity(intent, options);
+            }
         }
     }
 
