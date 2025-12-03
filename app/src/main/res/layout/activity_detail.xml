@@ -7,153 +7,173 @@
     android:layout_height="match_parent"
     android:background="@color/white">
 
-    <!-- 主要内容区域 -->
-    <androidx.core.widget.NestedScrollView
-        android:id="@+id/nested_scroll_view"
+    <!-- 背景遮罩层（用于动画） -->
+    <View
+        android:id="@+id/background_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:paddingBottom="80dp">
+        android:background="#CCFFFFFF"
+        android:alpha="0"
+        android:clickable="false"
+        android:focusable="false" />
 
-        <LinearLayout
+    <!-- 主要内容容器（用于动画） -->
+    <FrameLayout
+        android:id="@+id/scroll_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <!-- 主要内容区域 -->
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/nested_scroll_view"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:layout_height="match_parent"
+            android:paddingBottom="80dp">
 
-            <!-- 顶部栏：返回按钮 + 作者信息 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="16dp"
-                android:gravity="center_vertical"
-                android:background="@color/white"
-                android:elevation="4dp">
+                android:orientation="vertical">
 
-                <!-- 返回按钮 -->
-                <ImageView
-                    android:id="@+id/back_button"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_arrow_back"
-                    android:contentDescription="返回"
-                    android:padding="4dp"
-                    android:background="?attr/selectableItemBackgroundBorderless" />
-
-                <!-- 作者信息区域 -->
+                <!-- 顶部栏：返回按钮 + 作者信息 -->
                 <LinearLayout
-                    android:layout_width="0dp"
+                    android:id="@+id/top_bar"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:orientation="horizontal"
-                    android:paddingStart="12dp"
-                    android:gravity="center_vertical">
+                    android:padding="16dp"
+                    android:gravity="center_vertical"
+                    android:background="@color/white"
+                    android:elevation="4dp">
 
-                    <!-- 作者头像 -->
+                    <!-- 返回按钮 -->
                     <ImageView
-                        android:id="@+id/author_avatar"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:scaleType="centerCrop"
-                        android:background="@drawable/circle_bg"/>
+                        android:id="@+id/back_button"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_arrow_back"
+                        android:contentDescription="返回"
+                        android:padding="4dp"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
 
-                    <!-- 作者昵称 -->
-                    <TextView
-                        android:id="@+id/author_name"
-                        android:layout_width="wrap_content"
+                    <!-- 作者信息区域 -->
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/black"
-                        android:maxLines="1"
-                        android:ellipsize="end"/>
+                        android:layout_weight="1"
+                        android:orientation="horizontal"
+                        android:paddingStart="12dp"
+                        android:gravity="center_vertical">
+
+                        <!-- 作者头像 -->
+                        <ImageView
+                            android:id="@+id/author_avatar"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:scaleType="centerCrop"
+                            android:background="@drawable/circle_bg"/>
+
+                        <!-- 作者昵称 -->
+                        <TextView
+                            android:id="@+id/author_name"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/black"
+                            android:maxLines="1"
+                            android:ellipsize="end"/>
+                    </LinearLayout>
+
+                    <!-- 关注按钮 -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/follow_button"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="38dp"
+                        android:text="关注"
+                        android:textSize="12sp"
+                        app:strokeColor="@color/primary_color"
+                        app:strokeWidth="1dp" />
                 </LinearLayout>
 
-                <!-- 关注按钮 -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/follow_button"
-                    android:layout_width="wrap_content"
-                    android:layout_height="32dp"
-                    android:text="关注"
-                    android:textSize="12sp"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    app:strokeColor="@color/primary_color"
-                    app:strokeWidth="1dp"/>
-            </LinearLayout>
-
-            <!-- 图片横滑容器 -->
-            <FrameLayout
-                android:id="@+id/image_container"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clipChildren="true"
-                android:clipToPadding="true">
-
-                <androidx.viewpager2.widget.ViewPager2
-                    android:id="@+id/image_pager"
+                <!-- 图片横滑容器 -->
+                <FrameLayout
+                    android:id="@+id/image_container"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@color/black"/>
+                    android:clipChildren="true"
+                    android:clipToPadding="true">
 
-                <!-- 进度条 -->
+                    <androidx.viewpager2.widget.ViewPager2
+                        android:id="@+id/image_pager"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@color/black"/>
+
+                    <!-- 进度条 -->
+                    <LinearLayout
+                        android:id="@+id/progress_indicator"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="bottom"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:paddingVertical="8dp"
+                        android:visibility="gone"/>
+                </FrameLayout>
+
+                <!-- 标题和正文区域 -->
                 <LinearLayout
-                    android:id="@+id/progress_indicator"
+                    android:id="@+id/content_layout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="bottom"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:paddingVertical="8dp"
-                    android:visibility="gone"/>
-            </FrameLayout>
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-            <!-- 标题和正文区域 -->
-            <LinearLayout
-                android:id="@+id/content_layout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                    <!-- 标题 -->
+                    <TextView
+                        android:id="@+id/title_text"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/black"
+                        android:lineSpacingExtra="4dp"/>
 
-                <!-- 标题 -->
-                <TextView
-                    android:id="@+id/title_text"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/black"
-                    android:lineSpacingExtra="4dp"/>
+                    <!-- 正文 -->
+                    <TextView
+                        android:id="@+id/content_text"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:textSize="14sp"
+                        android:textColor="@color/gray_800"
+                        android:lineSpacingExtra="6dp"/>
 
-                <!-- 正文 -->
-                <TextView
-                    android:id="@+id/content_text"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:textSize="14sp"
-                    android:textColor="@color/gray_800"
-                    android:lineSpacingExtra="6dp"/>
+                    <!-- 话题标签容器 -->
+                    <com.nex3z.flowlayout.FlowLayout
+                        android:id="@+id/tags_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal"/>
 
-                <!-- 话题标签容器 -->
-                <com.nex3z.flowlayout.FlowLayout
-                    android:id="@+id/tags_container"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:orientation="horizontal"/>
-
-                <!-- 发布日期 -->
-                <TextView
-                    android:id="@+id/publish_date"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:textSize="12sp"
-                    android:textColor="@color/gray_500"/>
+                    <!-- 发布日期 -->
+                    <TextView
+                        android:id="@+id/publish_date"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:textSize="12sp"
+                        android:textColor="@color/gray_500"/>
+                </LinearLayout>
             </LinearLayout>
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+        </androidx.core.widget.NestedScrollView>
+    </FrameLayout>
 
     <!-- 底部交互栏 -->
     <LinearLayout
