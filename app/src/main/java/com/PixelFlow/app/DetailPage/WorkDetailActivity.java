@@ -302,7 +302,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         ObjectAnimator scrollFade = ObjectAnimator.ofFloat(scrollContainer, "alpha", 0f);
 
         fadeOutContent.playTogether(bgFade, contentFade, topBarFade, bottomBarFade, scrollFade);
-        fadeOutContent.setDuration(200);
+        fadeOutContent.setDuration(100);
         fadeOutContent.setInterpolator(new AccelerateInterpolator());
 
         // 2. 图片淡出并移动到瀑布流位置（同时进行）
@@ -323,7 +323,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         ObjectAnimator imageRotateAnim = ObjectAnimator.ofFloat(imageContainer, "rotation", rotationAngle);
 
         imageFadeAndMove.playTogether(imageAlphaAnim, imageTransXAnim, imageTransYAnim, imageRotateAnim);
-        imageFadeAndMove.setDuration(400); // 比内容淡出稍长一点
+        imageFadeAndMove.setDuration(300); // 比内容淡出稍长一点
         imageFadeAndMove.setInterpolator(new DecelerateInterpolator());
 
         // 3. 组合动画：内容淡出和图片淡出移动同时开始
@@ -401,7 +401,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         // 计算动画时长
         float distance = (float) Math.sqrt(Math.pow(targetX - currentX, 2) + Math.pow(targetY - currentY, 2));
         float speed = (float) Math.sqrt(Math.pow(velocityX, 2) + Math.pow(velocityY, 2));
-        long duration = Math.min(500L, Math.max(300L, (long) (distance / (speed > 0 ? speed * 0.005f : 3))));
+        long duration = Math.min(400L, Math.max(200L, (long) (distance / (speed > 0 ? speed * 0.005f : 3))));
 
         // 执行多层级同时退出
         AnimatorSet exitSet = new AnimatorSet();
@@ -473,7 +473,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         returnAnim.playTogether(returnX, returnY, returnRotate, imageAlphaReturn,
                 bgReturn, contentReturn, topBarReturn, bottomBarReturn);
 
-        returnAnim.setDuration(300);
+        returnAnim.setDuration(150);
         returnAnim.setInterpolator(new OvershootInterpolator(0.5f));
 
         returnAnim.addListener(new AnimatorListenerAdapter() {

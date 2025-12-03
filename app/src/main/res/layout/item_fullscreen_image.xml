@@ -4,12 +4,12 @@
     android:layout_height="match_parent"
     android:background="@android:color/black">
 
-    <ImageView
+    <com.github.chrisbanes.photoview.PhotoView
         android:id="@+id/fullscreen_image"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="fitCenter"
         android:adjustViewBounds="true"
-        android:contentDescription="null" />
+        android:contentDescription="@string/image_desc" />
 
 </FrameLayout>
