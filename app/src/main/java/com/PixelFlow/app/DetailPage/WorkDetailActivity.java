@@ -14,6 +14,7 @@ import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.Window;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
 import android.widget.*;
@@ -701,6 +702,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
         // 最简单的预加载：设置ViewPager2的预加载数量
         imagePager.setOffscreenPageLimit(2); // 预加载左右各2页
+
+        // 添加图片点击监听器
+        setupImageClickListener();
     }
 
     // setupProgressIndicator 保持原样
@@ -767,6 +771,61 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             String tag = matcher.group(1);
             addTagView(tag);
         }
+    }
+
+    private void setupImageClickListener() {
+        // 为ViewPager2中的每个图片添加点击监听器
+        imagePager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageSelected(int position) {
+                // 每次页面切换时，为当前页面的图片添加点击监听器
+                setupCurrentImageClickListener(position);
+            }
+        });
+
+        // 初始化第一页的点击监听器
+        setupCurrentImageClickListener(0);
+    }
+
+    private void setupCurrentImageClickListener(int position) {
+        // 延迟一小段时间，确保ViewPager已经创建了ViewHolder
+        imagePager.postDelayed(() -> {
+            RecyclerView recyclerView = (RecyclerView) imagePager.getChildAt(0);
+            if (recyclerView != null) {
+                RecyclerView.ViewHolder holder = recyclerView.findViewHolderForAdapterPosition(position);
+                if (holder instanceof ImagePagerAdapter.ImageViewHolder) {
+                    ImageView imageView = ((ImagePagerAdapter.ImageViewHolder) holder).imageView;
+                    if (imageView != null) {
+                        imageView.setOnClickListener(v -> {
+                            openFullScreenImage(position);
+                        });
+                    }
+                }
+            }
+        }, 100);
+    }
+
+    private void openFullScreenImage(int position) {
+        List<String> imageUrls = workItem.getImageUrls();
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            imageUrls = new ArrayList<>();
+            imageUrls.add(workItem.getCoverUrl());
+        }
+
+        // 创建并显示全屏图片对话框
+        FullScreenImageDialog dialog = new FullScreenImageDialog(
+                WorkDetailActivity.this,
+                imageUrls,
+                position
+        );
+
+        // 设置对话框显示和消失的动画
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setWindowAnimations(R.style.FullScreenDialogAnimation);
+        }
+
+        dialog.show();
     }
 
     private void addTagView(String tag) {
