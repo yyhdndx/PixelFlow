@@ -1,12 +1,16 @@
 package com.PixelFlow.app;
 
+import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.Toast;
 
@@ -20,8 +24,8 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.PixelFlow.app.API.ApiClient;
 import com.PixelFlow.app.API.ApiResponse;
 import com.PixelFlow.app.API.PostItem;
-import com.PixelFlow.app.stream.WaterfallAdapter;
-import com.PixelFlow.app.stream.WorkItem;
+import com.PixelFlow.app.Streams.WaterfallAdapter;
+import com.PixelFlow.app.Streams.WorkItem;
 import com.google.android.material.tabs.TabLayout;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,6 +65,22 @@ public class HomeFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        Window window = ((Activity)getContext()).getWindow();
+        window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        window.setStatusBarColor(Color.TRANSPARENT);
+
+        // 让内容延伸到状态栏下面
+        window.getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        );
+
         // 获取 Activity 的滚动监听接口
         if (getActivity() instanceof OnScrollListener) {
             scrollListener = (OnScrollListener) getActivity();
@@ -283,9 +303,8 @@ public class HomeFragment extends Fragment {
         }
 
         final int requestCount = 10;
-        final boolean shouldAcceptVideoClip = false;
 
-        ApiClient.getInstance(requireContext()).getFeed(requestCount, shouldAcceptVideoClip, new ApiClient.ApiCallback() {
+        ApiClient.getInstance(requireContext()).getFeed(requestCount, new ApiClient.ApiCallback() {
 
             @Override
             public void onSuccess(ApiResponse response) {

@@ -1,4 +1,4 @@
-package com.PixelFlow.app.stream;
+package com.PixelFlow.app.Streams;
 
 import com.PixelFlow.app.API.PostItem;
 

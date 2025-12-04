@@ -65,12 +65,11 @@ public class ApiClient {
         void onFailure(String errorMessage);
     }
 
-    public void getFeed(int count, boolean acceptVideoClip, ApiCallback callback) {
-//       BASE_URL="https://college-training-camp.bytedance.com";
-        // 构建URL参数
+    public void getFeed(int count, ApiCallback callback) {
+        // 构建URL参数 - 现在固定支持视频播放
         HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE_URL + "/feed/")).newBuilder()
                 .addQueryParameter("count", String.valueOf(count))
-                .addQueryParameter("accept_video_clip", String.valueOf(acceptVideoClip))
+                .addQueryParameter("accept_video_clip", "true")  // 固定为true以支持视频
                 .build();
 
         Request request = new Request.Builder()

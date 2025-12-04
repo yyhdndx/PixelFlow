@@ -43,4 +43,6 @@
     <!-- 底部导航栏颜色 -->
     <color name="bottom_nav_icon_color">@android:color/white</color>
     <color name="bottom_nav_text_color">@android:color/white</color>
+
+    <color name="background_gray">#F5F5F5</color>
 </resources>

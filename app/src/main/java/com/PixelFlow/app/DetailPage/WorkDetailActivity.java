@@ -5,16 +5,18 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
+import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
 import android.widget.*;
@@ -33,11 +35,9 @@ import com.PixelFlow.app.DAO.PersistState.LikeStatus;
 import com.PixelFlow.app.DAO.StorageManager;
 import com.PixelFlow.app.DAO.impl.GenericStorageRepository;
 import com.PixelFlow.app.R;
-import com.PixelFlow.app.stream.WorkItem;
+import com.PixelFlow.app.Streams.WorkItem;
 import com.PixelFlow.app.util.DateUtils;
 import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.engine.DiskCacheStrategy;
-import com.bumptech.glide.request.RequestOptions;
 import com.google.android.material.button.MaterialButton;
 import com.nex3z.flowlayout.FlowLayout;
 
@@ -99,9 +99,29 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private boolean isExiting = false;
     private Rect startRect;
 
+    // 截图相关
+    private ImageView screenshotBackground;
+    private Bitmap waterfallScreenshot;
+    private boolean hasScreenshot = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         setTheme(R.style.Theme_Detail);
+
+        Window window = getWindow();
+        window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        window.setStatusBarColor(Color.TRANSPARENT);
+
+        // 让内容延伸到状态栏下面
+        window.getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        );
 
         // 启用窗口内容转场动画
         getWindow().setEnterTransition(null);
@@ -116,6 +136,11 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             finish();
             return;
         }
+
+        byte[] screenshotBytes = getIntent().getByteArrayExtra("waterfall_screenshot");
+        assert screenshotBytes != null;
+        waterfallScreenshot = BitmapFactory.decodeByteArray(screenshotBytes, 0, screenshotBytes.length);
+        hasScreenshot = true;
 
         initViews();
 
@@ -269,7 +294,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     }
 
     private void executeFixedSizeFadeOutAnimation() {
-        // 获取当前位置（详情页中的图片位置）
+        // 获取当前位置
         int[] location = new int[2];
         imageContainer.getLocationOnScreen(location);
         Rect currentRect = new Rect(
@@ -283,52 +308,24 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         float targetTranslateX = startRect.left - currentRect.left;
         float targetTranslateY = startRect.top - currentRect.top;
 
-        Log.d("FixedSizeExit", "图片当前位置: " + currentRect);
-        Log.d("FixedSizeExit", "目标位置(瀑布流): " + startRect);
-        Log.d("FixedSizeExit", "移动偏移: X=" + targetTranslateX + ", Y=" + targetTranslateY);
+        // 1. 准备截图背景
+        prepareScreenshotBackground();
 
-        // 1. 首先快速淡出所有背景和内容（除了图片）
-        AnimatorSet fadeOutContent = new AnimatorSet();
+        // 2. 创建所有动画
+        AnimatorSet backgroundReveal = createScreenshotRevealAnimation();
+        AnimatorSet contentFadeOut = createContentFadeOutAnimation();
+        AnimatorSet imageAnimation = createImageReturnAnimation(targetTranslateX, targetTranslateY);
 
-        // 背景遮罩淡出
-        ObjectAnimator bgFade = ObjectAnimator.ofFloat(backgroundOverlay, "alpha", 0f);
-
-        // 内容区域淡出
-        ObjectAnimator contentFade = ObjectAnimator.ofFloat(contentLayout, "alpha", 0f);
-        ObjectAnimator topBarFade = ObjectAnimator.ofFloat(topBar, "alpha", 0f);
-        ObjectAnimator bottomBarFade = ObjectAnimator.ofFloat(bottomBar, "alpha", 0f);
-
-        // scrollContainer淡出（整个页面内容）
-        ObjectAnimator scrollFade = ObjectAnimator.ofFloat(scrollContainer, "alpha", 0f);
-
-        fadeOutContent.playTogether(bgFade, contentFade, topBarFade, bottomBarFade, scrollFade);
-        fadeOutContent.setDuration(100);
-        fadeOutContent.setInterpolator(new AccelerateInterpolator());
-
-        // 2. 图片淡出并移动到瀑布流位置（同时进行）
-        AnimatorSet imageFadeAndMove = new AnimatorSet();
-
-        // 图片透明度从1降到0
-        ObjectAnimator imageAlphaAnim = ObjectAnimator.ofFloat(imageContainer, "alpha", 0f);
-
-        // 图片移动到瀑布流位置
-        ObjectAnimator imageTransXAnim = ObjectAnimator.ofFloat(imageContainer, "translationX", targetTranslateX);
-        ObjectAnimator imageTransYAnim = ObjectAnimator.ofFloat(imageContainer, "translationY", targetTranslateY);
-
-        // 图片大小保持不变（scale=1）
-        // 不需要添加缩放动画
-
-        // 添加非常轻微的旋转，增强"幽灵"效果
-        float rotationAngle = calculateRotationAngle(targetTranslateX, targetTranslateY);
-        ObjectAnimator imageRotateAnim = ObjectAnimator.ofFloat(imageContainer, "rotation", rotationAngle);
-
-        imageFadeAndMove.playTogether(imageAlphaAnim, imageTransXAnim, imageTransYAnim, imageRotateAnim);
-        imageFadeAndMove.setDuration(300); // 比内容淡出稍长一点
-        imageFadeAndMove.setInterpolator(new DecelerateInterpolator());
-
-        // 3. 组合动画：内容淡出和图片淡出移动同时开始
+        // 3. 组合动画：截图背景淡入 + 内容淡出 + 图片移动
         AnimatorSet finalAnimation = new AnimatorSet();
-        finalAnimation.playTogether(fadeOutContent, imageFadeAndMove);
+        if (hasScreenshot) {
+            // 有截图时，让截图背景逐渐显示
+            finalAnimation.playTogether(backgroundReveal, contentFadeOut, imageAnimation);
+        } else {
+            // 没有截图时，使用纯色背景淡入
+            AnimatorSet fallbackBackground = createFallbackBackgroundAnimation();
+            finalAnimation.playTogether(fallbackBackground, contentFadeOut, imageAnimation);
+        }
 
         finalAnimation.addListener(new AnimatorListenerAdapter() {
             @Override
@@ -340,17 +337,119 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             public void onAnimationStart(Animator animation) {
                 // 确保图片在最上层
                 imageContainer.bringToFront();
-
-                // 重置图片的缩放，确保是1:1
+                // 重置图片的缩放
                 imageContainer.setScaleX(1f);
                 imageContainer.setScaleY(1f);
-
-                Log.d("FixedSizeExit", "动画开始: 图片scale=" + imageContainer.getScaleX() +
-                        ", alpha=" + imageContainer.getAlpha());
             }
         });
 
         finalAnimation.start();
+    }
+
+    private void prepareScreenshotBackground() {
+        if (hasScreenshot) {
+            screenshotBackground.setVisibility(View.VISIBLE);
+            screenshotBackground.setAlpha(0f);
+            screenshotBackground.setScaleX(1.02f); // 轻微放大，增加动态感
+            screenshotBackground.setScaleY(1.02f);
+        }
+    }
+
+    private AnimatorSet createScreenshotRevealAnimation() {
+        AnimatorSet revealSet = new AnimatorSet();
+
+        // 截图背景淡入（透明度从0到1）
+        ObjectAnimator alphaAnim = ObjectAnimator.ofFloat(screenshotBackground, "alpha", 0f, 1f);
+
+        // 截图背景轻微缩小回正常大小（从1.02到1.0）
+        ObjectAnimator scaleXAnim = ObjectAnimator.ofFloat(screenshotBackground, "scaleX", 1.02f, 1f);
+        ObjectAnimator scaleYAnim = ObjectAnimator.ofFloat(screenshotBackground, "scaleY", 1.02f, 1f);
+
+        // 稍微向上移动一点点，模拟"浮现"效果
+        ObjectAnimator translateYAnim = ObjectAnimator.ofFloat(screenshotBackground, "translationY", 20f, 0f);
+
+        revealSet.playTogether(alphaAnim, scaleXAnim, scaleYAnim, translateYAnim);
+        revealSet.setDuration(400);
+        revealSet.setInterpolator(new DecelerateInterpolator());
+
+        return revealSet;
+    }
+
+    private AnimatorSet createFallbackBackgroundAnimation() {
+        // 没有截图时的备选方案：简单的白色背景淡入
+        AnimatorSet fallbackSet = new AnimatorSet();
+
+        View fallbackBackground = new View(this);
+        fallbackBackground.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        fallbackBackground.setBackgroundColor(Color.WHITE);
+        fallbackBackground.setAlpha(0f);
+
+        // 添加到布局中
+        FrameLayout rootLayout = findViewById(R.id.root_layout);
+        if (rootLayout != null) {
+            rootLayout.addView(fallbackBackground, 0);
+        }
+
+        ObjectAnimator alphaAnim = ObjectAnimator.ofFloat(fallbackBackground, "alpha", 0f, 1f);
+        fallbackSet.play(alphaAnim);
+        fallbackSet.setDuration(300);
+
+        return fallbackSet;
+    }
+
+    private AnimatorSet createContentFadeOutAnimation() {
+        AnimatorSet fadeOutSet = new AnimatorSet();
+
+        // 背景遮罩淡出（从0.7到0）
+        ObjectAnimator bgFade = ObjectAnimator.ofFloat(backgroundOverlay, "alpha", 0.7f, 0f);
+
+        // 顶部栏、内容区域、底部栏同时淡出
+        ObjectAnimator topBarFade = ObjectAnimator.ofFloat(topBar, "alpha", 1f, 0f);
+        ObjectAnimator contentFade = ObjectAnimator.ofFloat(contentLayout, "alpha", 1f, 0f);
+        ObjectAnimator bottomBarFade = ObjectAnimator.ofFloat(bottomBar, "alpha", 1f, 0f);
+
+        // scrollContainer整体淡出
+        ObjectAnimator scrollFade = ObjectAnimator.ofFloat(scrollContainer, "alpha", 1f, 0f);
+
+        fadeOutSet.playTogether(bgFade, topBarFade, contentFade, bottomBarFade, scrollFade);
+        fadeOutSet.setDuration(350);
+        fadeOutSet.setInterpolator(new AccelerateInterpolator());
+
+        return fadeOutSet;
+    }
+
+    private AnimatorSet createImageReturnAnimation(float targetTranslateX, float targetTranslateY) {
+        AnimatorSet imageSet = new AnimatorSet();
+
+        // 图片淡出（透明度从1降到0.2，不完全消失）
+        ObjectAnimator imageAlphaAnim = ObjectAnimator.ofFloat(imageContainer, "alpha", 1f, 0.2f);
+
+        // 图片移动到瀑布流位置
+        ObjectAnimator imageTransXAnim = ObjectAnimator.ofFloat(imageContainer, "translationX", targetTranslateX);
+        ObjectAnimator imageTransYAnim = ObjectAnimator.ofFloat(imageContainer, "translationY", targetTranslateY);
+
+        // 图片缩放回瀑布流卡片大小
+        float startScaleX = imageContainer.getScaleX();
+        float startScaleY = imageContainer.getScaleY();
+        float targetScaleX = (float) startRect.width() / imageContainer.getWidth();
+        float targetScaleY = (float) startRect.height() / imageContainer.getHeight();
+
+        ObjectAnimator scaleXAnim = ObjectAnimator.ofFloat(imageContainer, "scaleX", startScaleX, targetScaleX);
+        ObjectAnimator scaleYAnim = ObjectAnimator.ofFloat(imageContainer, "scaleY", startScaleY, targetScaleY);
+
+        // 添加轻微旋转
+        float rotationAngle = calculateRotationAngle(targetTranslateX, targetTranslateY);
+        ObjectAnimator imageRotateAnim = ObjectAnimator.ofFloat(imageContainer, "rotation", rotationAngle);
+
+        imageSet.playTogether(imageAlphaAnim, imageTransXAnim, imageTransYAnim,
+                scaleXAnim, scaleYAnim, imageRotateAnim);
+        imageSet.setDuration(400);
+        imageSet.setInterpolator(new DecelerateInterpolator());
+
+        return imageSet;
     }
 
     // 辅助方法：计算轻微的旋转角度（基于移动方向）
@@ -403,6 +502,21 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         float speed = (float) Math.sqrt(Math.pow(velocityX, 2) + Math.pow(velocityY, 2));
         long duration = Math.min(400L, Math.max(200L, (long) (distance / (speed > 0 ? speed * 0.005f : 3))));
 
+        // 准备截图背景
+        if (hasScreenshot) {
+            screenshotBackground.setVisibility(View.VISIBLE);
+            screenshotBackground.setAlpha(0f);
+        }
+
+        // 创建瀑布流背景淡入动画
+        AnimatorSet backgroundReveal = new AnimatorSet();
+        if (hasScreenshot) {
+            ObjectAnimator screenshotAlpha = ObjectAnimator.ofFloat(screenshotBackground, "alpha", 0f, 0.7f); // 只淡入到0.7
+            screenshotAlpha.setDuration(200);
+            backgroundReveal.play(screenshotAlpha);
+        }
+        backgroundReveal.setDuration(300); // 加快背景显示
+
         // 执行多层级同时退出
         AnimatorSet exitSet = new AnimatorSet();
 
@@ -441,15 +555,22 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         imageSet.setDuration(duration);
         imageSet.setInterpolator(new DecelerateInterpolator());
 
-        // 同时执行所有动画
-        exitSet.playTogether(bgAnimator, imageSet);
-        exitSet.addListener(new AnimatorListenerAdapter() {
+        // 组合动画
+        AnimatorSet finalAnimation = new AnimatorSet();
+        if (hasScreenshot) {
+            finalAnimation.playTogether(backgroundReveal, imageSet);
+        } else {
+            finalAnimation.play(imageSet);
+        }
+
+        finalAnimation.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
                 returnWithResult();
             }
         });
-        exitSet.start();
+
+        finalAnimation.start();
     }
 
     private void executeReturnAnimation() {
@@ -625,14 +746,37 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
         // 内容布局（用于动画）
         contentLayout = findViewById(R.id.content_layout);
+        // 然后backgroundOverlay在它们上面
+        backgroundOverlay.bringToFront();
+        // 最后是内容
+        scrollContainer.bringToFront();
 
-        // 底部交互区（保持所有你原有的元素）
+        // 底部交互区
         bottomBar = findViewById(R.id.bottom_bar);
         commentInput = findViewById(R.id.comment_input);  // 保持
         likeButton = findViewById(R.id.like_button);
         commentButton = findViewById(R.id.comment_button);  // 保持
         collectButton = findViewById(R.id.collect_button);  // 保持
         shareButton = findViewById(R.id.share_button);
+
+        // 初始化截图背景（添加到布局的最底层）
+        screenshotBackground = new ImageView(this);
+        screenshotBackground.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        screenshotBackground.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        screenshotBackground.setAlpha(0f);
+        screenshotBackground.setVisibility(View.INVISIBLE);
+
+        // 将截图背景添加到布局中
+        screenshotBackground = findViewById(R.id.screenshot_background);
+
+        // 如果有截图，设置到ImageView
+        if (hasScreenshot && waterfallScreenshot != null) {
+            screenshotBackground.setImageBitmap(waterfallScreenshot);
+        }
+
     }
 
     private void initRepositories() {
@@ -1012,6 +1156,24 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         super.onDestroy();
         if (databaseExecutor != null && !databaseExecutor.isShutdown()) {
             databaseExecutor.shutdown();
+        }
+        // 释放截图内存
+        if (waterfallScreenshot != null && !waterfallScreenshot.isRecycled()) {
+            waterfallScreenshot.recycle();
+            waterfallScreenshot = null;
+        }
+    }
+
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+
+        // 在内存紧张时释放截图
+        if (level >= TRIM_MEMORY_BACKGROUND) {
+            if (waterfallScreenshot != null && !waterfallScreenshot.isRecycled()) {
+                waterfallScreenshot.recycle();
+                waterfallScreenshot = null;
+            }
         }
     }
 }

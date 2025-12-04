@@ -1,4 +1,4 @@
-package com.PixelFlow.app.stream;
+package com.PixelFlow.app.Streams;
 
 import android.app.Activity;
 import android.app.ActivityOptions;
@@ -12,6 +12,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.graphics.Bitmap;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -23,7 +24,7 @@ import com.PixelFlow.app.DetailPage.WorkDetailActivity;
 import com.PixelFlow.app.R;
 import com.bumptech.glide.Glide;
 
-import java.io.Serializable;
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -310,14 +311,55 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             likeCount.setText(String.valueOf(workItem.getLikeCount()));
         }
 
+        private Bitmap takeScreenshot(Activity activity) {
+            try {
+                // 获取根视图
+                View rootView = activity.getWindow().findViewById(android.R.id.content);
+
+                rootView.setDrawingCacheEnabled(true);
+                Bitmap bitmap = Bitmap.createBitmap(rootView.getDrawingCache());
+                rootView.setDrawingCacheEnabled(false);
+
+                // 压缩图片以减少传输大小
+                int maxWidth = 540;
+                int maxHeight = 960;
+                float scale = Math.min(
+                        (float) maxWidth / bitmap.getWidth(),
+                        (float) maxHeight / bitmap.getHeight()
+                );
+
+                if (scale < 1) {
+                    int newWidth = (int) (bitmap.getWidth() * scale);
+                    int newHeight = (int) (bitmap.getHeight() * scale);
+                    return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
+                }
+
+                return bitmap;
+            } catch (Exception e) {
+                Log.e("Screenshot", "截屏失败", e);
+                return null;
+            }
+        }
+
         private void openDetailPageWithAnimation(WorkItem workItem, int position) {
             // 获取屏幕位置
             int[] location = new int[2];
             coverImage.getLocationOnScreen(location);
 
+            // 截取当前屏幕（瀑布流页面）
+            Bitmap waterfallScreenshot = takeScreenshot((Activity) context);
+
+            // 将Bitmap转换为字节数组（因为Intent不能直接传递Bitmap）
+            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+            assert waterfallScreenshot != null;
+            waterfallScreenshot.compress(Bitmap.CompressFormat.JPEG, 50, stream); // 70%质量压缩
+            byte[] screenshotBytes = stream.toByteArray();
+
+
             // 创建详情页Intent
             Intent intent = new Intent(context, WorkDetailActivity.class);
             intent.putExtra("work_item", workItem);
+            intent.putExtra("waterfall_screenshot", screenshotBytes);
             intent.putExtra("transition_name", "image_" + workItem.getId());
             intent.putExtra("start_left", location[0]);
             intent.putExtra("start_top", location[1]);
