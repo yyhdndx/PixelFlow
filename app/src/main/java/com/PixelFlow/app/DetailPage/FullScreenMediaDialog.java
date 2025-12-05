@@ -19,7 +19,7 @@ import com.bumptech.glide.request.RequestOptions;
 import com.github.chrisbanes.photoview.PhotoView;
 import java.util.List;
 
-public class FullScreenImageDialog extends Dialog {
+public class FullScreenMediaDialog extends Dialog {
 
     private List<String> imageUrls;
     private int currentPosition;
@@ -28,7 +28,7 @@ public class FullScreenImageDialog extends Dialog {
     private TextView pageIndicator;
     private ImageView closeButton;
 
-    public FullScreenImageDialog(@NonNull Context context, List<String> imageUrls, int currentPosition) {
+    public FullScreenMediaDialog(@NonNull Context context, List<String> imageUrls, int currentPosition) {
         super(context, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         this.context = context;
         this.imageUrls = imageUrls;

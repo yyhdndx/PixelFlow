@@ -54,4 +54,6 @@ dependencies {
     implementation(libs.flowlayout)
 
     implementation(libs.photoView)
+
+    implementation(libs.exoVedioPlayer)
 }

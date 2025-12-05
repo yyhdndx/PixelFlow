@@ -190,9 +190,7 @@ public class WorkItem implements Serializable {
         // 默认构造函数，用于序列化/反序列化
     }
 
-    // ============ 原有接口保持不变 ============
-
-    // Getters and Setters (原有接口保持不变)
+    // Getters and Setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -289,7 +287,7 @@ public class WorkItem implements Serializable {
         List<String> urls = new ArrayList<>();
         if (clips != null) {
             for (Clip clip : clips) {
-                if (clip != null && clip.getUrl() != null && !clip.getUrl().isEmpty()) {
+                if (clip.getType()!=1) {
                     urls.add(clip.getUrl());
                 }
             }
@@ -299,6 +297,21 @@ public class WorkItem implements Serializable {
             urls.add(coverUrl);
         }
         return urls;
+    }
+
+    /**
+    获取所有视频的url
+     */
+    public List<String> getAllVideoUrls() {
+        List<String> videoUrls = new ArrayList<>();
+        if (clips != null) {
+            for (Clip clip : clips) {
+                if (clip.getType() == 1) { // 1表示视频
+                    videoUrls.add(clip.getUrl());
+                }
+            }
+        }
+        return videoUrls;
     }
 
     /**

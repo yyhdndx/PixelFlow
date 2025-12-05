@@ -19,4 +19,7 @@
     <string name="save_success">保存成功</string>
     <string name="save_failed">保存失败</string>
     <string name="permission_required">需要存储权限才能保存图片</string>
+
+    <string name="video_cover">视频封面</string>
+    <string name="play_video">播放视频</string>
 </resources>

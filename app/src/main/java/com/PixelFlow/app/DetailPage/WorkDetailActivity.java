@@ -5,7 +5,6 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
-import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -825,29 +824,42 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     }
 
     private void setupImages() {
-        List<String> imageUrls = workItem.getImageUrls();
-        if (imageUrls == null || imageUrls.isEmpty()) {
-            imageUrls = new ArrayList<>();
-            imageUrls.add(workItem.getCoverUrl());
+        List<WorkItem.Clip> mediaItems = workItem.getClips();
+        if (mediaItems == null || mediaItems.isEmpty()) {
+            // 如果没有clips，创建一个默认的图片clip
+            WorkItem.Clip defaultClip = new WorkItem.Clip(0, 400, 600, workItem.getCoverUrl());
+            mediaItems = new ArrayList<>();
+            mediaItems.add(defaultClip);
         }
 
-        // 设置图片高度
+        // 设置图片/视频高度
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
         ViewGroup.LayoutParams params = imagePager.getLayoutParams();
         params.height = workItem.getDisplayHeight(screenWidth);
         imagePager.setLayoutParams(params);
 
-        // 设置ViewPager2适配器（最简单版本）
-        imageAdapter = new ImagePagerAdapter(this, imageUrls);
+        // 设置适配器
+        imageAdapter = new ImagePagerAdapter(this, mediaItems);
         imagePager.setAdapter(imageAdapter);
 
+        // 设置页面切换监听，管理视频播放状态
+        imagePager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageSelected(int position) {
+                super.onPageSelected(position);
+                if (imageAdapter != null) {
+                    imageAdapter.onPageChanged(position);
+                }
+            }
+        });
+
         // 设置进度指示器
-        setupProgressIndicator(imageUrls.size());
+        setupProgressIndicator(mediaItems.size());
 
-        // 最简单的预加载：设置ViewPager2的预加载数量
-        imagePager.setOffscreenPageLimit(2); // 预加载左右各2页
+        // 设置预加载
+        imagePager.setOffscreenPageLimit(2);
 
-        // 添加图片点击监听器
+        // 添加点击监听器
         setupImageClickListener();
     }
 
@@ -957,7 +969,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         }
 
         // 创建并显示全屏图片对话框
-        FullScreenImageDialog dialog = new FullScreenImageDialog(
+        FullScreenMediaDialog dialog = new FullScreenMediaDialog(
                 WorkDetailActivity.this,
                 imageUrls,
                 position
@@ -1154,6 +1166,11 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     @Override
     protected void onDestroy() {
         super.onDestroy();
+
+        if (imageAdapter != null) {
+            imageAdapter.releasePlayer();
+        }
+
         if (databaseExecutor != null && !databaseExecutor.isShutdown()) {
             databaseExecutor.shutdown();
         }
@@ -1174,6 +1191,14 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 waterfallScreenshot.recycle();
                 waterfallScreenshot = null;
             }
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (imageAdapter != null) {
+            imageAdapter.pauseCurrentVideo();
         }
     }
 }
