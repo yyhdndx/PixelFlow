@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -515,9 +516,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             backgroundReveal.play(screenshotAlpha);
         }
         backgroundReveal.setDuration(300); // 加快背景显示
-
-        // 执行多层级同时退出
-        AnimatorSet exitSet = new AnimatorSet();
 
         // 1. 背景遮罩淡出
         ValueAnimator bgAnimator = ValueAnimator.ofFloat(backgroundOverlay.getAlpha(), 0f);

@@ -21,6 +21,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.PixelFlow.app.Streams.PreloadManager;
+
 import com.PixelFlow.app.API.ApiClient;
 import com.PixelFlow.app.API.ApiResponse;
 import com.PixelFlow.app.API.PostItem;
@@ -28,7 +30,10 @@ import com.PixelFlow.app.Streams.WaterfallAdapter;
 import com.PixelFlow.app.Streams.WorkItem;
 import com.google.android.material.tabs.TabLayout;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 public class HomeFragment extends Fragment {
 
@@ -43,20 +48,23 @@ public class HomeFragment extends Fragment {
     private SwipeRefreshLayout swipeRefreshLayout;
     private RecyclerView recyclerView;
     private View emptyStateLayout;
-    private Button retryButton;
 
     private WaterfallAdapter adapter;
     private boolean isRefreshing = false;
     private boolean hasMoreData = true;
     private int currentPage = 0;
 
-    private Handler handler = new Handler();
+    private final Handler handler = new Handler();
     private OnScrollListener scrollListener;
 
     // 滚动状态跟踪
     private int lastScrollY = 0;
     private boolean isScrollingDown = false;
     private final int SCROLL_THRESHOLD = 20; // 滚动阈值，避免频繁触发
+
+    private PreloadManager preloadManager;
+
+    private Set<String> workItemSet;
 
     public static HomeFragment newInstance() {
         return new HomeFragment();
@@ -85,6 +93,10 @@ public class HomeFragment extends Fragment {
         if (getActivity() instanceof OnScrollListener) {
             scrollListener = (OnScrollListener) getActivity();
         }
+
+        preloadManager=new PreloadManager(requireContext());
+
+        workItemSet=new HashSet<>();
     }
 
     @Nullable
@@ -106,7 +118,7 @@ public class HomeFragment extends Fragment {
         swipeRefreshLayout = view.findViewById(R.id.swipe_refresh_layout);
         recyclerView = view.findViewById(R.id.recycler_view);
         emptyStateLayout = view.findViewById(R.id.empty_state_layout);
-        retryButton = view.findViewById(R.id.retry_button);
+        Button retryButton = view.findViewById(R.id.retry_button);
 
         retryButton.setOnClickListener(v -> loadData(true));
     }
@@ -163,6 +175,10 @@ public class HomeFragment extends Fragment {
             private boolean controlsVisible = true;
             private static final int MINIMUM_SCROLL_DISTANCE = 50; // 最小滚动距离，避免小幅度滚动触发
 
+            // 用于防抖，避免频繁触发预加载
+            private long lastPreloadTime = 0;
+            private static final long PRELOAD_DEBOUNCE_TIME = 500; // 500ms防抖
+
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
@@ -206,6 +222,19 @@ public class HomeFragment extends Fragment {
                 if (firstVisibleItem == 0 && scrollListener != null) {
                     scrollListener.onScrollToTop();  // 滚动到顶部，显示FAB
                 }
+
+                if(preloadManager!=null){
+                    long currentTime=System.currentTimeMillis();
+                    if (currentTime - lastPreloadTime > PRELOAD_DEBOUNCE_TIME) {
+                        if (dy > 10) { // 向下滚动明显时
+                            preloadBottomItems();
+                            lastPreloadTime = currentTime;
+                        } else if (dy < -10) { // 向上滚动明显时
+                            preloadTopItems();
+                            lastPreloadTime = currentTime;
+                        }
+                    }
+                }
             }
 
             @Override
@@ -223,6 +252,9 @@ public class HomeFragment extends Fragment {
                         if (firstVisibleItem <= 3 && scrollListener != null) {
                             scrollListener.onScrollToTop();
                         }
+
+                        // 停止滚动时可视区预加载
+                        preloadVisibleItems();
                     }
                 }
             }
@@ -302,7 +334,12 @@ public class HomeFragment extends Fragment {
             adapter.setLoading(true);
         }
 
-        final int requestCount = 10;
+        /*
+        大概算了一下，当前界面中最多也就是6个作品
+        两页加起来就是12个
+        只要保证大体上不重复就行了
+         */
+        final int requestCount = 12;
 
         ApiClient.getInstance(requireContext()).getFeed(requestCount, new ApiClient.ApiCallback() {
 
@@ -322,6 +359,9 @@ public class HomeFragment extends Fragment {
                             newData.add(new WorkItem(itm));
                         }
                     }
+
+                    // 去重
+                    newData=dropDuplicate(newData);
 
                     hasMoreData = response.getHasMore() == 1;
 
@@ -346,6 +386,10 @@ public class HomeFragment extends Fragment {
                     }
                     currentPage++;
                     adapter.setLoading(false);
+
+                    if (!newData.isEmpty() && preloadManager != null) {
+                        preloadManager.preloadWorkItems(newData, PreloadManager.PRIORITY_LOW);
+                    }
                 });
             }
 
@@ -378,6 +422,123 @@ public class HomeFragment extends Fragment {
         });
     }
 
+    /**
+     * 预加载可见项
+     */
+    private void preloadVisibleItems() {
+        if (adapter == null || recyclerView.getLayoutManager() == null || preloadManager == null) return;
+
+        try {
+            StaggeredGridLayoutManager layoutManager = (StaggeredGridLayoutManager) recyclerView.getLayoutManager();
+            List<WorkItem> visibleItems = getVisibleWorkItems(layoutManager);
+
+            if (!visibleItems.isEmpty()) {
+                preloadManager.preloadWorkItems(visibleItems, PreloadManager.PRIORITY_MEDIUM);
+            }
+        } catch (Exception e) {
+            Log.e("HomeFragment", "预加载可见项失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 预加载底部项（向下滚动时）
+     */
+    private void preloadBottomItems() {
+        if (adapter == null || recyclerView.getLayoutManager() == null || preloadManager == null) return;
+
+        try {
+            StaggeredGridLayoutManager layoutManager = (StaggeredGridLayoutManager) recyclerView.getLayoutManager();
+            int[] lastVisiblePositions = layoutManager.findLastVisibleItemPositions(null);
+            int lastVisible = getMaxValue(lastVisiblePositions);
+
+            if (lastVisible >= 0) {
+                // 预加载最后可见项之后的3项
+                int startIndex = lastVisible + 1;
+                int endIndex = Math.min(startIndex + 2, adapter.getItemCount() - 1);
+
+                List<WorkItem> itemsToPreload = new ArrayList<>();
+                for (int i = startIndex; i <= endIndex; i++) {
+                    WorkItem item = adapter.getItemAtPosition(i);
+                    if (item != null) {
+                        itemsToPreload.add(item);
+                    }
+                }
+
+                preloadManager.preloadWorkItems(itemsToPreload, PreloadManager.PRIORITY_LOW);
+            }
+        } catch (Exception e) {
+            Log.e("HomeFragment", "预加载底部项失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 预加载顶部项（向上滚动时）
+     */
+    private void preloadTopItems() {
+        if (adapter == null || recyclerView.getLayoutManager() == null || preloadManager == null) return;
+
+        try {
+            StaggeredGridLayoutManager layoutManager = (StaggeredGridLayoutManager) recyclerView.getLayoutManager();
+            int[] firstVisiblePositions = layoutManager.findFirstVisibleItemPositions(null);
+            int firstVisible = getMinValue(firstVisiblePositions);
+
+            if (firstVisible >= 0) {
+                // 预加载最先可见项之前的3项
+                int endIndex = firstVisible - 1;
+                int startIndex = Math.max(0, endIndex - 2);
+
+                List<WorkItem> itemsToPreload = new ArrayList<>();
+                for (int i = startIndex; i <= endIndex; i++) {
+                    WorkItem item = adapter.getItemAtPosition(i);
+                    if (item != null) {
+                        itemsToPreload.add(item);
+                    }
+                }
+
+                preloadManager.preloadWorkItems(itemsToPreload, PreloadManager.PRIORITY_LOW);
+            }
+        } catch (Exception e) {
+            Log.e("HomeFragment", "预加载顶部项失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取可见的WorkItem列表
+     */
+    private List<WorkItem> getVisibleWorkItems(StaggeredGridLayoutManager layoutManager) {
+        List<WorkItem> visibleItems = new ArrayList<>();
+
+        int[] firstVisiblePositions = layoutManager.findFirstVisibleItemPositions(null);
+        int[] lastVisiblePositions = layoutManager.findLastVisibleItemPositions(null);
+
+        int firstVisible = getMinValue(firstVisiblePositions);
+        int lastVisible = getMaxValue(lastVisiblePositions);
+
+        for (int i = firstVisible; i <= lastVisible; i++) {
+            if (i >= 0 && i < adapter.getItemCount()) {
+                WorkItem item = adapter.getItemAtPosition(i);
+                if (item != null) {
+                    visibleItems.add(item);
+                }
+            }
+        }
+
+        return visibleItems;
+    }
+
+    private List<WorkItem> dropDuplicate(List<WorkItem> newItems){
+        workItemSet.clear();
+        List<WorkItem> ans=new ArrayList<>();
+        for(WorkItem workItem:newItems){
+            if(!workItemSet.contains(workItem.getId())) {
+                workItemSet.add(workItem.getId());
+                ans.add(workItem);
+            }
+        }
+        return ans;
+    }
+
+
     private void showEmptyState() {
         emptyStateLayout.setVisibility(View.VISIBLE);
         recyclerView.setVisibility(View.GONE);
@@ -398,6 +559,16 @@ public class HomeFragment extends Fragment {
         return max;
     }
 
+    private int getMinValue(int[] values) {
+        int min = values[0];
+        for (int value : values) {
+            if (value < min) {
+                min = value;
+            }
+        }
+        return min;
+    }
+
     // 处理从详情页返回的结果
     @Override
     public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
@@ -414,5 +585,10 @@ public class HomeFragment extends Fragment {
     public void onDestroy() {
         super.onDestroy();
         handler.removeCallbacksAndMessages(null);
+
+        if(preloadManager!=null){
+            preloadManager.release();
+            preloadManager=null;
+        }
     }
 }

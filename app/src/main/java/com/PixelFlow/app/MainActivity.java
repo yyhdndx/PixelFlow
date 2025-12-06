@@ -8,14 +8,22 @@ import android.view.animation.Interpolator;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
+
+import com.PixelFlow.app.Streams.PreloadManager;
+import com.PixelFlow.app.Streams.WorkItem;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements HomeFragment.OnScrollListener {
 
     private BottomNavigationView bottomNavigationView;
     private FloatingActionButton fabCamera;
     private boolean isFabVisible = true;
+
+    private PreloadManager preloadManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,6 +39,8 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
             showFragment(HomeFragment.newInstance());
             bottomNavigationView.setSelectedItemId(R.id.nav_home);
         }
+
+        preloadManager = new PreloadManager(this);
     }
 
     private void initView() {
@@ -141,14 +151,20 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
         return bottomNav != null ? bottomNav.getHeight() : 0;
     }
 
-    // 可选：添加一个方法来手动显示/隐藏FAB
-    public void setFabVisible(boolean visible) {
-        if (fabCamera != null) {
-            if (visible && !isFabVisible) {
-                showFab();
-            } else if (!visible && isFabVisible) {
-                hideFab();
-            }
+    public void preloadForDetailPage(WorkItem workItem) {
+        if (workItem != null && preloadManager != null) {
+            List<WorkItem> items = new ArrayList<>();
+            items.add(workItem);
+            preloadManager.preloadWorkItems(items, PreloadManager.PRIORITY_HIGH);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (preloadManager != null) {
+            preloadManager.release();
+            preloadManager = null;
         }
     }
 }

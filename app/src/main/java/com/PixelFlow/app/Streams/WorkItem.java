@@ -300,6 +300,34 @@ public class WorkItem implements Serializable {
     }
 
     /**
+     * 获取第一个图片URL
+     */
+    public String getFirstImageUrl(){
+        if(clips!=null){
+            for(Clip clip:clips){
+                if(clip.getType()!=1){
+                    return clip.getUrl();
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 获取第一个视频URL
+     */
+    public String getFirstVideoUrl(){
+        if(clips!=null){
+            for(Clip clip:clips){
+                if(clip.getType()==1){
+                    return clip.getUrl();
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
     获取所有视频的url
      */
     public List<String> getAllVideoUrls() {

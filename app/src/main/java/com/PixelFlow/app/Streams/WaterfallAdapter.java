@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.ActivityOptions;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -14,6 +15,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.graphics.Bitmap;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.PixelFlow.app.DAO.DataType;
@@ -21,8 +23,14 @@ import com.PixelFlow.app.DAO.PersistState.LikeStatus;
 import com.PixelFlow.app.DAO.StorageManager;
 import com.PixelFlow.app.DAO.impl.GenericStorageRepository;
 import com.PixelFlow.app.DetailPage.WorkDetailActivity;
+import com.PixelFlow.app.MainActivity;
 import com.PixelFlow.app.R;
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
@@ -238,6 +246,86 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             likeContainer = itemView.findViewById(R.id.like_container);
         }
 
+        private void loadImageSafely(String url, ImageView imageView,
+                                     int targetWidth, int targetHeight) {
+            try {
+                Glide.with(context)
+                        .load(url)
+                        .override(targetWidth, targetHeight)
+                        .centerCrop()
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)  // 增加缓存策略
+                        .timeout(5000)  // 设置5秒超时
+                        .skipMemoryCache(false)  // 使用内存缓存
+                        .placeholder(R.drawable.ic_image_placeholder)
+                        .error(R.drawable.ic_image_error)
+                        .addListener(new RequestListener<Drawable>() {
+                            @Override
+                            public boolean onLoadFailed(@Nullable GlideException e, Object model,
+                                                        Target<Drawable> target, boolean isFirstResource) {
+                                // 记录加载失败日志
+                                Log.d("ImageLoad", "图片加载失败: " + url);
+                                return false;
+                            }
+
+                            @Override
+                            public boolean onResourceReady(Drawable resource, Object model,
+                                                           Target<Drawable> target, DataSource dataSource,
+                                                           boolean isFirstResource) {
+                                return false;
+                            }
+                        })
+                        .into(imageView);
+            } catch (Exception e) {
+                // 防止Glide崩溃导致整个应用崩溃
+                Log.e("ImageLoad", "Glide加载异常: " + e.getMessage());
+                imageView.setImageResource(R.drawable.ic_image_error);
+            }
+        }
+
+        /**
+         * 安全地加载视频封面
+         */
+        private void loadVideoCoverSafely(String videoUrl, ImageView imageView,
+                                          int targetWidth, int targetHeight, int position) {
+            try {
+                // 使用Glide的VideoDecoder提取视频第一帧
+                Glide.with(context)
+                        .asBitmap()
+                        .load(videoUrl)
+                        .override(targetWidth, targetHeight)
+                        .centerCrop()
+                        .diskCacheStrategy(DiskCacheStrategy.DATA)  // 缓存原始数据
+                        .timeout(3000)  // 视频封面提取需要更短超时时间
+                        .skipMemoryCache(false)
+                        .placeholder(R.drawable.ic_video_placeholder)
+                        .error(R.drawable.ic_image_error)
+                        .addListener(new RequestListener<Bitmap>() {
+                            @Override
+                            public boolean onLoadFailed(@Nullable GlideException e, Object model,
+                                                        Target<Bitmap> target, boolean isFirstResource) {
+                                // 视频封面提取失败，记录日志
+                                Log.d("VideoCover", "视频封面提取失败，位置: " + position + ", URL: " + videoUrl);
+                                // 加载失败时显示视频占位图
+                                imageView.setImageResource(R.drawable.ic_video_placeholder);
+                                return true;  // 返回true表示已处理错误
+                            }
+
+                            @Override
+                            public boolean onResourceReady(Bitmap resource, Object model,
+                                                           Target<Bitmap> target, DataSource dataSource,
+                                                           boolean isFirstResource) {
+                                // 记录成功日志
+                                Log.d("VideoCover", "视频封面提取成功，位置: " + position);
+                                return false;
+                            }
+                        })
+                        .into(imageView);
+            } catch (Exception e) {
+                Log.e("VideoCover", "视频封面加载异常: " + e.getMessage());
+                imageView.setImageResource(R.drawable.ic_video_placeholder);
+            }
+        }
+
         void bind(WorkItem workItem, int position) {
             // 计算图片尺寸
             DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
@@ -263,14 +351,22 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             layoutParams.height = itemHeight;
             coverImage.setLayoutParams(layoutParams);
 
-            // 使用Glide加载图片
-            Glide.with(context)
-                    .load(workItem.getCoverUrl())
-                    .override(itemWidth, itemHeight)
-                    .centerCrop()
-                    .placeholder(R.drawable.ic_image_placeholder)
-                    .error(R.drawable.version)
-                    .into(coverImage);
+            // 加载的逻辑
+            // 尽量还是去加载图片，如果实在不行再去加载视频
+            String imageUrl= workItem.getFirstImageUrl();
+            if(imageUrl!=null){
+                // 加载照片
+                loadImageSafely(imageUrl,coverImage,itemWidth,itemHeight);
+            }else{
+                // 加载视频
+                String videoUrl= workItem.getFirstVideoUrl();
+                if(videoUrl!=null){
+                    loadVideoCoverSafely(videoUrl,coverImage,itemWidth,itemHeight,position);
+                }else{
+                    // 这咋啥都没有呢？？？
+                    coverImage.setImageResource(R.drawable.ic_video_placeholder);
+                }
+            }
 
             // 设置标题/正文
             titleText.setText(workItem.getTitle());
@@ -381,6 +477,12 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             } else {
                 context.startActivity(intent, options);
             }
+
+            if (context instanceof MainActivity) {
+                MainActivity activity = (MainActivity) context;
+                activity.preloadForDetailPage(workItem);
+            }
+
         }
     }
 
@@ -389,5 +491,12 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         LoadingViewHolder(@NonNull View itemView) {
             super(itemView);
         }
+    }
+
+    public WorkItem getItemAtPosition(int position) {
+        if (position >= 0 && position < workItems.size()) {
+            return workItems.get(position);
+        }
+        return null;
     }
 }
