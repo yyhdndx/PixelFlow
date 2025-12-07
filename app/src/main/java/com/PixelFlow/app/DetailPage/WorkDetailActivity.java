@@ -652,9 +652,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         imageContainer.setTranslationY(deltaY);
         imageContainer.setTranslationX(deltaX);
 
-        // 图片大小保持不变（scale=1）
-        // 不需要缩放
-
         // 根据拖拽距离实时调整透明度
         float dragDistance = (float) Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
         float maxDistance = getWindow().getDecorView().getHeight() * 0.3f;
@@ -956,7 +953,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                     }
                 }
             }
-        }, 100);
+        }, 80);
     }
 
     private void openFullScreenImage(int position) {
@@ -1166,7 +1163,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         super.onDestroy();
 
         if (imageAdapter != null) {
-            imageAdapter.releasePlayer();
+            imageAdapter.releaseAllPlayers();
         }
 
         if (databaseExecutor != null && !databaseExecutor.isShutdown()) {

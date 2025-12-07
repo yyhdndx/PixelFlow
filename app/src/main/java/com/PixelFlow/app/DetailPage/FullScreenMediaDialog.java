@@ -123,7 +123,7 @@ public class FullScreenMediaDialog extends Dialog {
             // 为PhotoView添加单击关闭事件
             holder.photoView.setOnClickListener(v -> dismiss());
 
-            // 可选：添加长按事件（例如保存图片）
+            // 添加长按事件（例如保存图片）
             holder.photoView.setOnLongClickListener(v -> {
                 // 可以在这里实现长按保存图片等功能
                 showSaveImageDialog(imageUrl);
