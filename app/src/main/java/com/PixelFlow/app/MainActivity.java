@@ -1,10 +1,10 @@
 package com.PixelFlow.app;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.view.View;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
-import android.view.animation.Interpolator;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
@@ -14,6 +14,7 @@ import com.PixelFlow.app.Streams.WorkItem;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +25,11 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
     private boolean isFabVisible = true;
 
     private PreloadManager preloadManager;
+
+    // 全局音乐状态管理
+    private static boolean isGlobalMuted = false; // 全局静音状态，冷启后重置为false
+    private static WeakReference<AudioPlayer> currentAudioPlayerRef = null; // 当前活动的音频播放器
+    private static WorkItem.Music currentPlayingMusic = null; // 当前播放的音乐
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -159,6 +165,70 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
         }
     }
 
+    // 获取全局静音状态
+    public static boolean isGlobalMuted() {
+        return isGlobalMuted;
+    }
+
+    // 设置全局静音状态
+    public static void setGlobalMuted(boolean muted) {
+        isGlobalMuted = muted;
+
+        // 如果有活动的音频播放器，更新其状态
+        AudioPlayer player = getCurrentAudioPlayer();
+        if (player != null) {
+            player.updateMuteState(muted);
+        }
+
+        // 如果静音了，清除当前播放的音乐记录
+        if (muted) {
+            clearCurrentPlayingMusic();
+        }
+    }
+
+    // 切换全局静音状态
+    public static void toggleGlobalMuted() {
+        setGlobalMuted(!isGlobalMuted);
+    }
+
+    // 注册当前活动的音频播放器
+    public static void registerAudioPlayer(AudioPlayer player) {
+        currentAudioPlayerRef = new WeakReference<>(player);
+    }
+
+    // 注销音频播放器
+    public static void unregisterAudioPlayer() {
+        if (currentAudioPlayerRef != null) {
+            currentAudioPlayerRef.clear();
+            currentAudioPlayerRef = null;
+        }
+    }
+
+    // 获取当前活动的音频播放器
+    public static AudioPlayer getCurrentAudioPlayer() {
+        return currentAudioPlayerRef != null ? currentAudioPlayerRef.get() : null;
+    }
+
+    // 设置当前播放的音乐
+    public static void setCurrentPlayingMusic(WorkItem.Music music) {
+        currentPlayingMusic = music;
+    }
+
+    // 获取当前播放的音乐
+    public static WorkItem.Music getCurrentPlayingMusic() {
+        return currentPlayingMusic;
+    }
+
+    // 清空当前播放的音乐
+    public static void clearCurrentPlayingMusic() {
+        currentPlayingMusic = null;
+    }
+
+    // 获取播放器的单例
+    public static AudioPlayer getGlobalAudioPlayer(Context context) {
+        return AudioPlayer.getInstance(context);
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -166,5 +236,8 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
             preloadManager.release();
             preloadManager = null;
         }
+
+        unregisterAudioPlayer();
+        clearCurrentPlayingMusic();
     }
 }

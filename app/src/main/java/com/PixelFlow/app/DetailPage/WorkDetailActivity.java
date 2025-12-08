@@ -5,13 +5,17 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
-import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.StyleSpan;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
@@ -29,11 +33,13 @@ import androidx.viewpager2.widget.ViewPager2;
 import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
 
+import com.PixelFlow.app.AudioPlayer;
 import com.PixelFlow.app.DAO.DataType;
 import com.PixelFlow.app.DAO.PersistState.FollowStatus;
 import com.PixelFlow.app.DAO.PersistState.LikeStatus;
 import com.PixelFlow.app.DAO.StorageManager;
 import com.PixelFlow.app.DAO.impl.GenericStorageRepository;
+import com.PixelFlow.app.MainActivity;
 import com.PixelFlow.app.R;
 import com.PixelFlow.app.Streams.WorkItem;
 import com.PixelFlow.app.util.DateUtils;
@@ -103,6 +109,11 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private ImageView screenshotBackground;
     private Bitmap waterfallScreenshot;
     private boolean hasScreenshot = false;
+
+    // 音乐播放相关
+    private AudioPlayer audioPlayerManager;
+    private ImageView musicControlButton;
+    private WorkItem.Music currentMusic;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -606,6 +617,87 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         returnAnim.start();
     }
 
+    private void animateMusicButtonClick() {
+        // 缩放动画
+        musicControlButton.animate()
+                .scaleX(0.8f)
+                .scaleY(0.8f)
+                .setDuration(100)
+                .withEndAction(() -> {
+                    musicControlButton.animate()
+                            .scaleX(1.0f)
+                            .scaleY(1.0f)
+                            .setDuration(100)
+                            .start();
+                })
+                .start();
+
+        // 透明度动画
+        musicControlButton.animate()
+                .alpha(0.5f)
+                .setDuration(50)
+                .withEndAction(() -> {
+                    musicControlButton.animate()
+                            .alpha(0.7f)
+                            .setDuration(150)
+                            .start();
+                })
+                .start();
+    }
+
+    private void updateMusicButtonState() {
+        if (musicControlButton == null || audioPlayerManager == null || currentMusic == null) {
+            return;
+        }
+
+        boolean isPlaying = audioPlayerManager.isPlaying();
+        WorkItem.Music playingMusic = audioPlayerManager.getCurrentMusic();
+
+        // 判断是否正在播放当前音乐
+        boolean isPlayingCurrent = isPlaying && playingMusic != null;
+
+        if (isPlayingCurrent) {
+            // 正在播放
+            musicControlButton.setImageResource(R.drawable.ic_volume_high);
+        } else {
+            // 未播放
+            musicControlButton.setImageResource(R.drawable.ic_volume_off);
+        }
+    }
+
+    private void setupMusicButton() {
+        if (currentMusic == null || audioPlayerManager == null) {
+            if (musicControlButton != null) {
+                musicControlButton.setVisibility(View.GONE);
+            }
+            return;
+        }
+
+        musicControlButton.setVisibility(View.VISIBLE);
+
+        // 设置点击监听器
+        musicControlButton.setOnClickListener(v -> {
+            if (currentMusic == null || audioPlayerManager == null) return;
+
+            // 执行点击动画
+            animateMusicButtonClick();
+
+            // 检查当前播放的音乐
+            WorkItem.Music playingMusic = audioPlayerManager.getCurrentMusic();
+
+            if (playingMusic != null && playingMusic.equals(currentMusic)) {
+                // 正在播放当前音乐：切换播放/暂停
+                audioPlayerManager.togglePlayPause();
+            } else {
+                // 播放其他音乐或没有播放：播放当前音乐
+                audioPlayerManager.playMusic(currentMusic);
+            }
+
+            // 延迟更新按钮状态，确保播放状态已经改变
+            musicControlButton.postDelayed(this::updateMusicButtonState, 1000);
+        });
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         gestureDetector.onTouchEvent(event);
@@ -738,6 +830,11 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         tagsContainer = findViewById(R.id.tags_container);
         publishDate = findViewById(R.id.publish_date);
 
+        // 音乐
+        musicControlButton = findViewById(R.id.music_control_button);
+        audioPlayerManager = AudioPlayer.getInstance(this);
+        currentMusic = workItem.getMusic();
+
         // 内容布局（用于动画）
         contentLayout = findViewById(R.id.content_layout);
         // 然后backgroundOverlay在它们上面
@@ -801,6 +898,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
         // 设置点赞状态
         updateLikeButton();
+
+        // 音乐
+        setupMusicButton();
     }
 
     private void setupAuthorInfo() {
@@ -907,21 +1007,42 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         String content = workItem.getContent();
         if (content != null && !content.isEmpty()) {
             contentText.setText(content);
-            extractAndDisplayTags(content);
+            highlightHashtagsInContent(content,workItem.getHashtags());
         } else {
             contentText.setVisibility(View.GONE);
         }
     }
 
-    private void extractAndDisplayTags(String content) {
-        // 提取话题标签（格式：#话题#）
-        Pattern pattern = Pattern.compile("#([^#]+)#");
-        Matcher matcher = pattern.matcher(content);
-
-        while (matcher.find()) {
-            String tag = matcher.group(1);
-            addTagView(tag);
+    private void highlightHashtagsInContent(String content, List<WorkItem.Hashtag> hashtags) {
+        if (content == null || content.isEmpty() || hashtags == null || hashtags.isEmpty()) {
+            TextView contentText = findViewById(R.id.content_text);
+            contentText.setText(content);
+            return;
         }
+
+        // 创建SpannableString来实现部分文本高亮
+        SpannableString spannableString = new SpannableString(content);
+        int primaryColor = getResources().getColor(R.color.primary_color);
+
+        for (WorkItem.Hashtag hashtag : hashtags) {
+            int start = hashtag.getStart();
+            int end = hashtag.getEnd();
+
+            // 确保索引在有效范围内
+            if (start >= 0 && end <= content.length() && start < end) {
+                // 设置蓝色高亮颜色
+                ForegroundColorSpan colorSpan = new ForegroundColorSpan(primaryColor);
+                spannableString.setSpan(colorSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+                // 可选：设置粗体
+                StyleSpan styleSpan = new StyleSpan(Typeface.BOLD);
+                spannableString.setSpan(styleSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+        }
+
+        // 设置到TextView
+        TextView contentText = findViewById(R.id.content_text);
+        contentText.setText(spannableString);
     }
 
     private void setupImageClickListener() {
@@ -983,24 +1104,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         }
     }
 
-    private void addTagView(String tag) {
-        TextView tagView = new TextView(this);
-        tagView.setText("#" + tag);
-        tagView.setTextColor(getResources().getColor(R.color.primary_color));
-        tagView.setBackgroundResource(R.drawable.tag_background);
-        tagView.setPadding(12, 6, 12, 6);
-        tagView.setTextSize(12);
-
-        tagView.setOnClickListener(v -> {
-            // 点击话题跳转
-            // Intent intent = new Intent(this, TagDetailActivity.class);
-            // intent.putExtra("tag", tag);
-            // startActivity(intent);
-        });
-
-        tagsContainer.addView(tagView);
-    }
-
     private void setupListeners() {
         // 关注按钮
         followButton.setOnClickListener(v -> toggleFollowStatus());
@@ -1010,6 +1113,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
         // 分享按钮
         shareButton.setOnClickListener(v -> shareWork());
+
+        // 音乐按钮
+
 
         // 这里可以添加其他按钮的监听器，如评论按钮、收藏按钮等
         // commentButton.setOnClickListener(v -> { ... });
@@ -1120,6 +1226,12 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         workItem.setLikeCount(likeStatus.getLikeCount());
     }
 
+    private void toggleMusicButton(){
+        if(currentMusic==null){
+            return ;
+        }
+    }
+
     private void shareWork() {
         // 分享功能
         // Intent shareIntent = new Intent(Intent.ACTION_SEND);
@@ -1166,9 +1278,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     protected void onDestroy() {
         super.onDestroy();
 
-        if (imageAdapter != null) {
-            imageAdapter.releaseAllPlayers();
-        }
 
         if (databaseExecutor != null && !databaseExecutor.isShutdown()) {
             databaseExecutor.shutdown();
@@ -1191,6 +1300,22 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 waterfallScreenshot = null;
             }
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (imageAdapter != null) {
+            imageAdapter.pauseCurrentVideo();
+        }
+
+        // 注册音频播放器到MainActivity（如果需要）
+        if (audioPlayerManager != null) {
+            MainActivity.registerAudioPlayer(audioPlayerManager);
+        }
+
+        // 更新音乐按钮状态
+        updateMusicButtonState();
     }
 
     @Override

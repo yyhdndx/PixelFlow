@@ -10,11 +10,17 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
+
 import com.PixelFlow.app.R;
 import com.PixelFlow.app.Streams.WorkItem;
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import com.google.android.exoplayer2.DefaultLoadControl;
 import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.LoadControl;
@@ -37,7 +43,6 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     // 预加载配置
     private static final int PRELOAD_LIMIT = 2; // 前后各预加载的页面数
     private static final int MAX_PLAYER_POOL_SIZE = 3; // 最大播放器池大小
-    // 添加缺失的常量
     private static final int PRELOAD_WINDOW = 2; // 预加载窗口大小
 
     private final Context context;
@@ -136,7 +141,7 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     /**
-     * 预加载视频
+     * 预加载视频 - 修复版：确保预加载完成后再标记
      */
     private void preloadVideo(int position, String videoUrl) {
         if (Boolean.TRUE.equals(videoPreloaded.get(position))) {
@@ -148,11 +153,41 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             return;
         }
 
-        // 准备媒体但不播放
-        prepareMediaIfNeeded(player, position, videoUrl);
-        player.setPlayWhenReady(false);
+        // 检查是否已经是相同URL
+        String currentUrl = playerCurrentUrl.get(position);
+        if (currentUrl != null && currentUrl.equals(videoUrl) &&
+                player.getPlaybackState() != Player.STATE_IDLE) {
+            // 已经是同一个URL且已经准备，标记为预加载完成
+            videoPreloaded.put(position, true);
+            return;
+        }
 
-        videoPreloaded.put(position, true);
+        // 准备媒体但不播放
+        MediaItem mediaItem = MediaItem.fromUri(Uri.parse(videoUrl));
+        player.setMediaItem(mediaItem);
+        player.prepare();
+
+        // 关键修复：监听准备完成后再标记为预加载完成
+        player.addListener(new Player.Listener() {
+            @Override
+            public void onPlaybackStateChanged(int playbackState) {
+                if (playbackState == Player.STATE_READY) {
+                    // 准备完成后标记为预加载完成
+                    videoPreloaded.put(position, true);
+                    playerCurrentUrl.put(position, videoUrl);
+
+                    // 移除监听器避免内存泄漏
+                    player.removeListener(this);
+
+                    // 确保不是当前页面时暂停
+                    if (position != currentPagePosition) {
+                        player.setPlayWhenReady(false);
+                    }
+                }
+            }
+        });
+
+        player.setPlayWhenReady(false);
         playerPool.put(position, player);
     }
 
@@ -192,7 +227,7 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     /**
-     * 创建轻量级播放器
+     * 创建轻量级播放器 - 恢复原始缓冲策略
      */
     private ExoPlayer createLightweightPlayer() {
         LoadControl loadControl = new DefaultLoadControl.Builder()
@@ -212,25 +247,32 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     /**
-     * 清理超出预加载范围的视频
+     * 清理超出预加载范围的视频 - 修复版：不要清理当前页面附近的播放器
      */
     private void cleanupPreloadedVideos(int start, int end) {
+        // 扩展清理范围，避免误清理即将使用的播放器
+        int expandedStart = Math.max(0, start - 1);
+        int expandedEnd = Math.min(mediaItems.size() - 1, end + 1);
+
         for (int position : playerPool.keySet().toArray(new Integer[0])) {
-            if (position < start || position > end) {
-                ExoPlayer player = playerPool.remove(position);
-                playerCurrentUrl.remove(position);
-                videoPreloaded.remove(position);
-                if (player != null && player != currentPlayer) {
-                    try {
-                        player.release();
-                    } catch (Exception ignored) {}
+            if (position < expandedStart || position > expandedEnd) {
+                // 如果不是当前播放的播放器，才清理
+                if (position != currentPlayingPosition) {
+                    ExoPlayer player = playerPool.remove(position);
+                    playerCurrentUrl.remove(position);
+                    videoPreloaded.remove(position);
+                    if (player != null && player != currentPlayer) {
+                        try {
+                            player.release();
+                        } catch (Exception ignored) {}
+                    }
                 }
             }
         }
     }
 
     /**
-     * 准备媒体（如果需要）
+     * 准备媒体（如果需要）- 这是给ViewHolder调用的
      */
     private void prepareMediaIfNeeded(ExoPlayer player, int position, String url) {
         String currentUrl = playerCurrentUrl.get(position);
@@ -245,16 +287,21 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     /**
      * 页面切换时调用
      */
-    /**
-     * 页面切换时调用
-     */
     public void onPageChanged(int newPosition) {
         int oldPosition = currentPagePosition;
         this.currentPagePosition = newPosition;
 
         // 暂停旧位置的视频
-        if (oldPosition >= 0 && oldPosition < getItemCount() && currentPlayer != null) {
-            currentPlayer.pause();
+        if (oldPosition >= 0 && oldPosition < getItemCount()) {
+            if (currentPlayer != null && currentPlayingPosition == oldPosition) {
+                currentPlayer.pause();
+            }
+
+            // 对于非当前播放的预加载视频，也暂停
+            ExoPlayer oldPlayer = playerPool.get(oldPosition);
+            if (oldPlayer != null && oldPlayer.isPlaying()) {
+                oldPlayer.pause();
+            }
         }
 
         // 播放新位置的视频（如果是视频类型）
@@ -263,10 +310,51 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             if (clip.getType() == 1) {
                 ExoPlayer player = playerPool.get(newPosition);
                 if (player != null) {
-                    player.setPlayWhenReady(true);
-                    player.play();
-                    currentPlayer = player;
-                    currentPlayingPosition = newPosition;
+                    // 关键修复：确保播放器已准备好
+                    if (player.getPlaybackState() == Player.STATE_IDLE) {
+                        // 如果还没准备好，重新准备
+                        prepareMediaIfNeeded(player, newPosition, clip.getUrl());
+
+                        // 监听准备完成
+                        ExoPlayer finalPlayer = player;
+                        player.addListener(new Player.Listener() {
+                            @Override
+                            public void onPlaybackStateChanged(int playbackState) {
+                                if (playbackState == Player.STATE_READY) {
+                                    finalPlayer.setPlayWhenReady(true);
+                                    finalPlayer.play();
+                                    currentPlayer = finalPlayer;
+                                    currentPlayingPosition = newPosition;
+                                    finalPlayer.removeListener(this);
+                                }
+                            }
+                        });
+                    } else {
+                        // 已经准备好，直接播放
+                        player.setPlayWhenReady(true);
+                        player.play();
+                        currentPlayer = player;
+                        currentPlayingPosition = newPosition;
+                    }
+                } else {
+                    // 没有预加载的播放器，创建并准备
+                    player = obtainPlayerForPosition(newPosition, clip.getUrl());
+                    prepareMediaIfNeeded(player, newPosition, clip.getUrl());
+
+                    // 监听准备完成
+                    ExoPlayer finalPlayer1 = player;
+                    player.addListener(new Player.Listener() {
+                        @Override
+                        public void onPlaybackStateChanged(int playbackState) {
+                            if (playbackState == Player.STATE_READY) {
+                                finalPlayer1.setPlayWhenReady(true);
+                                finalPlayer1.play();
+                                currentPlayer = finalPlayer1;
+                                currentPlayingPosition = newPosition;
+                                finalPlayer1.removeListener(this);
+                            }
+                        }
+                    });
                 }
             }
 
@@ -334,9 +422,24 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                     .error(R.drawable.ic_image_error)
                     .transition(DrawableTransitionOptions.withCrossFade())
                     .dontTransform()
-                    .into(imageView);
+                    .addListener(new RequestListener<android.graphics.drawable.Drawable>() {
+                        @Override
+                        public boolean onLoadFailed(@Nullable GlideException e, Object model,
+                                                    Target<android.graphics.drawable.Drawable> target,
+                                                    boolean isFirstResource) {
+                            progressBar.setVisibility(View.GONE);
+                            return false;
+                        }
 
-            progressBar.setVisibility(View.GONE);
+                        @Override
+                        public boolean onResourceReady(android.graphics.drawable.Drawable resource, Object model,
+                                                       Target<android.graphics.drawable.Drawable> target,
+                                                       DataSource dataSource, boolean isFirstResource) {
+                            progressBar.setVisibility(View.GONE);
+                            return false;
+                        }
+                    })
+                    .into(imageView);
         }
     }
 
@@ -482,7 +585,7 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                 prepareMediaIfNeeded(player, position, clip.getUrl());
 
                 // 绑定播放器到视图
-                attachPlayerToView(player,position);
+                attachPlayerToView(player, position);
 
                 // 设置点击监听器
                 setupClickListeners(position, clip.getUrl());
@@ -583,7 +686,7 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             prepareMediaIfNeeded(player, position, videoUrl);
 
             // 绑定到视图
-            attachPlayerToView(player,position);
+            attachPlayerToView(player, position);
 
             // 开始播放
             player.setPlayWhenReady(true);

@@ -26,6 +26,9 @@ public class WorkItem implements Serializable {
     private Author author;   // 完整的作者信息
     private List<Clip> clips; // 图片/视频片段列表
     private List<Hashtag> hashtags; // 话题标签
+    private Music music; // 音乐信息
+    private boolean hasAudio = false; // 是否有音频
+
 
     // 作者信息内部类 - 需要实现Serializable
     public static class Author implements Serializable {
@@ -82,13 +85,60 @@ public class WorkItem implements Serializable {
         public void setUrl(String url) { this.url = url; }
     }
 
+    // 更新 Music 内部类
+    public static class Music implements Serializable {
+        private static final long serialVersionUID = 5L;
+        private int volume;      // 音量百分比 0-100
+        private int seekTime;    // 起始播放位置（毫秒）
+        private String url;      // 音乐链接
+
+        public Music() {}
+
+        public Music(int volume, int seekTime, String url) {
+            this.volume = volume;
+            this.seekTime = seekTime;
+            this.url = url;
+        }
+
+        // Getters and Setters
+        public int getVolume() { return volume; }
+        public void setVolume(int volume) {
+            // 确保音量在 0-100 范围内
+            this.volume = Math.max(0, Math.min(100, volume));
+        }
+
+        public int getSeekTime() { return seekTime; }
+        public void setSeekTime(int seekTime) {
+            this.seekTime = Math.max(0, seekTime);
+        }
+
+        public String getUrl() { return url; }
+        public void setUrl(String url) { this.url = url; }
+
+        // 将音量转换为 0.0-1.0 的浮点数
+        public float getVolumeFloat() {
+            return volume / 100.0f;
+        }
+
+        // 获取格式化的起始时间（MM:SS）
+        public String getFormattedSeekTime() {
+            int seconds = seekTime / 1000;
+            int minutes = seconds / 60;
+            seconds = seconds % 60;
+            return String.format("%02d:%02d", minutes, seconds);
+        }
+
+        // 检查是否有有效的音乐
+        public boolean isValid() {
+            return url != null && !url.isEmpty();
+        }
+    }
+
     // 话题标签内部类 - 需要实现Serializable
     public static class Hashtag implements Serializable {
         private static final long serialVersionUID = 4L;
         private int start;
         private int end;
-
-        public Hashtag() {}
 
         public Hashtag(int start, int end) {
             this.start = start;
@@ -96,19 +146,18 @@ public class WorkItem implements Serializable {
         }
 
         public int getStart() { return start; }
-        public void setStart(int start) { this.start = start; }
 
         public int getEnd() { return end; }
-        public void setEnd(int end) { this.end = end; }
     }
 
     // 从API的PostItem创建WorkItem的构造方法（更新版）
+    // 更新构造方法中的音乐部分
     public WorkItem(PostItem postItem) {
         this.id = postItem.getPostId();
         this.title = postItem.getTitle();
         this.content = postItem.getContent();
 
-        // 设置创建时间（从API获取）
+        // 设置创建时间
         this.createTime = postItem.getCreateTime();
 
         // 设置作者信息
@@ -118,12 +167,22 @@ public class WorkItem implements Serializable {
                     postItem.getAuthor().getNickname(),
                     postItem.getAuthor().getAvatar()
             );
-            // 同时设置原有的作者字段，保持兼容
             this.authorName = postItem.getAuthor().getNickname();
             this.authorAvatarUrl = postItem.getAuthor().getAvatar();
         }
 
-        // 模拟点赞数（因为API没有提供）
+        // 设置音乐信息（根据新的数据结构）
+        if (postItem.getMusic() != null) {
+            PostItem.Music postMusic = postItem.getMusic();
+            this.music = new Music(
+                    postMusic.getVolume(),     // 音量
+                    postMusic.getSeekTime(),   // 起始播放位置
+                    postMusic.getUrl()         // 音乐链接
+            );
+            this.hasAudio = this.music.isValid(); // 检查是否有有效音乐
+        }
+
+        // 模拟点赞数
         this.likeCount = (int) (Math.random() * 1000);
         this.isLiked = false;
 
@@ -140,13 +199,11 @@ public class WorkItem implements Serializable {
                 this.clips.add(newClip);
             }
 
-            // 使用第一个clip作为封面
             PostItem.Clip firstClip = postItem.getClips().get(0);
             this.coverUrl = firstClip.getUrl();
             this.imageWidth = firstClip.getWidth();
             this.imageHeight = firstClip.getHeight();
         } else {
-            // 如果没有clip，使用默认图片
             this.coverUrl = "";
             this.imageWidth = 400;
             this.imageHeight = 600;
@@ -325,6 +382,23 @@ public class WorkItem implements Serializable {
             }
         }
         return null;
+    }
+
+    // 在 Getters and Setters 部分添加
+
+    public boolean hasAudio() { return hasAudio; }
+    public void setHasAudio(boolean hasAudio) { this.hasAudio = hasAudio; }
+
+    public Music getMusic() {
+        return music;
+    }
+
+    public void setMusic(Music music) {
+        this.music = music;
+    }
+
+    public boolean isHasAudio() {
+        return hasAudio;
     }
 
     /**

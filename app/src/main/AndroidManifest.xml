@@ -4,6 +4,28 @@
     package="com.PixelFlow.app"
     tools:ignore="ExtraText">
 
+    <!-- 基础网络权限 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- 音频相关权限 -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- 前台服务权限（Android 9+ 必须） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"
+        android:foregroundServiceType="mediaPlayback" />
+
+    <!-- 音频焦点权限 -->
+    <uses-permission android:name="android.permission.AUDIOFOCUS" />
+
+    <!-- 存储权限（如果音频文件在本地） -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- 清除attributionTag警告 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"
+        tools:ignore="ProtectedPermissions" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -13,33 +35,28 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
-        tools:targetApi="31">
+        android:usesCleartextTraffic="true"
+    tools:targetApi="31">
 
-        <!-- 主Activity - 应用入口 -->
-        <activity
-            android:name="com.PixelFlow.app.MainActivity"
-            android:exported="true"
-            android:theme="@style/AppTheme">  <!-- 改为 AppTheme -->
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+    <!-- 主Activity -->
+    <activity
+        android:name="com.PixelFlow.app.MainActivity"
+        android:exported="true"
+        android:theme="@style/AppTheme">
+        <intent-filter>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent-filter>
+    </activity>
 
-        <!-- 详情页Activity -->
-        <activity
-            android:name=".DetailPage.WorkDetailActivity"
-            android:theme="@style/Theme.Detail"
-        android:exported="false" />
+    <!-- 详情页Activity -->
+    <activity
+        android:name=".DetailPage.WorkDetailActivity"
+        android:theme="@style/Theme.Detail"
+        android:exported="false"
+        android:screenOrientation="portrait"
+        android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
+        android:windowSoftInputMode="adjustResize|stateHidden" />
 
-    </application>
-
-    <uses-permission android:name="android.permission.INTERNET"
-        tools:ignore="ManifestOrder" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-</manifest>
+</application>
+    </manifest>

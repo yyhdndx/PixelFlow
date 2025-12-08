@@ -44,5 +44,43 @@
     <color name="bottom_nav_icon_color">@android:color/white</color>
     <color name="bottom_nav_text_color">@android:color/white</color>
 
+    <color name="white_30">#4DFFFFFF</color>
+    <color name="white_50">#80FFFFFF</color>
+    <color name="white_70">#B3FFFFFF</color>
+
+    <color name="black_10">#1A000000</color>
+    <color name="black_30">#4D000000</color>
+    <color name="black_50">#80000000</color>
+    <color name="black_70">#B3000000</color>
+
+    <color name="success">#FF4CAF50</color>
+    <color name="warning">#FFFF9800</color>
+    <color name="error">#FFF44336</color>
+    <color name="info">#FF2196F3</color>
+
+    <!-- 背景颜色 -->
+    <color name="background_light">#FFF8F9FA</color>
+    <color name="background_dark">#FF1C1B1F</color>
+
+    <!-- 文字颜色 -->
+    <color name="text_primary">#FF1D1B20</color>
+    <color name="text_secondary">#FF49454F</color>
+    <color name="text_hint">#FFC4C7C5</color>
+    <color name="text_disabled">#FFC4C7C5</color>
+
+    <!-- 边框颜色 -->
+    <color name="border_light">#FFE5E5E5</color>
+    <color name="border_dark">#FF333333</color>
+
+    <!-- 覆盖层颜色 -->
+    <color name="overlay_light">#33FFFFFF</color>
+    <color name="overlay_dark">#66000000</color>
+    <color name="overlay_primary">#336200EE</color>
+
+    <!-- 阴影颜色 -->
+    <color name="shadow_light">#0D000000</color>
+    <color name="shadow_medium">#1A000000</color>
+    <color name="shadow_dark">#33000000</color>
+
     <color name="background_gray">#F5F5F5</color>
 </resources>
