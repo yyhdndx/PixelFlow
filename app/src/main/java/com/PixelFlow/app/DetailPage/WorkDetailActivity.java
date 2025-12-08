@@ -963,20 +963,24 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             imageUrls.add(workItem.getCoverUrl());
         }
 
-        // 创建并显示全屏图片对话框
-        FullScreenMediaDialog dialog = new FullScreenMediaDialog(
-                WorkDetailActivity.this,
-                imageUrls,
-                position
-        );
+        // 获取当前点击的图片URL
+        if (position >= 0 && position < imageUrls.size()) {
+            String currentImageUrl = imageUrls.get(position);
 
-        // 设置对话框显示和消失的动画
-        Window window = dialog.getWindow();
-        if (window != null) {
-            window.setWindowAnimations(R.style.FullScreenDialogAnimation);
+            // 创建并显示全屏图片对话框 - 现在只传递单个图片URL
+            FullScreenMediaDialog dialog = new FullScreenMediaDialog(
+                    WorkDetailActivity.this,
+                    currentImageUrl
+            );
+
+            // 设置对话框显示和消失的动画
+            Window window = dialog.getWindow();
+            if (window != null) {
+                window.setWindowAnimations(R.style.FullScreenDialogAnimation);
+            }
+
+            dialog.show();
         }
-
-        dialog.show();
     }
 
     private void addTagView(String tag) {

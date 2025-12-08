@@ -1,5 +1,6 @@
 package com.PixelFlow.app.DetailPage;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.net.Uri;
 import android.view.LayoutInflater;
@@ -244,14 +245,39 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     /**
      * 页面切换时调用
      */
+    /**
+     * 页面切换时调用
+     */
     public void onPageChanged(int newPosition) {
+        int oldPosition = currentPagePosition;
         this.currentPagePosition = newPosition;
 
-        if (newPosition != currentPlayingPosition) {
-            pauseCurrentVideo();
+        // 暂停旧位置的视频
+        if (oldPosition >= 0 && oldPosition < getItemCount() && currentPlayer != null) {
+            currentPlayer.pause();
         }
 
-        preloadAdjacentVideos(newPosition);
+        // 播放新位置的视频（如果是视频类型）
+        if (newPosition >= 0 && newPosition < getItemCount()) {
+            WorkItem.Clip clip = mediaItems.get(newPosition);
+            if (clip.getType() == 1) {
+                ExoPlayer player = playerPool.get(newPosition);
+                if (player != null) {
+                    player.setPlayWhenReady(true);
+                    player.play();
+                    currentPlayer = player;
+                    currentPlayingPosition = newPosition;
+                }
+            }
+
+            // 通知UI更新
+            notifyItemChanged(newPosition);
+        }
+
+        // 也更新旧位置的UI
+        if (oldPosition >= 0 && oldPosition < getItemCount()) {
+            notifyItemChanged(oldPosition);
+        }
     }
 
     /**
@@ -286,14 +312,6 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             currentPlayer = null;
         }
         currentPlayingPosition = -1;
-    }
-
-    /**
-     * 获取当前列表中心位置（用于预加载判断）
-     */
-    private int getCurrentListCenter() {
-        // 简单实现：返回当前页面位置
-        return currentPagePosition;
     }
 
     // 图片ViewHolder
@@ -335,40 +353,45 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         private final Player.Listener viewHolderPlayerListener = new Player.Listener() {
             @Override
             public void onPlaybackStateChanged(int playbackState) {
-                // 确保这个回调在正确的线程
                 itemView.post(() -> {
-                    if (playerView.getPlayer() == null) return;
+                    ExoPlayer player = (ExoPlayer) playerView.getPlayer();
+                    if (player == null) return;
 
                     switch (playbackState) {
                         case Player.STATE_BUFFERING:
-                            // 关键修复：只有在尝试播放时才显示加载图标
-                            ExoPlayer p = (ExoPlayer) playerView.getPlayer();
-                            if (p != null && p.isPlaying()) {
+                            // 只有在播放或尝试播放时才显示加载
+                            if (player.isPlaying() || player.getPlayWhenReady()) {
                                 loadingProgress.setVisibility(View.VISIBLE);
                             }
                             break;
 
                         case Player.STATE_READY:
-                            // 关键修复：播放器就绪时，根据是否正在播放来更新UI
-                            ExoPlayer player = (ExoPlayer) playerView.getPlayer();
-                            if (player != null) {
-                                loadingProgress.setVisibility(View.GONE);
+                            loadingProgress.setVisibility(View.GONE);
 
-                                // 更新播放按钮和封面
-                                if (player.isPlaying()) {
-                                    playButton.setVisibility(View.GONE);
-                                    videoCover.setVisibility(View.GONE);
-                                } else {
-                                    playButton.setVisibility(View.VISIBLE);
-                                    videoCover.setVisibility(View.VISIBLE);
-                                }
+                            // 如果这是当前页面且设置了自动播放，但现在才准备好
+                            if (viewHolderPosition == currentPagePosition &&
+                                    player.getPlayWhenReady() &&
+                                    !player.isPlaying()) {
+                                player.play();
                             }
                             break;
 
                         case Player.STATE_ENDED:
                             loadingProgress.setVisibility(View.GONE);
-                            playButton.setVisibility(View.VISIBLE);
+                            // 播放结束：显示封面和重播按钮
+                            playerView.setVisibility(View.GONE);
                             videoCover.setVisibility(View.VISIBLE);
+                            playButton.setVisibility(View.VISIBLE);
+                            playButton.setImageResource(R.drawable.ic_replay);
+                            break;
+
+                        case Player.STATE_IDLE:
+                            loadingProgress.setVisibility(View.GONE);
+                            // 闲置状态：显示封面
+                            if (!player.isPlaying()) {
+                                playerView.setVisibility(View.GONE);
+                                videoCover.setVisibility(View.VISIBLE);
+                            }
                             break;
                     }
                 });
@@ -377,26 +400,29 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             @Override
             public void onIsPlayingChanged(boolean isPlaying) {
                 itemView.post(() -> {
+                    ExoPlayer player = (ExoPlayer) playerView.getPlayer();
+                    if (player == null) return;
+
                     if (isPlaying) {
-                        // 开始播放时隐藏加载图标
+                        // 开始播放时隐藏封面和按钮，显示视频
                         loadingProgress.setVisibility(View.GONE);
                         videoCover.setVisibility(View.GONE);
                         playButton.setVisibility(View.GONE);
+                        playerView.setVisibility(View.VISIBLE);
                     } else {
-                        // 暂停时显示播放按钮
-                        playButton.setVisibility(View.VISIBLE);
-                        videoCover.setVisibility(View.VISIBLE);
+                        // 暂停：根据当前页面状态决定UI
+                        if (viewHolderPosition == currentPagePosition) {
+                            // 是当前页面但暂停了：隐藏视频，显示封面，不显示播放按钮
+                            playerView.setVisibility(View.GONE);
+                            videoCover.setVisibility(View.VISIBLE);
+                            playButton.setVisibility(View.GONE); // 不显示按钮，点击封面继续播放
+                        } else {
+                            // 不是当前页面：隐藏视频，显示封面和播放按钮
+                            playerView.setVisibility(View.GONE);
+                            videoCover.setVisibility(View.VISIBLE);
+                            playButton.setVisibility(View.VISIBLE);
+                        }
                     }
-                });
-            }
-
-            @Override
-            public void onPlayerError(@NonNull PlaybackException error) {
-                itemView.post(() -> {
-                    loadingProgress.setVisibility(View.GONE);
-                    playButton.setVisibility(View.VISIBLE);
-                    videoCover.setVisibility(View.VISIBLE);
-                    playerView.setVisibility(View.GONE);
                 });
             }
         };
@@ -414,7 +440,7 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         }
 
         private void setupPlayerView() {
-            playerView.setUseController(true);
+            playerView.setUseController(false);
             playerView.setControllerAutoShow(true);
             playerView.setControllerHideOnTouch(true);
             playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER); // 完全隐藏内置缓冲
@@ -447,61 +473,93 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                     .dontTransform()
                     .into(videoCover);
 
-            // 检查是否有预加载的播放器
-            ExoPlayer preloadedPlayer = playerPool.get(position);
-            if (preloadedPlayer != null && currentPlayingPosition == position) {
-                // 如果这个位置是当前正在播放的，恢复状态
-                attachPlayerToView(preloadedPlayer, position);
-            } else {
-                // 否则显示封面和播放按钮
-                playButton.setVisibility(View.VISIBLE);
-                videoCover.setVisibility(View.VISIBLE);
-                loadingProgress.setVisibility(View.GONE);
-            }
+            // 如果是视频类型
+            if (clip.getType() == 1) {
+                // 获取播放器
+                ExoPlayer player = obtainPlayerForPosition(position, clip.getUrl());
 
-            setupClickListeners(position, clip.getUrl());
+                // 确保媒体已准备
+                prepareMediaIfNeeded(player, position, clip.getUrl());
 
-            // 预加载邻近视频
-            if (Math.abs(position - getCurrentListCenter()) <= PRELOAD_WINDOW) {
-                preloadVideo(position, clip.getUrl());
+                // 绑定播放器到视图
+                attachPlayerToView(player,position);
+
+                // 设置点击监听器
+                setupClickListeners(position, clip.getUrl());
+
+                // 关键修复：如果是当前页面
+                if (position == currentPagePosition) {
+                    // 先设置自动播放标志
+                    player.setPlayWhenReady(true);
+
+                    // 如果已经准备好了，立即播放
+                    if (player.getPlaybackState() == Player.STATE_READY) {
+                        player.play();
+                        playButton.setVisibility(View.GONE);
+                        videoCover.setVisibility(View.GONE);
+                    }
+                    // 如果还没准备好（STATE_IDLE 或 STATE_BUFFERING）
+                    // 监听器会在 STATE_READY 时自动播放
+                } else {
+                    // 不是当前页面
+                    player.setPlayWhenReady(false);
+                    playButton.setVisibility(View.VISIBLE);
+                }
             }
         }
 
         private void resetViewState() {
+            // 重置时：如果是当前页面，只显示封面；否则显示封面和播放按钮
             playerView.setVisibility(View.GONE);
             videoCover.setVisibility(View.VISIBLE);
-            playButton.setVisibility(View.VISIBLE);
+
+            if (viewHolderPosition == currentPagePosition) {
+                // 当前页面：不显示播放按钮（等待自动播放或用户点击封面）
+                playButton.setVisibility(View.GONE);
+            } else {
+                // 非当前页面：显示播放按钮
+                playButton.setVisibility(View.VISIBLE);
+                playButton.setImageResource(R.drawable.ic_play);
+            }
+
             loadingProgress.setVisibility(View.GONE);
         }
 
         private void setupClickListeners(int position, String videoUrl) {
             // 清除旧的监听器避免重复绑定
             playButton.setOnClickListener(null);
+            videoCover.setOnClickListener(null);
             videoContainer.setOnClickListener(null);
 
-            playButton.setOnClickListener(v -> {
-                onPlayClicked(position, videoUrl);
-            });
+            // 统一的点击处理器
+            View.OnClickListener clickListener = v -> {
+                onMediaClicked(position, videoUrl);
+            };
 
-            videoContainer.setOnClickListener(v -> {
-                onPlayClicked(position, videoUrl);
-            });
+            playButton.setOnClickListener(clickListener);
+            videoCover.setOnClickListener(clickListener);
+            videoContainer.setOnClickListener(clickListener);
         }
 
-        private void onPlayClicked(int position, String videoUrl) {
-            // 切换播放/暂停或播放新视频
+        private void onMediaClicked(int position, String videoUrl) {
+            // 如果点击的是当前正在播放的视频
             if (currentPlayingPosition == position && currentPlayer != null) {
                 if (currentPlayer.isPlaying()) {
+                    // 如果正在播放，点击暂停
                     currentPlayer.pause();
-                    playButton.setVisibility(View.VISIBLE);
-                    videoCover.setVisibility(View.VISIBLE);
+                    // UI更新由监听器处理
                 } else {
+                    // 如果已暂停，点击恢复播放
+                    currentPlayer.setPlayWhenReady(true);
                     currentPlayer.play();
-                    playButton.setVisibility(View.GONE);
+                    // 立即更新UI
+                    playerView.setVisibility(View.VISIBLE);
                     videoCover.setVisibility(View.GONE);
+                    playButton.setVisibility(View.GONE);
                 }
                 return;
             }
+
             // 播放新视频
             playVideo(position, videoUrl);
         }
@@ -510,13 +568,12 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             // 暂停之前的播放器
             if (currentPlayer != null && currentPlayingPosition != position) {
                 currentPlayer.pause();
+                // 隐藏之前的视频
+                // 这里可以通过notifyItemChanged来更新UI，或者让监听器处理
             }
 
             // 获取或创建播放器
             ExoPlayer player = obtainPlayerForPosition(position, videoUrl);
-            if (player == null) {
-                return;
-            }
 
             // 清理旧的监听器，添加新的
             player.removeListener(viewHolderPlayerListener);
@@ -526,7 +583,7 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             prepareMediaIfNeeded(player, position, videoUrl);
 
             // 绑定到视图
-            attachPlayerToView(player, position);
+            attachPlayerToView(player,position);
 
             // 开始播放
             player.setPlayWhenReady(true);
@@ -536,11 +593,12 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             currentPlayer = player;
             currentPlayingPosition = position;
 
-            // 立即更新UI状态
+            // 立即更新UI状态：显示视频，隐藏封面和按钮
+            playerView.setVisibility(View.VISIBLE);
             playButton.setVisibility(View.GONE);
             videoCover.setVisibility(View.GONE);
-            loadingProgress.setVisibility(View.VISIBLE); // 先显示加载，等READY状态会隐藏
         }
+
 
         private void attachPlayerToView(ExoPlayer player, int position) {
             // 移除旧的播放器
@@ -551,17 +609,22 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
 
             // 绑定新播放器
             playerView.setPlayer(player);
-            playerView.setVisibility(View.VISIBLE);
+
+            // 重要：初始状态先隐藏视频，等待播放时才显示
+            playerView.setVisibility(View.GONE);
+            videoCover.setVisibility(View.VISIBLE);
 
             // 根据播放状态更新UI
             if (player.isPlaying()) {
-                playButton.setVisibility(View.GONE);
+                playerView.setVisibility(View.VISIBLE);
                 videoCover.setVisibility(View.GONE);
+                playButton.setVisibility(View.GONE);
                 loadingProgress.setVisibility(
                         player.getPlaybackState() == Player.STATE_BUFFERING ?
                                 View.VISIBLE : View.GONE
                 );
             } else {
+                playerView.setVisibility(View.GONE);
                 playButton.setVisibility(View.VISIBLE);
                 videoCover.setVisibility(View.VISIBLE);
                 loadingProgress.setVisibility(View.GONE);
