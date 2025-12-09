@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- 圆形背景 -->
+    <path
+        android:fillColor="@color/red_500"
+        android:pathData="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2z" />
+
+    <!-- 白色边框（可选，增加对比度） -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="0.5"
+        android:pathData="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2z" />
+
+    <!-- 删除图标（X形状） -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M7,7L17,17M7,17L17,7"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.5"
+        android:strokeColor="@android:color/white" />
+</vector>

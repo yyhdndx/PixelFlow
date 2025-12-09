@@ -102,15 +102,15 @@
                         android:id="@+id/follow_button"
                         style="@style/Widget.Material3.Button.OutlinedButton"
                         android:layout_width="wrap_content"
-                        android:layout_height="36dp"
-                        android:textStyle="bold"
+                        android:layout_height="wrap_content"
                         android:text="关 注"
-                        android:textSize="13sp"
                         android:textColor="@color/primary_color"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
                         app:cornerRadius="50dp"
+                        app:rippleColor="@color/primary_color"
                         app:strokeColor="@color/primary_color"
-                        app:strokeWidth="1.2dp"
-                        app:rippleColor="@color/primary_color" />
+                        app:strokeWidth="1.2dp" />
 
 
                 </LinearLayout>

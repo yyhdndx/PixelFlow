@@ -34,4 +34,15 @@
     <string name="logout_confirm_message">确定要退出登录吗？</string>
     <string name="confirm">确定</string>
     <string name="storage_permission_required">需要存储权限来选择图片</string>
+
+    <string name="back">返回</string>
+    <string name="create_work">创建作品</string>
+    <string name="add_photo">添加图片</string>
+    <string name="add_video">添加视频</string>
+    <string name="publish_work">发布作品</string>
+    <string name="title_hint">给你的作品起个名字</string>
+    <string name="description_hint">分享你的创作故事或灵感...</string>
+    <string name="hashtags_hint">例如：#数字艺术 #设计 #灵感</string>
+
+    <string name="version">Version 1.0.0</string>
 </resources>

@@ -38,8 +38,8 @@ public class PreloadManager implements ComponentCallbacks2 {
 
     static {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
-        CORE_POOL_SIZE = Math.max(1, availableProcessors - 1);
-        MAX_POOL_SIZE = Math.min(4, availableProcessors);
+        CORE_POOL_SIZE = Math.max(1, availableProcessors);
+        MAX_POOL_SIZE = Math.max(CORE_POOL_SIZE, Math.min(4, availableProcessors * 2));
     }
 
     private static final long KEEP_ALIVE_TIME = 30L;
@@ -252,40 +252,6 @@ public class PreloadManager implements ComponentCallbacks2 {
                     optimizeCache();
                 }
             });
-        }
-    }
-
-    /**
-     * 智能预加载（根据滑动状态）
-     */
-    public void smartPreload(List<WorkItem> visibleItems, List<WorkItem> upcomingItems,
-                             int scrollState, boolean isFastScroll) {
-        switch (scrollState) {
-            case RecyclerView.SCROLL_STATE_IDLE:
-                // 静止时：预加载当前可见项的高质量版本
-                preloadWorkItems(visibleItems, PRIORITY_HIGH);
-
-                // 预加载即将出现的项的中等质量版本
-                if (!upcomingItems.isEmpty()) {
-                    preloadWorkItems(upcomingItems.subList(0,
-                            Math.min(upcomingItems.size(), 3)), PRIORITY_MEDIUM);
-                }
-                break;
-
-            case RecyclerView.SCROLL_STATE_DRAGGING:
-                if (isFastScroll) {
-                    // 快速拖动：只预加载低质量版本
-                    preloadWorkItems(visibleItems, PRIORITY_LOW);
-                } else {
-                    // 慢速拖动：预加载中等质量版本
-                    preloadWorkItems(visibleItems, PRIORITY_MEDIUM);
-                }
-                break;
-
-            case RecyclerView.SCROLL_STATE_SETTLING:
-                // 惯性滚动：预加载低质量版本
-                preloadWorkItems(visibleItems, PRIORITY_LOW);
-                break;
         }
     }
 
@@ -689,29 +655,4 @@ public class PreloadManager implements ComponentCallbacks2 {
         clearAllPreloads();
     }
 
-    /**
-     * 获取统计信息（用于调试）
-     */
-    public PreloadStats getStats() {
-        return new PreloadStats(
-                preloadCache.size(),
-                pendingTasks.size(),
-                sizeCache.cache.size()
-        );
-    }
-
-    /**
-     * 预加载统计信息
-     */
-    public static class PreloadStats {
-        public final int cachedItems;
-        public final int pendingTasks;
-        public final int cachedSizes;
-
-        PreloadStats(int cachedItems, int pendingTasks, int cachedSizes) {
-            this.cachedItems = cachedItems;
-            this.pendingTasks = pendingTasks;
-            this.cachedSizes = cachedSizes;
-        }
-    }
 }

@@ -588,24 +588,36 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                 // 设置点击监听器
                 setupClickListeners(position, clip.getUrl());
 
-                // 关键修复：如果是当前页面
+                // 如果是当前页面
                 if (position == currentPagePosition) {
-                    // 先设置自动播放标志
-                    player.setPlayWhenReady(true);
 
-                    // 如果已经准备好了，立即播放
+                    // 先禁止立即播放，避免未 prepare 完造成“回到视频开头”
+                    player.setPlayWhenReady(false);
+
+                    // 如果已准备好 → 直接播放
                     if (player.getPlaybackState() == Player.STATE_READY) {
+
                         player.play();
                         playButton.setVisibility(View.GONE);
                         videoCover.setVisibility(View.GONE);
+
+                    } else {
+                        // 等 READY 后再播放，避免 seekTo(0) 或跳头问题
+                        player.addListener(new Player.Listener() {
+                            @Override
+                            public void onPlaybackStateChanged(int state) {
+                                if (state == Player.STATE_READY) {
+                                    player.play();
+                                    playButton.setVisibility(View.GONE);
+                                    videoCover.setVisibility(View.GONE);
+                                    // 播放一次即可移除监听
+                                    player.removeListener(this);
+                                }
+                            }
+                        });
                     }
-                    // 如果还没准备好（STATE_IDLE 或 STATE_BUFFERING）
-                    // 监听器会在 STATE_READY 时自动播放
-                } else {
-                    // 不是当前页面
-                    player.setPlayWhenReady(false);
-                    playButton.setVisibility(View.VISIBLE);
                 }
+
             }
         }
 

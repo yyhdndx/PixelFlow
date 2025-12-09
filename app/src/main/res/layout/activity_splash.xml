@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    android:fitsSystemWindows="true">
+
+    <!-- 海报Logo容器 - 使用FrameLayout包裹 -->
+    <FrameLayout
+        android:id="@+id/logo_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="0.05dp"
+        android:background="@color/transparent"
+        android:layout_gravity="center">
+
+        <!-- 海报图片 -->
+        <ImageView
+            android:id="@+id/iv_logo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/pixel" />
+
+        <!-- 阴影效果 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/poster_shadow" />
+
+    </FrameLayout>
+
+    <!-- App名称 -->
+    <TextView
+        android:id="@+id/tv_app_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center|bottom"
+        android:layout_marginBottom="15pt"
+        android:alpha="0"
+        android:text="PixelFlow"
+        android:textColor="@color/black"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+</FrameLayout>

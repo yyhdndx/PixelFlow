@@ -1,10 +1,19 @@
 package com.PixelFlow.app;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.view.Gravity;
 import android.view.View;
+import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.AccelerateInterpolator;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.view.animation.BounceInterpolator;
 import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
+import android.widget.FrameLayout;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
@@ -49,6 +58,89 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
         }
 
         preloadManager = new PreloadManager(this);
+
+        initializeUIForSplashTransition();
+
+        // 延迟播放主界面进入动画
+        new Handler().postDelayed(this::playMainUIEntranceAnimation, 300); // 与SplashActivity的退出动画同步
+    }
+
+    private void initializeUIForSplashTransition() {
+        // 初始状态：全部透明
+        bottomNavigationView.setAlpha(0f);
+        fabCamera.setAlpha(0f);
+
+        // 底部导航从下方隐藏
+        bottomNavigationView.setTranslationY(bottomNavigationView.getHeight() / 2);
+
+        // FAB初始状态：缩小并旋转
+        fabCamera.setScaleX(0f);
+        fabCamera.setScaleY(0f);
+        fabCamera.setRotation(-90f);
+    }
+
+    private void playMainUIEntranceAnimation() {
+        // 1. 底部导航淡入上滑
+        bottomNavigationView.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(600)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+
+        // 2. FAB弹跳进入（有节奏感）
+        fabCamera.animate()
+                .alpha(1f)
+                .rotation(0f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(800)
+                .setInterpolator(new BounceInterpolator())
+                .setStartDelay(200)
+                .withEndAction(() -> {
+                    // 最后添加一个轻微的脉冲效果
+                    fabCamera.animate()
+                            .scaleX(1.05f)
+                            .scaleY(1.05f)
+                            .setDuration(150)
+                            .withEndAction(() -> {
+                                fabCamera.animate()
+                                        .scaleX(1f)
+                                        .scaleY(1f)
+                                        .setDuration(100)
+                                        .start();
+                            })
+                            .start();
+                })
+                .start();
+
+        // 3. 播放轻微波纹效果
+        playSubtleRippleEffect();
+    }
+
+    private void playSubtleRippleEffect() {
+        // 在主界面也添加一个轻微的波纹效果
+        View rippleView = new View(this);
+        rippleView.setBackgroundResource(R.drawable.circle_ripple);
+
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(100, 100);
+        params.gravity = Gravity.CENTER;
+        rippleView.setLayoutParams(params);
+
+        FrameLayout rootLayout = findViewById(android.R.id.content);
+        if (rootLayout != null) {
+            rootLayout.addView(rippleView);
+
+            rippleView.setAlpha(0.5f);
+            rippleView.animate()
+                    .scaleX(3f)
+                    .scaleY(3f)
+                    .alpha(0f)
+                    .setDuration(800)
+                    .setInterpolator(new AccelerateDecelerateInterpolator())
+                    .withEndAction(() -> rootLayout.removeView(rippleView))
+                    .start();
+        }
     }
 
     private void initView() {
@@ -99,18 +191,45 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
     private void setupCameraButton() {
         fabCamera.setOnClickListener(v -> {
             // 处理相机按钮点击事件
-            openCamera();
+            showCreateOptions();
         });
     }
 
-    private void openCamera() {
-        // 这里实现打开相机的逻辑
-        // 例如：启动相机Activity、打开相机Fragment、请求权限等
+    private void showCreateOptions() {
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
+        builder.setTitle("创建作品");
+        builder.setMessage("选择创建方式");
 
-        // 示例：显示一个提示
-        // Toast.makeText(this, "打开相机", Toast.LENGTH_SHORT).show();
+        builder.setPositiveButton("拍摄新作品", (dialog, which) -> {
+//            openCamera();
+        });
 
-        // 后续你可以在这里添加真实的相机功能
+        builder.setNegativeButton("从相册创建", (dialog, which) -> {
+            createWorkFromGallery();
+        });
+
+        builder.setNeutralButton("创建空白作品", (dialog, which) -> {
+            createBlankWork();
+        });
+
+        builder.show();
+    }
+
+    private void createBlankWork() {
+        // 直接跳转到创建作品界面
+        Intent intent = new Intent(MainActivity.this, CreateWorkActivity.class);
+        startActivity(intent);
+
+        // 可选：添加转场动画
+        overridePendingTransition(R.anim.slide_in_up, R.anim.slide_out_down);
+    }
+
+    private void createWorkFromGallery() {
+        // 这里可以添加从相册选择图片的逻辑
+        // 简化：直接跳转到创建作品界面
+        Intent intent = new Intent(MainActivity.this, CreateWorkActivity.class);
+        startActivity(intent);
+        overridePendingTransition(R.anim.slide_in_up, R.anim.slide_out_down);
     }
 
     private void showFragment(Fragment fragment) {
@@ -243,6 +362,71 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
     // 获取播放器的单例
     public static AudioPlayer getGlobalAudioPlayer(Context context) {
         return AudioPlayer.getInstance(context);
+    }
+
+    private void playRippleEffect() {
+        // 创建一个圆形的View作为波纹
+        View rippleView = new View(this);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                200, 200);
+        params.gravity = Gravity.CENTER;
+        rippleView.setLayoutParams(params);
+        rippleView.setBackgroundResource(R.drawable.circle_ripple);
+
+        // 添加到根布局
+        FrameLayout rootLayout = findViewById(android.R.id.content);
+        if (rootLayout != null) {
+            rootLayout.addView(rippleView);
+
+            // 播放波纹动画
+            Animation rippleAnim = AnimationUtils.loadAnimation(this, R.anim.ripple_circle);
+            rippleAnim.setAnimationListener(new Animation.AnimationListener() {
+                @Override
+                public void onAnimationStart(Animation animation) {}
+
+                @Override
+                public void onAnimationEnd(Animation animation) {
+                    // 动画结束后移除波纹View
+                    rootLayout.removeView(rippleView);
+                }
+
+                @Override
+                public void onAnimationRepeat(Animation animation) {}
+            });
+            rippleView.startAnimation(rippleAnim);
+        }
+    }
+
+    private void playSecondaryAnimations() {
+        // 1. 底部导航栏上滑进入
+        bottomNavigationView.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(500)
+                .setInterpolator(new DecelerateInterpolator())
+                .setStartDelay(100)
+                .start();
+
+        // 2. FAB弹跳进入（更生动）
+        fabCamera.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(700)
+                .setInterpolator(new BounceInterpolator())
+                .setStartDelay(300)
+                .withStartAction(() -> {
+                    // 添加一点旋转效果
+                    fabCamera.setRotation(-90f);
+                })
+                .withEndAction(() -> {
+                    // 最后来一个小小的旋转回正
+                    fabCamera.animate()
+                            .rotation(0f)
+                            .setDuration(200)
+                            .setInterpolator(new OvershootInterpolator())
+                            .start();
+                })
+                .start();
     }
 
     @Override

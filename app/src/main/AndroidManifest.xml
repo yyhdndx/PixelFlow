@@ -36,39 +36,62 @@
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/app"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true"
-    tools:targetApi="31">
+        tools:targetApi="31">
 
-    <!-- 主Activity -->
-    <activity
-        android:name="com.PixelFlow.app.MainActivity"
-        android:exported="true"
-        android:theme="@style/AppTheme">
-        <intent-filter>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent-filter>
-    </activity>
+        <!-- ================== SplashActivity（启动页） ================== -->
+        <activity
+            android:name=".SplashActivity"
+            android:exported="true"
+            android:theme="@style/Theme.PixelFlow.Splash"
+            android:screenOrientation="portrait">
+            <!-- 设置为启动Activity -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
-    <!-- 详情页Activity -->
-    <activity
-        android:name=".DetailPage.WorkDetailActivity"
-        android:theme="@style/Theme.Detail"
-        android:exported="false"
-        android:screenOrientation="portrait"
-        android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
-        android:windowSoftInputMode="adjustResize|stateHidden" />
+        <!-- ================== MainActivity（主界面） ================== -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
+            android:windowSoftInputMode="adjustResize|stateAlwaysHidden">
+            <!-- 注意：这里移除了 MAIN 和 LAUNCHER 的 intent-filter -->
+        </activity>
 
-    <activity
-        android:name=".Hashtag.HashtagActivity"
-        android:exported="false"
-        android:theme="@style/Theme.Detail"
-        android:windowSoftInputMode="adjustResize" />
+        <!-- ================== 详情页Activity ================== -->
+        <activity
+            android:name=".DetailPage.WorkDetailActivity"
+            android:theme="@style/Theme.Detail"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
 
-</application>
-    </manifest>
+        <!-- ================== 话题页Activity ================== -->
+        <activity
+            android:name=".Hashtag.HashtagActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Detail"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- ================== 创建作品Activity ================== -->
+        <activity
+            android:name=".CreateWorkActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Detail"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+
+    </application>
+</manifest>

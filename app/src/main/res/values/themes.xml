@@ -40,4 +40,28 @@
     <style name="AppTheme.Night" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- 夜间模式配置 -->
     </style>
+
+    <!-- Splash主题 -->
+    <style name="Theme.PixelFlow.Splash" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- 全屏显示 -->
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowNoTitle">true</item>
+
+        <!-- 关键：背景颜色与布局背景一致 -->
+        <item name="android:windowBackground">@color/white</item>
+
+        <!-- 状态栏和导航栏透明 -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+
+        <!-- 关键：让内容延伸到状态栏下面 -->
+        <item name="android:windowTranslucentStatus">true</item>
+        <item name="android:windowTranslucentNavigation">true</item>
+
+        <!-- 关键：确保绘制在系统栏下面 -->
+        <item name="android:windowDrawsSystemBarBackgrounds">false</item>
+
+        <!-- 禁用默认进入/退出动画 -->
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
 </resources>

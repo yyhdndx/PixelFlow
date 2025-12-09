@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+
+    <!-- 渐变圆形（从中心向外渐变） -->
+    <gradient
+        android:type="radial"
+        android:gradientRadius="100%"
+        android:centerX="50%"
+        android:centerY="50%"
+        android:centerColor="#40F44336"
+    android:endColor="#00F44336"
+    android:startColor="#60F44336" />
+
+    <!-- 白色边框，增加立体感 -->
+    <stroke
+        android:width="1dp"
+        android:color="#80FFFFFF" />     <!-- 半透明白色 -->
+
+    <!-- 可选：添加内阴影 -->
+    <padding
+        android:left="2dp"
+        android:top="2dp"
+        android:right="2dp"
+        android:bottom="2dp" />
+
+</shape>
