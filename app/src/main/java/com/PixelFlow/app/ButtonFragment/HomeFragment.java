@@ -1,4 +1,4 @@
-package com.PixelFlow.app;
+package com.PixelFlow.app.ButtonFragment;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.PixelFlow.app.R;
 import com.PixelFlow.app.Streams.PreloadManager;
 
 import com.PixelFlow.app.API.ApiClient;
@@ -32,7 +33,6 @@ import com.google.android.material.tabs.TabLayout;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 public class HomeFragment extends Fragment {

@@ -232,13 +232,11 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     private ExoPlayer createLightweightPlayer() {
         LoadControl loadControl = new DefaultLoadControl.Builder()
                 .setBufferDurationsMs(
-                        1000,    // 最小缓冲时间
-                        15000,   // 最大缓冲时间
+                        1500,    // 最小缓冲时间
+                        5000,   // 最大缓冲时间
                         500,     // 播放开始缓冲时间
-                        1000     // 恢复播放缓冲时间
+                        1500     // 恢复播放缓冲时间
                 )
-                .setTargetBufferBytes(-1)
-                .setPrioritizeTimeOverSizeThresholds(true)
                 .build();
 
         return new ExoPlayer.Builder(context)

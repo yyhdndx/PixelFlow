@@ -1,16 +1,281 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#FFFFFF"
-    android:gravity="center">
+    android:background="@color/gray_50">
 
-    <TextView
-        android:id="@+id/profile_text"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="个人资料页面"
-        android:textSize="18sp" />
+        android:orientation="vertical"
+        android:padding="24dp">
 
-</LinearLayout>
+        <!-- 顶部区域 -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp">
+
+            <!-- 头像（可点击选择） -->
+            <ImageView
+                android:id="@+id/iv_avatar"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_centerHorizontal="true"
+                android:background="@drawable/circle_background"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_image_placeholder"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="@string/change_avatar" />
+
+            <!-- 编辑按钮 -->
+            <ImageView
+                android:id="@+id/btn_edit_profile"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignEnd="@id/iv_avatar"
+                android:layout_alignBottom="@id/iv_avatar"
+                android:background="@drawable/circle_background_accent"
+                android:padding="10dp"
+                android:src="@drawable/home_edit"
+                android:contentDescription="@string/edit_profile" />
+        </RelativeLayout>
+
+        <!-- 用户信息 -->
+        <TextView
+            android:id="@+id/tv_user_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="点击设置用户名"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="@color/black"
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tv_user_bio"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="点击设置个人简介"
+            android:textSize="14sp"
+            android:textColor="@color/gray_600"
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:lineSpacingExtra="4dp"
+            android:layout_marginBottom="32dp" />
+
+        <!-- 统计区域 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="32dp">
+
+            <!-- 作品数 -->
+            <LinearLayout
+                android:id="@+id/stats_posts"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <TextView
+                    android:id="@+id/tv_posts_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="128"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/black" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="作品"
+                    android:textSize="12sp"
+                    android:textColor="@color/gray_600"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+
+            <!-- 分隔线 -->
+            <View
+                android:layout_width="1dp"
+                android:layout_height="40dp"
+                android:background="@color/gray_300" />
+
+            <!-- 粉丝数 -->
+            <LinearLayout
+                android:id="@+id/stats_followers"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <TextView
+                    android:id="@+id/tv_followers_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="2.4K"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/black" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="粉丝"
+                    android:textSize="12sp"
+                    android:textColor="@color/gray_600"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+
+            <!-- 分隔线 -->
+            <View
+                android:layout_width="1dp"
+                android:layout_height="40dp"
+                android:background="@color/gray_300" />
+
+            <!-- 关注数 -->
+            <LinearLayout
+                android:id="@+id/stats_following"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <TextView
+                    android:id="@+id/tv_following_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="156"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/black" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="关注"
+                    android:textSize="12sp"
+                    android:textColor="@color/gray_600"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 功能区 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/rounded_card"
+            android:elevation="2dp"
+            android:padding="8dp"
+            android:layout_marginBottom="24dp">
+
+            <!-- 设置 -->
+            <LinearLayout
+                android:id="@+id/btn_settings"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/cog"
+                    android:layout_marginEnd="16dp"
+                    app:tint="@color/gray_600" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="设置"
+                    android:textSize="16sp"
+                    android:textColor="@color/black" />
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_arrow_back"
+                    app:tint="@color/gray_400" />
+            </LinearLayout>
+
+            <!-- 分隔线 -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/gray_200"
+                android:layout_marginHorizontal="16dp" />
+
+            <!-- 退出登录 -->
+            <LinearLayout
+                android:id="@+id/btn_logout"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/logout"
+                    android:layout_marginEnd="16dp"
+                    app:tint="@color/red_500" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="退出登录"
+                    android:textSize="16sp"
+                    android:textColor="@color/red_500" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 版本信息 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PixelFlow v1.0.0"
+            android:textSize="12sp"
+            android:textColor="@color/gray_500"
+            android:gravity="center"
+            android:layout_marginTop="16dp" />
+    </LinearLayout>
+</ScrollView>

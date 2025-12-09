@@ -7,12 +7,15 @@ appcompat = "1.6.1"
 material = "1.9.0"
 swiperefreshlayout = "1.1.0"
 glide = "4.16.0"
-okhttp = "4.11.0"
+okhttp = "4.12.0"
 gson = "2.10.1"
 room="2.6.0"
 flowlayout="1.3.3"
 photoView="2.3.0"
 exoVedioPlayer="2.16.1"
+
+markwon = "4.6.2"
+prism4j = "2.0.0"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -31,6 +34,27 @@ flowlayout={group="com.nex3z",name="flow-layout",version.ref="flowlayout"}
 photoView={group="com.github.chrisbanes",name="PhotoView",version.ref="photoView"}
 exoVedioPlayer={group="com.google.android.exoplayer",name="exoplayer",version.ref="exoVedioPlayer"}
 
+markwon-core = { module = "io.noties.markwon:core", version.ref = "markwon" }
+markwon-linkify = { module = "io.noties.markwon:linkify", version.ref = "markwon" }
+markwon-image = { module = "io.noties.markwon:image", version.ref = "markwon" }
+markwon-image-glide = { module = "io.noties.markwon:image-glide", version.ref = "markwon" }
+markwon-html = { module = "io.noties.markwon:html", version.ref = "markwon" }
+markwon-ext-tables = { module = "io.noties.markwon:ext-tables", version.ref = "markwon" }
+markwon-ext-strikethrough = { module = "io.noties.markwon:ext-strikethrough", version.ref = "markwon" }
+markwon-ext-tasklist = { module = "io.noties.markwon:ext-tasklist", version.ref = "markwon" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+
+[bundles]
+markwon-simple = [
+    "markwon-core",
+    "markwon-linkify",
+    "markwon-image",
+    "markwon-image-glide",
+    "markwon-html",
+    "markwon-ext-tables",
+    "markwon-ext-strikethrough",
+    "markwon-ext-tasklist"
+]
 

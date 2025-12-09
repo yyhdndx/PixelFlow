@@ -9,6 +9,8 @@ import android.view.animation.DecelerateInterpolator;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
+import com.PixelFlow.app.ButtonFragment.HomeFragment;
+import com.PixelFlow.app.ButtonFragment.ProfileFragment;
 import com.PixelFlow.app.Streams.PreloadManager;
 import com.PixelFlow.app.Streams.WorkItem;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -61,18 +63,32 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
             int itemId = item.getItemId();
             if (itemId == R.id.nav_home) {
                 selectedFragment = HomeFragment.newInstance();
+            } else if (itemId == R.id.nav_profile) {
+                selectedFragment = ProfileFragment.newInstance();
             }
             // 其他导航项可以在这里添加
             // else if (itemId == R.id.nav_friends) {
             //     selectedFragment = FriendsFragment.newInstance();
             // } else if (itemId == R.id.nav_messages) {
             //     selectedFragment = MessagesFragment.newInstance();
-            // } else if (itemId == R.id.nav_profile) {
-            //     selectedFragment = ProfileFragment.newInstance();
             // }
 
             if (selectedFragment != null) {
                 showFragment(selectedFragment);
+
+                // 根据选择的Fragment调整FAB可见性
+                if (selectedFragment instanceof ProfileFragment) {
+                    // 在Profile页面隐藏FAB
+                    if (isFabVisible && fabCamera != null) {
+                        hideFab();
+                    }
+                } else if (selectedFragment instanceof HomeFragment) {
+                    // 在Home页面恢复FAB
+                    if (!isFabVisible && fabCamera != null) {
+                        showFab();
+                    }
+                }
+
                 return true;
             }
 

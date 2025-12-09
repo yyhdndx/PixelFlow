@@ -38,7 +38,7 @@ public class StorageManager {
     @SuppressWarnings("unchecked")
     public <T> GenericStorageRepository<T> getRepository(DataType dataType, Class<T> dataClass) {
         // 创建唯一的键：DataType + Class全名
-        String key = createKey(dataType, dataClass);
+        String key = dataClass.getName();
 
         if (!repositories.containsKey(key)) {
             synchronized (this) {

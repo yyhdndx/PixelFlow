@@ -22,4 +22,16 @@
 
     <string name="video_cover">视频封面</string>
     <string name="play_video">播放视频</string>
+
+    <string name="change_avatar">更换头像</string>
+    <string name="edit_profile">编辑资料</string>
+    <string name="edit_username">修改用户名</string>
+    <string name="edit_bio">修改个人简介</string>
+    <string name="select_avatar">选择头像</string>
+    <string name="take_photo">拍照</string>
+    <string name="choose_from_gallery">从相册选择</string>
+    <string name="confirm_logout">确认退出</string>
+    <string name="logout_confirm_message">确定要退出登录吗？</string>
+    <string name="confirm">确定</string>
+    <string name="storage_permission_required">需要存储权限来选择图片</string>
 </resources>

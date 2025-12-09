@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_light">
+
+    <!-- 顶部标题栏 -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/app_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/white"
+        android:elevation="4dp">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/white"
+            app:contentInsetStart="0dp"
+            app:titleTextColor="@color/black">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:paddingHorizontal="16dp">
+
+                <!-- 返回按钮 -->
+                <ImageView
+                    android:id="@+id/back_button"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@drawable/ic_arrow_back"
+                    android:contentDescription="返回"
+                    android:padding="8dp"
+                    android:background="@drawable/ripple_circle"
+                    app:tint="@color/black" />
+
+                <!-- 话题标题 -->
+                <TextView
+                    android:id="@+id/title_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/black"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <!-- 刷新按钮 -->
+                <ImageView
+                    android:id="@+id/refresh_button"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_alignParentEnd="true"
+                    android:src="@drawable/refresh"
+                    android:contentDescription="刷新"
+                    android:padding="8dp"
+                    android:background="@drawable/ripple_circle"
+                    app:tint="@color/primary_color"
+                    android:visibility="gone" />
+
+            </RelativeLayout>
+        </androidx.appcompat.widget.Toolbar>
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- 主要内容区域 -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        android:overScrollMode="never"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="80dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- 话题标签卡片 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/card_background"
+                android:elevation="2dp"
+                android:padding="24dp">
+
+                <!-- 话题图标和标题 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="16dp">
+
+                    <ImageView
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@drawable/pound"
+                        app:tint="@color/primary_color" />
+
+                    <TextView
+                        android:id="@+id/hashtag_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:textSize="24sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/black" />
+                </LinearLayout>
+
+                <!-- 话题热度 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="20dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:src="@drawable/trending_up"
+                            app:tint="@color/primary_color"
+                            android:layout_marginEnd="6dp" />
+
+                        <TextView
+                            android:id="@+id/trending_text"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="正在热议"
+                            android:textSize="14sp"
+                            android:textColor="@color/primary_color" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/post_count"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0 个内容"
+                        android:textSize="14sp"
+                        android:textColor="@color/gray_600" />
+                </LinearLayout>
+
+                <!-- 分隔线 -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/gray_200"
+                    android:layout_marginVertical="8dp" />
+
+                <!-- 话题描述 -->
+                <TextView
+                    android:id="@+id/hashtag_description"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:textColor="@color/gray_700"
+                    android:lineHeight="20sp"
+                    android:layout_marginTop="12dp" />
+
+            </LinearLayout>
+
+            <!-- AI生成的文案卡片 -->
+            <LinearLayout
+                android:id="@+id/ai_content_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/card_background"
+                android:elevation="2dp"
+                android:padding="24dp"
+                android:layout_marginTop="16dp"
+                android:visibility="gone">
+
+                <!-- 标题栏 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="16dp">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/deepseek"
+                        app:tint="@color/primary_color" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:text="AI智能解读"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/black" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="DeepSeek"
+                        android:textSize="12sp"
+                        android:textColor="@color/white"
+                        android:background="@drawable/ai_tag_bg"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="2dp" />
+                </LinearLayout>
+
+                <!-- 加载状态 -->
+                <LinearLayout
+                    android:id="@+id/loading_layout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingVertical="40dp"
+                    android:visibility="visible">
+
+                    <ProgressBar
+                        android:id="@+id/loading_progress"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:indeterminateTint="@color/primary_color" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="AI正在思考中..."
+                        android:textSize="14sp"
+                        android:textColor="@color/gray_600" />
+                </LinearLayout>
+
+                <!-- AI生成内容 -->
+                <TextView
+                    android:id="@+id/ai_generated_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="16sp"
+                    android:textColor="@color/gray_800"
+                    android:lineHeight="24sp"
+                    android:visibility="gone"
+                    android:textIsSelectable="true" />
+
+                <!-- 错误状态 -->
+                <LinearLayout
+                    android:id="@+id/error_layout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingVertical="40dp"
+                    android:visibility="gone">
+
+                    <ImageView
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:src="@drawable/ic_image_error"
+                        app:tint="@color/gray_400" />
+
+                    <TextView
+                        android:id="@+id/error_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="加载失败"
+                        android:textSize="14sp"
+                        android:textColor="@color/gray_600" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/retry_button"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:layout_marginTop="20dp"
+                        android:text="重试"
+                        android:textSize="13sp"
+                        app:cornerRadius="18dp"
+                        app:strokeColor="@color/primary_color"
+                        app:strokeWidth="1dp" />
+                </LinearLayout>
+
+                <!-- 底部信息 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="20pt"
+                    android:paddingTop="16dp"
+                    android:gravity="center_vertical">
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1"
+                        android:background="@color/gray_200" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="12dp"
+                        android:text="AI生成内容"
+                        android:textSize="12sp"
+                        android:textColor="@color/gray_500" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1"
+                        android:background="@color/gray_200" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- 相关话题推荐 -->
+            <LinearLayout
+                android:id="@+id/related_tags_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/card_background"
+                android:elevation="2dp"
+                android:padding="24dp"
+                android:layout_marginTop="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="相关话题"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/black"
+                    android:layout_marginBottom="16dp" />
+
+                <com.nex3z.flowlayout.FlowLayout
+                    android:id="@+id/related_tags_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- 底部浮动操作按钮 -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_share"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="20dp"
+        android:src="@drawable/ic_share"
+        app:backgroundTint="@color/primary_color"
+        app:tint="@color/white"
+        app:elevation="8dp" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

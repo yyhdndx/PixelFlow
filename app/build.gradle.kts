@@ -1,3 +1,5 @@
+import com.android.utils.TraceUtils.simpleId
+
 plugins {
     alias(libs.plugins.android.application)
 }
@@ -56,4 +58,6 @@ dependencies {
     implementation(libs.photoView)
 
     implementation(libs.exoVedioPlayer)
+
+    implementation(libs.bundles.markwon.simple)
 }

@@ -14,6 +14,9 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.SpannableString;
 import android.text.Spanned;
+import android.text.TextPaint;
+import android.text.method.LinkMovementMethod;
+import android.text.style.ClickableSpan;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
 import android.view.GestureDetector;
@@ -39,6 +42,7 @@ import com.PixelFlow.app.DAO.PersistState.FollowStatus;
 import com.PixelFlow.app.DAO.PersistState.LikeStatus;
 import com.PixelFlow.app.DAO.StorageManager;
 import com.PixelFlow.app.DAO.impl.GenericStorageRepository;
+import com.PixelFlow.app.Hashtag.HashtagActivity;
 import com.PixelFlow.app.MainActivity;
 import com.PixelFlow.app.R;
 import com.PixelFlow.app.Streams.WorkItem;
@@ -1024,17 +1028,42 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         SpannableString spannableString = new SpannableString(content);
         int primaryColor = getResources().getColor(R.color.primary_color);
 
+        // 创建全局的点击处理
         for (WorkItem.Hashtag hashtag : hashtags) {
             int start = hashtag.getStart();
             int end = hashtag.getEnd();
 
             // 确保索引在有效范围内
             if (start >= 0 && end <= content.length() && start < end) {
+                // 获取话题词文本（去掉#号）
+                String tagText = content.substring(start, end);
+                String tagName = tagText.replace("#", "");
+
+                // 创建可点击的Span
+                ClickableSpan clickableSpan = new ClickableSpan() {
+                    @Override
+                    public void onClick(@NonNull View widget) {
+                        // 跳转到话题词页面
+                        navigateToHashtagPage(tagName);
+                    }
+
+                    @Override
+                    public void updateDrawState(@NonNull TextPaint ds) {
+                        super.updateDrawState(ds);
+                        ds.setColor(primaryColor);
+                        ds.setUnderlineText(false);
+                        ds.setFakeBoldText(true);
+                    }
+                };
+
+                // 添加点击事件
+                spannableString.setSpan(clickableSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
                 // 设置蓝色高亮颜色
                 ForegroundColorSpan colorSpan = new ForegroundColorSpan(primaryColor);
                 spannableString.setSpan(colorSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-                // 可选：设置粗体
+                // 设置粗体
                 StyleSpan styleSpan = new StyleSpan(Typeface.BOLD);
                 spannableString.setSpan(styleSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             }
@@ -1043,6 +1072,16 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         // 设置到TextView
         TextView contentText = findViewById(R.id.content_text);
         contentText.setText(spannableString);
+        contentText.setMovementMethod(LinkMovementMethod.getInstance());
+        contentText.setHighlightColor(Color.TRANSPARENT); // 移除点击背景色
+    }
+
+    private void navigateToHashtagPage(String tagName) {
+        Intent intent = new Intent(this, HashtagActivity.class);
+        intent.putExtra("hashtag", tagName);
+        startActivity(intent);
+        // 添加页面切换动画
+        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
     }
 
     private void setupImageClickListener() {
