@@ -13,3 +13,32 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Java / Python / Web build and local runtime files
+**/target/
+**/build/
+**/node_modules/
+**/dist/
+**/.venv/
+**/venv/
+**/__pycache__/
+*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/*.egg-info/
+**/coverage/
+.coverage
+.env
+.env.*
+!.env.example
+*.log
+**/uploads/
+**/runtime-data/
+*.jks
+*.keystore
+*.pem
+*.key
+
+# Optional local design source (distributed separately)
+/docs/requirements/assets/*.fig

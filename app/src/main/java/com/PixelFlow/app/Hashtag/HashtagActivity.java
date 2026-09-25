@@ -53,7 +53,8 @@ import okhttp3.Response;
 public class HashtagActivity extends AppCompatActivity {
 
     private static final String DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
-    private static final String API_KEY = "sk-f844dab75f6042fd9012f53486680974";
+    // Model access must be routed through the business server; never ship credentials.
+    private static final String API_KEY = "";
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
     private TextView hashtagTitle;
@@ -266,6 +267,9 @@ public class HashtagActivity extends AppCompatActivity {
         }
 
         private String generateAIContent(String hashtag) throws IOException {
+            if (API_KEY.isEmpty()) {
+                return "话题智能服务尚未接入，请稍后再试。";
+            }
             JsonObject requestBody = new JsonObject();
             requestBody.addProperty("model", "deepseek-chat");
 
