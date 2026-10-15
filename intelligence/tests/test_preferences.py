@@ -46,3 +46,12 @@ def test_preview_filters_using_java_preferences(tmp_path):
     with TestClient(create_app(Settings(database=str(tmp_path / "db")), Java(prefs))) as client:
         r = client.get("/recommendations/me/preview", headers={"Authorization": "Bearer alice"})
         assert r.status_code == 200 and r.json()["items"] == []
+
+
+def test_preferences_proxy_returns_401_when_java_revokes_token(tmp_path):
+    class RevokingJava(Java):
+        def preferences(self, token):
+            raise AuthenticationError()
+    with TestClient(create_app(Settings(database=str(tmp_path / "db")), RevokingJava())) as client:
+        r = client.get("/recommendations/me/preferences", headers={"Authorization": "Bearer alice"})
+        assert r.status_code == 401

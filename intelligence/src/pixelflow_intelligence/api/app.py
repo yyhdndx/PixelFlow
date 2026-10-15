@@ -47,6 +47,8 @@ def create_app(settings=None, upstream=None):
             if prefs.get("user_id") != user:
                 raise UpstreamError("Preference owner mismatch")
             return prefs
+        except AuthenticationError:
+            raise HTTPException(401, "Invalid or disabled user session") from None
         except UpstreamError:
             raise HTTPException(503, "Java recommendation preferences unavailable") from None
 
