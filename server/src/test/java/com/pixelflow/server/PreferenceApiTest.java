@@ -133,4 +133,15 @@ class PreferenceApiTest {
                 .andExpect(jsonPath("excluded_post_ids.length()").value(0));
         assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM behavior_events WHERE event_type='NOT_INTERESTED' AND source='SERVER'",Integer.class));
     }
+
+    @Test void exclusionLimitReturns409AndIsNotTruncated() throws Exception {
+        String owner=token("alice"), id=publish(owner,admin());
+        String aliceId=db.queryForObject("SELECT id FROM users WHERE username='alice'",String.class);
+        for (int i=0;i<1000;i++)
+            db.update("INSERT INTO interactions(user_id,kind,target_id) VALUES(?,?,?)",aliceId,"not-interested","seed-"+i);
+        mvc.perform(put("/api/interactions/not-interested").header("Authorization",owner).contentType("application/json")
+                .content(encode(Map.of("targetId",id,"active",true))))
+                .andExpect(status().isConflict()).andExpect(jsonPath("code").value("EXCLUSION_LIMIT"));
+        assertEquals(1000,db.queryForObject("SELECT COUNT(*) FROM interactions WHERE user_id=? AND kind='not-interested'",Integer.class,aliceId));
+    }
 }
