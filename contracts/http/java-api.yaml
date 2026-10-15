@@ -1,0 +1,624 @@
+openapi: 3.0.3
+info:
+  title: PixelFlow Java API
+  version: 0.1.0
+  description: 业务服务第一版。时间均为 Unix 秒；业务 ID 按字符串传输；Bearer JWT。已提供 Python 事件增量导出，Agent 尚未接入。
+servers:
+  - url: http://127.0.0.1:8080
+security:
+  - bearerAuth: []
+paths:
+  /demo-assets/{file}:
+    parameters:
+      - {name: file, in: path, required: true, schema: {type: string}, description: 随 JAR 打包的文件名，见 catalog.json}
+    get:
+      security: []
+      description: 公共演示照片、头像、MP4、署名和校验清单。不是用户上传内容；支持 Range，素材保留各自许可。
+      parameters:
+        - {name: Range, in: header, schema: {type: string}, example: 'bytes=0-31'}
+      responses:
+        '200': {description: 完整资源，Content-Type 按后缀确定}
+        '206': {description: 部分字节，包含 Content-Range}
+        '416': {description: 请求字节范围不可满足}
+        default: {$ref: '#/components/responses/Error'}
+    head:
+      security: []
+      responses:
+        '200': {description: 资源元数据，无正文}
+        default: {$ref: '#/components/responses/Error'}
+  /api/media:
+    get:
+      summary: 分页查询本人上传的图片及配额
+      description: 按 mediaId 字符串升序，不按上传时间排序。只返回元数据，不返回图片字节。列表与配额是查询时快照，删除时再次校验引用。
+      parameters:
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+        - {name: after, in: query, schema: {type: string, default: ''}, description: 上页 nextCursor，小写 UUID；第一页省略}
+        - {name: unusedOnly, in: query, schema: {type: boolean, default: false}, description: 仅列出未被任何作品或草稿引用的图片}
+      responses:
+        '200':
+          description: usedCount 是本人全部上传数量，与 unusedOnly 过滤无关
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        mediaId: {type: string, format: uuid}
+                        url: {type: string}
+                        width: {type: integer}
+                        height: {type: integer}
+                        size: {type: integer}
+                        contentType: {type: string, enum: [image/png]}
+                        createdAt: {type: integer, format: int64, description: Unix 秒}
+                        referenceCount: {type: integer, description: 包含所有状态作品的引用数量}
+                  nextCursor: {type: string, nullable: true, description: 没有下一页时为 null}
+                  usedCount: {type: integer}
+                  limit: {type: integer, enum: [100]}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      summary: 上传 JPEG/PNG，重新编码为 PNG 后持久化
+      description: 需登录。实际输入和输出均最多 8 MiB；最多 400 万像素、单边 8192；每用户最多 100 张。视频、GIF、SVG 不支持。
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: {type: string, format: binary}
+      responses:
+        '201':
+          description: 请将 mediaId 放入草稿 mediaIds，不要手填上传 URL 到 clips
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mediaId: {type: string, format: uuid}
+                  url: {type: string}
+                  type: {type: integer, enum: [0]}
+                  width: {type: integer}
+                  height: {type: integer}
+                  size: {type: integer, description: 重新编码后的字节数}
+                  contentType: {type: string, enum: [image/png]}
+        default: {$ref: '#/components/responses/Error'}
+  /api/media/{id}:
+    delete:
+      summary: 删除本人未被引用的图片并释放配额
+      description: 永久删除数据库中的图片与元数据，无回收站。无权访问/已删除返回 404；仍被任意状态作品引用返回 409 MEDIA_IN_USE；管理员不能代删他人的图片。
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '204': {description: 已删除，无响应正文}
+        default: {$ref: '#/components/responses/Error'}
+  /api/media/{id}/content:
+    get:
+      security: []
+      description: 已关联公开作品且作者启用时游客可读；否则仅上传者或 ADMIN 可读，无权访问返回 404。Cache-Control=no-store。
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: 经过重新编码的 PNG, content: {image/png: {schema: {type: string, format: binary}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /health:
+    get:
+      security: []
+      responses:
+        '200': {description: 进程可响应，非外部依赖就绪探针, content: {application/json: {example: {status: UP}}}}
+  /api/auth/register:
+    post:
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [username, password, nickname]
+              properties:
+                username: {type: string, pattern: '^[A-Za-z0-9_]{3,32}$'}
+                password: {type: string, minLength: 10, maxLength: 72, format: password, description: UTF-8 不超过 72 字节}
+                nickname: {type: string, minLength: 1, maxLength: 40}
+            example: {username: alice, password: replace-with-your-password, nickname: 小明}
+      responses:
+        '201': {description: 创建 CREATOR 账号（包含普通用户权限）, content: {application/json: {schema: {$ref: '#/components/schemas/User'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/auth/login:
+    post:
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [username, password]
+              properties:
+                username: {type: string, maxLength: 32}
+                password: {type: string, maxLength: 72, format: password}
+      responses:
+        '200': {$ref: '#/components/responses/Tokens'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/auth/refresh:
+    post:
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [refreshToken]
+              properties:
+                refreshToken: {type: string, minLength: 1, maxLength: 128}
+      responses:
+        '200': {$ref: '#/components/responses/Tokens'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/auth/logout:
+    post:
+      responses:
+        '200': {description: 注销当前会话，立即撤销对应 JWT 和刷新令牌, content: {application/json: {example: {success: true}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/users/me:
+    get:
+      responses:
+        '200': {description: 当前身份, content: {application/json: {schema: {$ref: '#/components/schemas/User'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /feed/:
+    get:
+      security: []
+      parameters:
+        - {$ref: '#/components/parameters/Count'}
+        - {$ref: '#/components/parameters/Cursor'}
+        - {name: accept_video_clip, in: query, schema: {type: boolean, default: false}}
+      responses:
+        '200':
+          description: 仅公开且作者启用的作品；不传 cursor 每次获取第一页
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, has_more, post_list, next_cursor]
+                properties:
+                  status_code: {type: integer, enum: [0]}
+                  has_more: {type: integer, enum: [0, 1]}
+                  next_cursor: {type: string, nullable: true}
+                  post_list: {type: array, items: {$ref: '#/components/schemas/Post'}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/posts:
+    get:
+      summary: 分页查询自己的作品，含草稿
+      parameters:
+        - {$ref: '#/components/parameters/Count'}
+        - {$ref: '#/components/parameters/Cursor'}
+      responses:
+        '200': {$ref: '#/components/responses/Posts'}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      summary: 创建草稿，作者来自 JWT
+      requestBody: {$ref: '#/components/requestBodies/Draft'}
+      responses:
+        '201': {$ref: '#/components/responses/Post'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/posts/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    get:
+      security: []
+      description: 公开作品游客可读；非公开作品仅作者或管理员可读，否则 404。
+      responses:
+        '200': {$ref: '#/components/responses/Post'}
+        default: {$ref: '#/components/responses/Error'}
+    put:
+      description: 仅作者可编辑 DRAFT、REJECTED、WITHDRAWN，编辑后为 DRAFT。整份替换，遗漏 clips/mediaIds 表示清空媒体，不是局部更新。
+      requestBody: {$ref: '#/components/requestBodies/Draft'}
+      responses:
+        '200': {$ref: '#/components/responses/Post'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/posts/{id}/publish:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    post:
+      description: 作者提交审核，需非空白标题和至少一个媒体，否则 409 INCOMPLETE_DRAFT。返回 PENDING，不直接公开，PENDING 重试不变。
+      responses:
+        '200': {$ref: '#/components/responses/PostStatus'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/posts/{id}/withdraw:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    post:
+      description: 作者撤回自己的作品（含待审核和草稿），设为 WITHDRAWN。
+      responses:
+        '200': {$ref: '#/components/responses/PostStatus'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/interactions/{kind}:
+    parameters:
+      - {name: kind, in: path, required: true, schema: {type: string, enum: [likes, favorites, follows, not-interested]}}
+    get:
+      parameters:
+        - {name: after, in: query, schema: {type: string, maxLength: 36, default: ''}, description: 上一页末项 target_id，按字符串排序}
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 50}}
+      responses:
+        '200':
+          description: 当前用户的有效互动
+          content:
+            application/json:
+              schema: {type: array, items: {type: object, properties: {target_id: {type: string}}}}
+        default: {$ref: '#/components/responses/Error'}
+    put:
+      description: 幂等设置状态；follows 的 targetId 是用户 ID，其余是作品 ID；允许取消已下架作品的互动。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [targetId, active]
+              properties:
+                targetId: {type: string, minLength: 1, maxLength: 36}
+                active: {type: boolean}
+                recommendationId: {type: string, maxLength: 36, description: 可选推荐批次归因}
+                eventId: {type: string, pattern: '^[A-Za-z0-9_-]{1,64}$', description: 可选客户端反馈幂等键}
+            example: {targetId: '1', active: true}
+      responses:
+        '200': {description: 已持久化目标状态, content: {application/json: {example: {targetId: '1', active: true}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/events:
+    post:
+      description: 仅接收已公开作品事件，userId 取自 JWT；source 固定 CLIENT。DWELL 必须带 durationMs，其他事件不得带。同一用户同一 eventId 同载荷去重，不同载荷 409；LIKE/UNLIKE 的可靠业务事件由互动接口另行记录。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Event'}
+            example: {eventId: unique-client-event-id, postId: '1', type: CLICK, occurredAt: 1790697600}
+      responses:
+        '200': {description: 事件已落库或已处理, content: {application/json: {example: {eventId: unique-client-event-id, duplicate: false}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/users/me/profile:
+    get:
+      description: 登录用户本人画像代理。Java 转发当前用户 JWT 到 Python /profiles/me，并校验响应 user_id；不可指定别人的 userId，不触发同步。字段详见 python-analytics.md。
+      responses:
+        '200':
+          description: 最近一次同步产生的画像快照；Cache-Control 为 no-store。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user_id, version, topics]
+                properties:
+                  user_id: {type: string}
+                  version: {type: integer}
+                  generated_at: {type: integer, format: int64}
+                  rule_version: {type: string}
+                  cold_start: {type: boolean}
+                  topics:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name: {type: string}
+                        score: {type: number}
+                        share: {type: number}
+                  suppressed_topics: {type: array, items: {type: string}, description: 已抑制主题；topics 已剔除这些主题}
+        '502': {description: 上游画像身份不符或响应结构无效}
+        '503': {description: 分析服务未配置、超时或不可用；普通社区业务不受影响}
+        default: {$ref: '#/components/responses/Error'}
+  /api/recommendations/me/preferences:
+    get:
+      description: 登录用户本人推荐偏好快照；Cache-Control no-store。
+      responses:
+        '200':
+          description: 本人偏好
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user_id, personalized, version, excluded_post_ids, blocked_author_ids, suppressed_topics]
+                properties:
+                  user_id: {type: string}
+                  personalized: {type: boolean}
+                  version: {type: integer}
+                  excluded_post_ids: {type: array, items: {type: string}}
+                  blocked_author_ids: {type: array, items: {type: string}}
+                  suppressed_topics: {type: array, items: {type: string}}
+        default: {$ref: '#/components/responses/Error'}
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [personalized]
+              properties:
+                personalized: {type: boolean}
+      responses:
+        '200': {description: 更新后的本人偏好，同 GET 形状}
+        default: {$ref: '#/components/responses/Error'}
+  /api/recommendations/me/blocked-authors/{author_id}:
+    parameters:
+      - {name: author_id, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9_-]{1,36}$'}}
+    put:
+      description: 推荐专用作者屏蔽，不是封禁或社交访问控制。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [blocked]
+              properties:
+                blocked: {type: boolean}
+      responses:
+        '200': {description: 更新后的本人偏好，同 GET 形状；超 500 个返回 409 BLOCK_LIMIT}
+        default: {$ref: '#/components/responses/Error'}
+  /api/users/me/profile/topics/{topic}:
+    parameters:
+      - {name: topic, in: path, required: true, schema: {type: string}}
+    put:
+      description: 记录兴趣标签抑制；topic 必须在支持集合内，否则 400 UNSUPPORTED_TOPIC。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [suppressed]
+              properties:
+                suppressed: {type: boolean}
+      responses:
+        '200': {description: 更新后的本人偏好，同推荐偏好形状}
+        default: {$ref: '#/components/responses/Error'}
+  /api/admin/posts:
+    get:
+      description: 仅 ADMIN
+      parameters:
+        - {$ref: '#/components/parameters/Count'}
+        - {$ref: '#/components/parameters/Cursor'}
+        - {name: status, in: query, schema: {type: string, enum: [DRAFT, PENDING, PUBLISHED, REJECTED, WITHDRAWN], default: PENDING}}
+      responses:
+        '200': {$ref: '#/components/responses/Posts'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/internal/analytics/events:
+    get:
+      security: [{analyticsRead: []}]
+      description: 独立只读服务身份 events:read；用户/管理员 JWT 不可使用。按提交顺序导出，一页最多50项；数据库 source_id 变化时不得复用分析库游标。导出记录审计，不包含密码或会话。
+      parameters:
+        - {$ref: '#/components/parameters/After'}
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 50}}
+      responses:
+        '200':
+          description: items 按 seq 递增；空页 next_cursor 等于 after；未公开作品 title 为空且 eligible=false。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [source_id, items, next_cursor, has_more]
+                properties:
+                  source_id: {type: string}
+                  next_cursor: {type: integer, format: int64}
+                  has_more: {type: boolean}
+                  items:
+                    type: array
+                    items:
+                      allOf:
+                        - {$ref: '#/components/schemas/StoredEvent'}
+                        - type: object
+                          properties:
+                            author_id: {type: string}
+                            has_video: {type: boolean}
+                            title: {type: string}
+                            eligible: {type: boolean}
+        default: {$ref: '#/components/responses/Error'}
+  /api/admin/posts/{id}/moderation:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    post:
+      description: 仅 ADMIN；PENDING 可通过/驳回，PUBLISHED 可下架；原子保存状态和审核记录。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status, reason]
+              properties:
+                status: {type: string, enum: [PUBLISHED, REJECTED, WITHDRAWN]}
+                reason: {type: string, minLength: 1, maxLength: 500}
+      responses:
+        '200': {$ref: '#/components/responses/PostStatus'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/admin/users:
+    get:
+      description: 仅 ADMIN，不返回密码或令牌字段
+      parameters:
+        - {name: after, in: query, schema: {type: string, maxLength: 36, default: ''}}
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 50}}
+      responses:
+        '200': {description: 用户列表, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/User'}}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/admin/users/{id}/status:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string}}
+    put:
+      description: 仅 ADMIN，不允许操作自己；停用撤销全部会话，启用不恢复旧令牌；保存状态审计。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled, reason]
+              properties:
+                enabled: {type: boolean}
+                reason: {type: string, minLength: 1, maxLength: 500}
+      responses:
+        '200': {description: 账号状态, content: {application/json: {example: {id: user-id, enabled: false}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/admin/events:
+    get:
+      description: 仅 ADMIN，用于人工导出；Python 服务身份尚未开放。
+      parameters:
+        - {$ref: '#/components/parameters/After'}
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 50}}
+      responses:
+        '200': {description: 按 seq 递增的数据，续页使用末项 seq, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/StoredEvent'}}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/admin/moderation:
+    get:
+      description: 仅 ADMIN
+      parameters:
+        - {$ref: '#/components/parameters/After'}
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 50}}
+      responses:
+        '200': {description: 按 id 递增的审核审计，续页使用末项 id, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/ModerationRecord'}}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /demo-media/{id}.png:
+    get:
+      security: []
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 24}}
+      responses:
+        '200': {description: 本地生成演示封面, content: {image/png: {schema: {type: string, format: binary}}}}
+        default: {$ref: '#/components/responses/Error'}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+    analyticsRead: {type: http, scheme: bearer, bearerFormat: opaque, description: PIXELFLOW_ANALYTICS_EXPORT_TOKEN，至少32字符；仅允许读取内部事件接口，禁止放入客户端。}
+  parameters:
+    Id: {name: id, in: path, required: true, schema: {type: string, pattern: '^[1-9][0-9]*$'}}
+    Count: {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+    Cursor: {name: cursor, in: query, schema: {type: integer, format: int64, minimum: 1}, description: 上页 next_cursor 或末项作品 ID，仅向更小 ID 翻页}
+    After: {name: after, in: query, schema: {type: integer, format: int64, minimum: 0, default: 0}}
+  requestBodies:
+    Draft:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Draft'}
+          example: {title: 我的作品, content: 正文, clips: [{type: 0, width: 600, height: 800, url: 'https://example.com/image.png'}]}
+  responses:
+    Error:
+      description: 400 参数无效；401 未认证；403 无权限；404 不存在/不可见；409 冲突/草稿不完整/媒体配额；413 超出上传大小；500 内部异常。所有响应含 X-Request-Id。
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status_code, code, message, requestId]
+            properties:
+              status_code: {type: integer}
+              code: {type: string}
+              message: {type: string}
+              requestId: {type: string}
+          example: {status_code: 401, code: UNAUTHORIZED, message: 请先登录, requestId: request-uuid}
+    Tokens:
+      description: 访问令牌 900 秒；刷新令牌 7 天，一次性轮换；刷新时旧访问令牌也失效。
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              accessToken: {type: string}
+              refreshToken: {type: string}
+              tokenType: {type: string, enum: [Bearer]}
+              expiresIn: {type: integer, example: 900}
+    Post: {description: 作品详情, content: {application/json: {schema: {$ref: '#/components/schemas/Post'}}}}
+    Posts: {description: 作品列表，续页取末项 post_id；空数组表示结束, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Post'}}}}}
+    PostStatus: {description: 作品状态, content: {application/json: {schema: {type: object, properties: {postId: {type: string}, status: {type: string}}}}}}
+  schemas:
+    User:
+      type: object
+      properties:
+        id: {type: string}
+        username: {type: string}
+        nickname: {type: string}
+        role: {type: string, enum: [CREATOR, ADMIN]}
+        enabled: {type: boolean}
+    Clip:
+      type: object
+      additionalProperties: false
+      required: [width, height, url]
+      properties:
+        type: {type: integer, enum: [0, 1], default: 0, description: 0 图片，1 视频}
+        width: {type: integer, minimum: 1, maximum: 16384}
+        height: {type: integer, minimum: 1, maximum: 16384}
+        url: {type: string, maxLength: 2048, pattern: '^https?://[^\s]+$'}
+    Draft:
+      type: object
+      additionalProperties: false
+      description: 允许空标题和无媒体保存草稿；clips 与 mediaIds 非空时互斥，mediaIds 仅允许本人上传，顺序即展示顺序。
+      required: [title, content]
+      properties:
+        title: {type: string, maxLength: 120}
+        content: {type: string, maxLength: 5000}
+        clips: {type: array, maxItems: 9, items: {$ref: '#/components/schemas/Clip'}, description: 兼容外部媒体 URL，不允许本站 api/media 内容路径}
+        mediaIds: {type: array, maxItems: 9, uniqueItems: true, items: {type: string, maxLength: 36}, description: 本人上传的 mediaId，可省略}
+    Post:
+      type: object
+      properties:
+        post_id: {type: string}
+        title: {type: string}
+        content: {type: string}
+        create_time: {type: integer, format: int64}
+        status: {type: string, enum: [DRAFT, PENDING, PUBLISHED, REJECTED, WITHDRAWN]}
+        author:
+          type: object
+          properties:
+            user_id: {type: string}
+            nickname: {type: string}
+            avatar: {type: string, description: 演示账号提供本地头像 URL，普通新账号默认为空}
+        clips: {type: array, items: {$ref: '#/components/schemas/Clip'}}
+        media_ids: {type: array, items: {type: string}, description: 本站附件 ID，顺序固定；编辑回传时使用 mediaIds，不要直接回传含本站 URL 的 clips}
+        hashtag: {type: array, items: {type: object}, description: 当前为空数组，标签提取待实现}
+        music: {type: object, nullable: true, description: 当前为 null，音乐元数据待实现}
+        like_count: {type: integer, format: int64}
+        is_liked: {type: boolean, description: 当前认证用户是否点赞；游客为 false。Feed 和详情提供此字段。}
+    Event:
+      type: object
+      additionalProperties: false
+      required: [eventId, postId, type, occurredAt]
+      properties:
+        eventId: {type: string, pattern: '^[A-Za-z0-9_-]{1,64}$'}
+        postId: {type: string, pattern: '^[1-9][0-9]{0,17}$'}
+        type: {type: string, enum: [EXPOSURE, CLICK, DWELL, LIKE, FAVORITE, FOLLOW, SHARE, NOT_INTERESTED, PUBLISH]}
+        occurredAt: {type: integer, format: int64, description: 最近 30 天到未来 5 分钟内；示例时间须替换为当前时间}
+        durationMs: {type: integer, format: int64, minimum: 1, maximum: 1800000, description: 仅 DWELL 必填}
+        scene: {type: string, enum: [HOME, DETAIL]}
+    StoredEvent:
+      type: object
+      properties:
+        seq: {type: integer, format: int64}
+        event_id: {type: string}
+        user_id: {type: string}
+        post_id: {type: integer, format: int64}
+        event_type: {type: string}
+        occurred_at: {type: integer, format: int64}
+        received_at: {type: integer, format: int64}
+        duration_ms: {type: integer, format: int64, nullable: true}
+        scene: {type: string, nullable: true}
+        source: {type: string, enum: [CLIENT, SERVER]}
+    ModerationRecord:
+      type: object
+      properties:
+        id: {type: integer, format: int64}
+        actor_id: {type: string}
+        post_id: {type: integer, format: int64}
+        before_status: {type: string}
+        after_status: {type: string}
+        reason: {type: string}
+        created_at: {type: integer, format: int64}
