@@ -84,4 +84,21 @@ class PreferenceApiTest {
                 .andExpect(status().isConflict()).andExpect(jsonPath("code").value("BLOCK_LIMIT"));
         assertEquals(500,db.queryForObject("SELECT COUNT(*) FROM recommendation_blocked_authors",Integer.class));
     }
+
+    @Test void topicSuppressionIsValidatedAndReflectedInProfile() throws Exception {
+        String alice=token("alice");
+        mvc.perform(put("/api/users/me/profile/topics/未知").header("Authorization",alice)
+                .contentType("application/json").content(encode(Map.of("suppressed",true))))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("UNSUPPORTED_TOPIC"));
+        mvc.perform(put("/api/users/me/profile/topics/美食").header("Authorization",alice)
+                .contentType("application/json").content(encode(Map.of("suppressed",true))))
+                .andExpect(status().isOk()).andExpect(jsonPath("version").value(1))
+                .andExpect(jsonPath("suppressed_topics[0]").value("美食"));
+        mvc.perform(put("/api/users/me/profile/topics/美食").header("Authorization",alice)
+                .contentType("application/json").content(encode(Map.of("suppressed",true))))
+                .andExpect(jsonPath("version").value(1));
+        mvc.perform(put("/api/users/me/profile/topics/美食").header("Authorization",alice)
+                .contentType("application/json").content(encode(Map.of("suppressed",false))))
+                .andExpect(jsonPath("version").value(2));
+    }
 }
