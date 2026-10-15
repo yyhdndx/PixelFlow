@@ -1,0 +1,5 @@
+ALTER TABLE users ADD COLUMN avatar VARCHAR(2048) NOT NULL DEFAULT '';
+CREATE TABLE seed_batches (
+ name VARCHAR(80) PRIMARY KEY,
+ created_at BIGINT NOT NULL
+);
