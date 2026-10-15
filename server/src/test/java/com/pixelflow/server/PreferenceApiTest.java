@@ -40,6 +40,7 @@ class PreferenceApiTest {
         String alice=token("alice");
         mvc.perform(get("/api/recommendations/me/preferences")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/recommendations/me/preferences").header("Authorization",alice))
+                .andExpect(header().string("Cache-Control","no-store"))
                 .andExpect(jsonPath("personalized").value(true))
                 .andExpect(jsonPath("version").value(0))
                 .andExpect(jsonPath("excluded_post_ids.length()").value(0))
@@ -47,6 +48,7 @@ class PreferenceApiTest {
                 .andExpect(jsonPath("suppressed_topics.length()").value(0));
         mvc.perform(put("/api/recommendations/me/preferences").header("Authorization",alice)
                 .contentType("application/json").content(encode(Map.of("personalized",false))))
+                .andExpect(header().string("Cache-Control","no-store"))
                 .andExpect(jsonPath("version").value(1)).andExpect(jsonPath("personalized").value(false));
         mvc.perform(put("/api/recommendations/me/preferences").header("Authorization",alice)
                 .contentType("application/json").content(encode(Map.of("personalized",false))))
@@ -60,6 +62,7 @@ class PreferenceApiTest {
         String alice=token("alice"), bob=token("bob");
         mvc.perform(put("/api/recommendations/me/blocked-authors/a-1").header("Authorization",alice)
                 .contentType("application/json").content(encode(Map.of("blocked",true))))
+                .andExpect(header().string("Cache-Control","no-store"))
                 .andExpect(jsonPath("version").value(1)).andExpect(jsonPath("blocked_author_ids[0]").value("a-1"));
         mvc.perform(put("/api/recommendations/me/blocked-authors/a-1").header("Authorization",alice)
                 .contentType("application/json").content(encode(Map.of("blocked",true))))
