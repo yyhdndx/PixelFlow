@@ -92,7 +92,8 @@ class PreferenceApiTest {
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("UNSUPPORTED_TOPIC"));
         mvc.perform(put("/api/users/me/profile/topics/美食").header("Authorization",alice)
                 .contentType("application/json").content(encode(Map.of("suppressed",true))))
-                .andExpect(status().isOk()).andExpect(jsonPath("version").value(1))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store"))
+                .andExpect(jsonPath("version").value(1))
                 .andExpect(jsonPath("suppressed_topics[0]").value("美食"));
         mvc.perform(put("/api/users/me/profile/topics/美食").header("Authorization",alice)
                 .contentType("application/json").content(encode(Map.of("suppressed",true))))

@@ -5,6 +5,7 @@ import com.pixelflow.server.common.ApiException;
 import com.pixelflow.server.interaction.PreferenceService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,8 +38,8 @@ public class UserController {
         return Map.of("id",id,"enabled",input.enabled());
     }
     @PutMapping("/api/users/me/profile/topics/{topic}")
-    public Map<String,Object> topic(@PathVariable String topic,@Valid @RequestBody Topic input,
+    public ResponseEntity<Map<String,Object>> topic(@PathVariable String topic,@Valid @RequestBody Topic input,
             @AuthenticationPrincipal Actor actor) {
-        return preferences.setTopicSuppressed(actor, topic, input.suppressed());
+        return ResponseEntity.ok().header("Cache-Control","no-store").body(preferences.setTopicSuppressed(actor, topic, input.suppressed()));
     }
 }
