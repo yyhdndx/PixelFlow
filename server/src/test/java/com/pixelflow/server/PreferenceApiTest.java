@@ -102,4 +102,35 @@ class PreferenceApiTest {
                 .contentType("application/json").content(encode(Map.of("suppressed",false))))
                 .andExpect(jsonPath("version").value(2));
     }
+
+    private String publish(String owner,String admin) throws Exception {
+        String id=body(mvc.perform(post("/api/posts").header("Authorization",owner).contentType("application/json")
+                .content(encode(Map.of("title","t","content","","clips",List.of(Map.of("type",0,"width",1,"height",1,"url","https://e.com/a.png"))))))
+                .andExpect(status().isCreated()).andReturn()).get("post_id").asText();
+        mvc.perform(post("/api/posts/"+id+"/publish").header("Authorization",owner)).andExpect(status().isOk());
+        mvc.perform(post("/api/admin/posts/"+id+"/moderation").header("Authorization",admin).contentType("application/json")
+                .content(encode(Map.of("status","PUBLISHED","reason","ok")))).andExpect(status().isOk());
+        return id;
+    }
+    private String admin() throws Exception {
+        String t=token("adminx"); db.update("UPDATE users SET role='ADMIN' WHERE username='adminx'"); return t;
+    }
+
+    @Test void notInterestedBumpsVersionAndWritesServerEvent() throws Exception {
+        String owner=token("alice"), id=publish(owner,admin());
+        mvc.perform(put("/api/interactions/not-interested").header("Authorization",owner).contentType("application/json")
+                .content(encode(Map.of("targetId",id,"active",true,"recommendationId","rec-1","eventId","ni-1"))))
+                .andExpect(status().isOk());
+        assertEquals(1,db.queryForObject("SELECT version FROM recommendation_preferences WHERE user_id=(SELECT id FROM users WHERE username='alice')",Integer.class));
+        assertEquals("rec-1",db.queryForObject("SELECT recommendation_id FROM behavior_events WHERE event_type='NOT_INTERESTED'",String.class));
+        mvc.perform(get("/api/recommendations/me/preferences").header("Authorization",owner))
+                .andExpect(jsonPath("excluded_post_ids[0]").value(id));
+        // 撤销恢复资格并再次递增版本
+        mvc.perform(put("/api/interactions/not-interested").header("Authorization",owner).contentType("application/json")
+                .content(encode(Map.of("targetId",id,"active",false)))).andExpect(status().isOk());
+        assertEquals(2,db.queryForObject("SELECT version FROM recommendation_preferences WHERE user_id=(SELECT id FROM users WHERE username='alice')",Integer.class));
+        mvc.perform(get("/api/recommendations/me/preferences").header("Authorization",owner))
+                .andExpect(jsonPath("excluded_post_ids.length()").value(0));
+        assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM behavior_events WHERE event_type='NOT_INTERESTED' AND source='SERVER'",Integer.class));
+    }
 }
