@@ -1,5 +1,7 @@
 # Python 数据分析与智能服务
 
+首次开发先阅读 [后端开发上手指南](../docs/后端开发上手指南.md)，使用 Python 3.11，复制 [.env.example](.env.example) 并显式加载环境变量。本页保留模块和接口细节，不要直接跳过数据库与令牌配置执行启动命令。
+
 状态：已实现 FastAPI 服务、Java 事件增量同步、MySQL 事件与画像快照、用户本人画像查询、三个推荐业务 Skill 和注册表，以及读取真实 Java Feed 的本人推荐预览。SQLite 保留用于离线测试和旧数据迁移。Skill 使用确定性规则，不调用模型、不需要模型密钥；Agent、MCP 和面向客户端的正式推荐入口尚未实现。
 
 部署时设置 `ANALYTICS_DB=mysql://pixelflow_analytics:<URL编码后的密码>@127.0.0.1:3306/pixelflow_analytics`。省略时默认连接本机 MySQL，同名账号、不含密码，因此必须先配置账号。不要提交带密码的 URL。MySQL 初始化版本由 `analytics/mysql_schema.py` 管理；同步与重算共用 checkpoint 行锁，状态查询使用一致快照。完整步骤见 [MySQL 部署与迁移](../deploy/MySQL部署与迁移.md)。

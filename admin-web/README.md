@@ -1,5 +1,7 @@
 # Web 管理端
 
+本目录为历史设计预留，已排除在本期交付范围之外。小组只负责 Android、Java 和 Python，不需要安装本目录依赖或实现以下页面。下列内容保留用于查阅，不代表待领取任务。
+
 状态：目录骨架，没有可启动页面或前端依赖。拟采用 Vue，实施时再创建构建配置与锁文件。
 
 - `src/pages/`：auth、users、content、moderation、agent-traces、analytics 页面。

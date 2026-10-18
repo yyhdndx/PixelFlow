@@ -1,5 +1,7 @@
 # MySQL 部署与迁移
 
+2026-10-19：现有阿里云服务器已完成 MySQL 8.4.11 迁移和接口验收，见 [服务器部署记录](服务器部署记录.md)。以下保留为迁移流程参考，不要对当前已迁移实例重复建库、导入或覆盖配置。
+
 适用：当前 Alibaba Cloud Linux 3 单机部署，Java 17、Python 3.11、systemd、Nginx。目标使用 MySQL 8.4 LTS。本文命令在云服务器执行，除注明的本地测试外。旧服务器尚未自动迁移；发布这版代码也不会自动导入旧数据。
 
 ## 1. 数据库分工
@@ -29,12 +31,11 @@ dnf module list mysql
 ```bash
 dnf install -y compat-openssl10
 dnf install -y https://repo.mysql.com/mysql84-community-release-el8.rpm
-dnf module disable -y mysql
 dnf repolist --enabled
 dnf info mysql-community-server
 ```
 
-确认候选版本为 8.4，仓库为 MySQL 8.4 LTS 后安装；如果出现源冲突或 GPG 校验失败，应修复源/签名，不跳过校验：
+Alibaba Cloud Linux 3 可能没有 mysql 模块：只有模块存在且启用时才执行 `dnf module disable -y mysql`。官方仓库路径中的 `$releasever` 在此系统会展开为 3，应仅在新增的 `/etc/yum.repos.d/mysql-community*.repo` 内把 `/el/$releasever/` 改成 `/el/8/`，并只启用 `mysql-8.4-lts-community`。不要全局更改 releasever。确认候选版本为 8.4 后安装；如果出现源冲突或 GPG 校验失败，应修复源/签名，不跳过校验：
 
 ```bash
 dnf install -y mysql-community-server

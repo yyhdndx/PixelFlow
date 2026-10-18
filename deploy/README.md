@@ -1,5 +1,9 @@
 # 部署目录
 
+日常 issue 开发请先阅读 [后端开发上手指南](../docs/后端开发上手指南.md)。本目录供部署负责人使用，区分当前状态、迁移操作与历史参考。
+
+服务器已于 2026-10-19 完成 MySQL 8.4.11 切换，运行提交 `4c23e6c`。实际配置、验证结果和备份位置见 [服务器部署记录](服务器部署记录.md)。
+
 当前数据库方案：Java 与 Python 共用一个 MySQL 实例，使用独立数据库和账号。已部署 H2/SQLite 的 Alibaba Cloud Linux 3 服务器请按 [MySQL 部署与迁移](MySQL部署与迁移.md) 升级；旧 CentOS 文档中的文件数据库配置和备份命令不适用于 MySQL。
 
 状态：已提供 [CentOS 单机部署命令](CentOS部署命令.md)，覆盖 CentOS Stream 9 / 10 的版本检查、Java/Python、HTTPS、firewalld、SELinux、定时维护、备份和版本更新。CentOS 7 / 8 等过期版本会停止执行并提示先评估迁移；尚未在目标云服务器验证，暂不提供可运行的 Docker Compose。

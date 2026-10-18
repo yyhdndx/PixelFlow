@@ -1,5 +1,7 @@
 # Java 核心业务服务
 
+首次开发先按 [后端开发上手指南](../docs/后端开发上手指南.md)创建本地 MySQL 库，复制 [.env.example](.env.example) 并显式加载配置。本文用于模块实现和参数查询；云端状态见 [服务器部署记录](../deploy/服务器部署记录.md)。
+
 独立 Maven 工程：Spring Boot 3.5.16、Java 17、Spring Security、Spring JDBC、Flyway。默认使用 MySQL，H2 仅用于离线测试和旧数据迁移。建库、配置和旧数据导入见 [MySQL 部署与迁移](../deploy/MySQL部署与迁移.md)。
 
 源码根目录：`src/main/java/com/pixelflow/server/`。
@@ -17,7 +19,7 @@
 
 ## 启动
 
-需要 JDK 17+、Maven 3.6.3+，建议统一使用 JDK 17 或 21。在仓库根目录执行：
+团队统一 JDK 17、Maven 3.6.3+。先按上手指南配置环境变量，再在仓库根目录执行：
 
 ```powershell
 cd server
