@@ -1,15 +1,12 @@
 // ProfileFragment.java
 package com.PixelFlow.app.ButtonFragment;
 
-import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.MediaStore;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -26,8 +23,6 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.PixelFlow.app.R;
@@ -39,9 +34,6 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public class ProfileFragment extends Fragment {
-
-    private static final int REQUEST_CODE_GALLERY = 100;
-    private static final int REQUEST_PERMISSION_READ_EXTERNAL_STORAGE = 101;
 
     private TextView tvUserName;
     private TextView tvUserBio;
@@ -98,7 +90,8 @@ public class ProfileFragment extends Fragment {
         view.findViewById(R.id.stats_following).setOnClickListener(v -> showFollowing());
 
         view.findViewById(R.id.btn_settings).setOnClickListener(v -> openSettings());
-        view.findViewById(R.id.btn_logout).setOnClickListener(v -> logout());
+        view.findViewById(R.id.btn_logout).setOnClickListener(v ->
+                startActivity(new Intent(requireContext(), com.PixelFlow.app.AccountActivity.class)));
     }
 
     private void loadUserData() {
@@ -152,14 +145,10 @@ public class ProfileFragment extends Fragment {
     }
 
     private void openGallery() {
-        if (checkStoragePermission()) {
-            Intent intent = new Intent(Intent.ACTION_PICK,
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-            intent.setType("image/*");
-            galleryLauncher.launch(intent);
-        } else {
-            requestStoragePermission();
-        }
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("image/*");
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        galleryLauncher.launch(intent);
     }
 
     private final ActivityResultLauncher<Intent> galleryLauncher = registerForActivityResult(
@@ -224,29 +213,6 @@ public class ProfileFragment extends Fragment {
             e.printStackTrace();
         }
         return null;
-    }
-
-    private boolean checkStoragePermission() {
-        return ContextCompat.checkSelfPermission(requireContext(),
-                Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
-    }
-
-    private void requestStoragePermission() {
-        ActivityCompat.requestPermissions(requireActivity(),
-                new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
-                REQUEST_PERMISSION_READ_EXTERNAL_STORAGE);
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        if (requestCode == REQUEST_PERMISSION_READ_EXTERNAL_STORAGE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                openGallery();
-            } else {
-                Toast.makeText(getContext(), "需要存储权限来选择图片", Toast.LENGTH_SHORT).show();
-            }
-        }
     }
 
     private void showEditNameDialog() {

@@ -346,6 +346,30 @@ paths:
       responses:
         '200': {description: 更新后的本人偏好，同 GET 形状}
         default: {$ref: '#/components/responses/Error'}
+  /api/recommendations/me/preferences/import:
+    post:
+      description: 显式导入当前账号的旧 Python 偏好。仅允许 Java 完全默认且 version=0，或内容完全相同的幂等重试；不覆盖、不自动合并已有偏好。同一用户锁内事务提交，不生成虚假的新行为事件；历史作品可已不存在。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [source_user_id, personalized, excluded_post_ids, blocked_author_ids]
+              properties:
+                source_user_id: {type: string, minLength: 1, maxLength: 36, description: 必须与认证用户 ID 一致，否则403}
+                personalized: {type: boolean}
+                excluded_post_ids: {type: array, maxItems: 1000, uniqueItems: true, items: {type: string, pattern: '^[1-9][0-9]{0,17}$'}}
+                blocked_author_ids: {type: array, maxItems: 500, uniqueItems: true, items: {type: string, pattern: '^[A-Za-z0-9_-]{1,36}$'}}
+      responses:
+        '200':
+          description: 本人偏好快照；首次实际导入版本加1，相同内容不重复递增；Cache-Control no-store
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PreferenceSnapshot'}
+        '409': {description: PREFERENCE_MIGRATION_CONFLICT，保持原有数据不变}
+        default: {$ref: '#/components/responses/Error'}
   /api/recommendations/me/blocked-authors/{author_id}:
     parameters:
       - {name: author_id, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9_-]{1,36}$'}}
@@ -541,6 +565,16 @@ components:
     Posts: {description: 作品列表，续页取末项 post_id；空数组表示结束, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Post'}}}}}
     PostStatus: {description: 作品状态, content: {application/json: {schema: {type: object, properties: {postId: {type: string}, status: {type: string}}}}}}
   schemas:
+    PreferenceSnapshot:
+      type: object
+      required: [user_id, personalized, version, excluded_post_ids, blocked_author_ids, suppressed_topics]
+      properties:
+        user_id: {type: string}
+        personalized: {type: boolean}
+        version: {type: integer, minimum: 0}
+        excluded_post_ids: {type: array, maxItems: 1000, items: {type: string}}
+        blocked_author_ids: {type: array, maxItems: 500, items: {type: string}}
+        suppressed_topics: {type: array, maxItems: 7, items: {type: string}}
     User:
       type: object
       properties:
@@ -612,6 +646,7 @@ components:
         duration_ms: {type: integer, format: int64, nullable: true}
         scene: {type: string, nullable: true}
         source: {type: string, enum: [CLIENT, SERVER]}
+        recommendation_id: {type: string, nullable: true, maxLength: 36, description: V6 新增的可空归因字段；当前仅保存来源提供的标识，不代表已验证推荐交付归属}
     ModerationRecord:
       type: object
       properties:

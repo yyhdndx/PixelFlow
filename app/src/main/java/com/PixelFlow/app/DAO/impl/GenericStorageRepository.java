@@ -1,423 +1,189 @@
 package com.PixelFlow.app.DAO.impl;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
-
-import com.PixelFlow.app.DAO.AppDatabase;
-import com.PixelFlow.app.DAO.DataType;
-import com.PixelFlow.app.DAO.StorageDao;
-import com.PixelFlow.app.DAO.StorageEntity;
-import com.PixelFlow.app.DAO.StorageRepository;
+import com.PixelFlow.app.DAO.*;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-
-/**
- * 通用存储仓库实现，支持任意数据类型的存储
- */
+/** Disk is authoritative. Reads and writes are ordered; callbacks run on the main thread. */
 public class GenericStorageRepository<T> implements StorageRepository<T> {
-    private static final String TAG = "GenericStorageRepo";
-    private static final Gson gson = new GsonBuilder().create();
-
-    // 使用 Map 来存储不同类型的实例
-    private static final Map<String, GenericStorageRepository<?>> instances = new ConcurrentHashMap<>();
-    private final StorageDao storageDao;
-    private final Executor executor;
-    private final Map<String, T> memoryCache;
-    private final List<DataChangeListener<T>> listeners;
+    private static final Map<String, GenericStorageRepository<?>> instances = new HashMap<>();
+    private static final Gson gson = new Gson();
+    private final SerialStore store;
     private final Class<T> dataClass;
     private final DataType dataType;
-    private final String uniqueKey; // 唯一标识符
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private final List<DataChangeListener<T>> listeners = new CopyOnWriteArrayList<>();
 
-    private GenericStorageRepository(Context context, DataType dataType, Class<T> dataClass, String uniqueKey) {
-        AppDatabase database = AppDatabase.getInstance(context);
-        this.storageDao = database.storageDao();
-        this.executor = Executors.newSingleThreadExecutor();
-        this.memoryCache = new ConcurrentHashMap<>();
-        this.listeners = new ArrayList<>();
-        this.dataType = dataType;
-        this.dataClass = dataClass;
-        this.uniqueKey = uniqueKey;
-
-        // 预加载该类型的所有数据到内存缓存
-        preloadDataToMemory();
+    private GenericStorageRepository(Context context, DataType type, Class<T> model) {
+        dataType = type;
+        dataClass = model;
+        StorageDao dao = AppDatabase.getInstance(context).storageDao();
+        String table = type.getTableName();
+        store = new SerialStore(new SerialStore.Backend() {
+            public String read(String key) {
+                StorageEntity row = dao.getByTypeAndKey(table, key);
+                return row == null ? null : row.getJsonData();
+            }
+            public Map<String, String> readAll() {
+                Map<String, String> result = new HashMap<>();
+                for (StorageEntity row : dao.getAllByType(table)) {
+                    result.put(row.getItemKey(), row.getJsonData());
+                }
+                return result;
+            }
+            public void writeAll(Map<String, String> values) {
+                List<StorageEntity> rows = new ArrayList<>();
+                for (Map.Entry<String, String> entry : values.entrySet()) {
+                    rows.add(new StorageEntity(table, entry.getKey(), entry.getValue()));
+                }
+                dao.insertAll(rows);
+            }
+            public void deleteAll(List<String> keys) { dao.deleteKeys(table, keys); }
+            public void clear() { dao.deleteAllByType(table); }
+        });
     }
 
-    /**
-     * 获取指定数据类型的存储实例
-     */
     @SuppressWarnings("unchecked")
     public static synchronized <T> GenericStorageRepository<T> getInstance(
-            Context context, DataType dataType, Class<T> dataClass) {
-
-        // 使用数据类型和类名作为复合键，确保每种类型都有独立的实例
-        String key = createInstanceKey(dataType, dataClass);
-
+            Context context, DataType type, Class<T> model) {
+        String key = RepositoryKey.create(type, model);
         if (!instances.containsKey(key)) {
-            instances.put(key, new GenericStorageRepository<>(context, dataType, dataClass, key));
-            Log.d(TAG, "创建新的存储实例: " + key + " for " + dataClass.getSimpleName());
-        } else {
-            Log.d(TAG, "返回现有的存储实例: " + key);
+            instances.put(key, new GenericStorageRepository<>(context, type, model));
         }
-
         return (GenericStorageRepository<T>) instances.get(key);
     }
 
-    /**
-     * 使用存储键获取实例（用于修复后的 StorageManager）
-     */
-    @SuppressWarnings("unchecked")
     public static synchronized <T> GenericStorageRepository<T> getInstance(
-            Context context, String storageKey, Class<T> dataClass) {
-
-        if (!instances.containsKey(storageKey)) {
-            // 从 storageKey 解析出 DataType
-            DataType dataType = extractDataTypeFromKey(storageKey);
-            instances.put(storageKey, new GenericStorageRepository<>(context, dataType, dataClass, storageKey));
-            Log.d(TAG, "创建新的存储实例: " + storageKey + " for " + dataClass.getSimpleName());
-        } else {
-            Log.d(TAG, "返回现有的存储实例: " + storageKey);
+            Context context, String key, Class<T> model) {
+        DataType type = RepositoryKey.parseType(key);
+        if (!key.equals(RepositoryKey.create(type, model))) {
+            throw new IllegalArgumentException("Repository key does not match model");
         }
-
-        return (GenericStorageRepository<T>) instances.get(storageKey);
+        return getInstance(context, type, model);
     }
 
-    /**
-     * 创建实例键
-     */
-    private static String createInstanceKey(DataType dataType, Class<?> dataClass) {
-        return dataType.name() + "_" + dataClass.getSimpleName();
+    public interface ResultCallback<R> {
+        void onSuccess(R value);
+        void onError(Throwable error);
     }
 
-    /**
-     * 从存储键提取 DataType
-     */
-    private static DataType extractDataTypeFromKey(String storageKey) {
-        try {
-            // 假设存储键格式为 "DataType_ClassName"
-            int underscoreIndex = storageKey.indexOf('_');
-            if (underscoreIndex > 0) {
-                String dataTypeStr = storageKey.substring(0, underscoreIndex);
-                return DataType.valueOf(dataTypeStr);
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "无法从存储键提取 DataType: " + storageKey, e);
+    private <R> void deliver(CompletableFuture<R> future, ResultCallback<R> callback) {
+        future.whenComplete((value, error) -> main.post(() -> {
+            if (error != null) {
+                if (callback != null) callback.onError(error);
+                else Log.e("StorageRepository", "Storage operation failed", error);
+            } else if (callback != null) callback.onSuccess(value);
+        }));
+    }
+
+    private T decode(String value) {
+        return value == null ? null : gson.fromJson(value, dataClass);
+    }
+
+    private static void requireWorker() {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            throw new IllegalStateException("Use asynchronous storage APIs on the main thread");
         }
-
-        // 默认返回 LIKE_STATUS
-        return DataType.LIKE_STATUS;
     }
 
-    private void preloadDataToMemory() {
-        executor.execute(() -> {
-            try {
-                // 使用数据类型对应的表名
-                String tableName = dataType != null ? dataType.getTableName() : uniqueKey;
-                List<StorageEntity> entities = storageDao.getAllByType(tableName);
+    public void getAsync(String key, ResultCallback<T> callback) {
+        Objects.requireNonNull(key, "key");
+        deliver(store.read(key).thenApply(this::decode), callback);
+    }
 
-                memoryCache.clear();
-                for (StorageEntity entity : entities) {
-                    try {
-                        T data = gson.fromJson(entity.getJsonData(), dataClass);
-                        if (data != null) {
-                            memoryCache.put(entity.getItemKey(), data);
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "解析数据失败，key: " + entity.getItemKey() + ", type: " +
-                                (dataClass != null ? dataClass.getSimpleName() : "null"), e);
-                    }
+    public void saveAsync(String key, T value, ResultCallback<Void> callback) {
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(value, "value");
+        // Serialize before enqueueing so callers cannot mutate a pending write.
+        String snapshot = gson.toJson(value);
+        CompletableFuture<Void> future = store.writeAll(Collections.singletonMap(key, snapshot));
+        deliver(future, new ResultCallback<Void>() {
+            public void onSuccess(Void ignored) {
+                for (DataChangeListener<T> listener : listeners) {
+                    listener.onDataChanged(key, decode(snapshot));
                 }
-
-                Log.d(TAG, "预加载 " + uniqueKey + " 数据完成，共 " + memoryCache.size() + " 条记录");
-            } catch (Exception e) {
-                Log.e(TAG, "预加载数据失败: " + e.getMessage(), e);
+                if (callback != null) callback.onSuccess(null);
+            }
+            public void onError(Throwable error) {
+                if (callback != null) callback.onError(error);
+                else Log.e("StorageRepository", "Save failed", error);
             }
         });
     }
 
-    @Override
-    public void save(String key, T data) {
-        if (key == null || data == null) {
-            Log.w(TAG, "保存数据失败：key 或 data 为空");
-            return;
-        }
+    @Override public void save(String key, T value) { saveAsync(key, value, null); }
 
-        // 更新内存缓存
-        memoryCache.put(key, data);
+    /** Background-only compatibility API. Failures propagate instead of pretending data is missing. */
+    @Override public T get(String key) {
+        requireWorker();
+        return key == null ? null : decode(store.read(key).join());
+    }
 
-        // 异步保存到数据库
-        executor.execute(() -> {
-            try {
-                String jsonData = gson.toJson(data);
-                String tableName = dataType != null ? dataType.getTableName() : uniqueKey;
-                StorageEntity entity = new StorageEntity(tableName, key, jsonData);
+    @Override public boolean contains(String key) { return get(key) != null; }
 
-                // 先删除旧的（如果存在）
-                storageDao.deleteByTypeAndKey(tableName, key);
-                // 插入新的
-                storageDao.insert(entity);
-
-                // 通知监听器
-                notifyDataChanged(key, data);
-
-                Log.d(TAG, "保存数据成功: " + uniqueKey + " - " + key);
-            } catch (Exception e) {
-                Log.e(TAG, "保存数据失败: " + e.getMessage(), e);
+    @Override public void delete(String key) {
+        if (key == null) return;
+        deliver(store.deleteAll(Collections.singletonList(key)), new ResultCallback<Void>() {
+            public void onSuccess(Void ignored) {
+                for (DataChangeListener<T> listener : listeners) listener.onDataRemoved(key);
             }
+            public void onError(Throwable error) { Log.e("StorageRepository", "Delete failed", error); }
         });
     }
 
-    @Override
-    public T get(String key) {
-        if (key == null) {
-            return null;
+    @Override public void saveAll(Map<String, T> values) {
+        if (values == null || values.isEmpty()) return;
+        Map<String, String> snapshots = new HashMap<>();
+        for (Map.Entry<String, T> entry : values.entrySet()) {
+            snapshots.put(Objects.requireNonNull(entry.getKey()),
+                    gson.toJson(Objects.requireNonNull(entry.getValue())));
         }
-
-        // 先从内存缓存获取
-        if (memoryCache.containsKey(key)) {
-            return memoryCache.get(key);
-        }
-
-        // 内存中没有，同步从数据库读取
-        try {
-            String tableName = dataType != null ? dataType.getTableName() : uniqueKey;
-            StorageEntity entity = storageDao.getByTypeAndKey(tableName, key);
-            if (entity != null && entity.getJsonData() != null) {
-                T data = gson.fromJson(entity.getJsonData(), dataClass);
-                if (data != null) {
-                    memoryCache.put(key, data);
-                }
-                return data;
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "获取数据失败: " + key + " - " + e.getMessage());
-        }
-
-        return null;
+        deliver(store.writeAll(snapshots), null);
     }
 
-    @Override
-    public void delete(String key) {
-        if (key == null) {
-            return;
-        }
-
-        // 从内存缓存移除
-        memoryCache.remove(key);
-
-        // 异步从数据库删除
-        executor.execute(() -> {
-            try {
-                String tableName = dataType != null ? dataType.getTableName() : uniqueKey;
-                storageDao.deleteByTypeAndKey(tableName, key);
-
-                // 通知监听器
-                notifyDataRemoved(key);
-
-                Log.d(TAG, "删除数据成功: " + uniqueKey + " - " + key);
-            } catch (Exception e) {
-                Log.e(TAG, "删除数据失败: " + e.getMessage());
-            }
-        });
-    }
-
-    @Override
-    public boolean contains(String key) {
-        if (key == null) {
-            return false;
-        }
-
-        if (memoryCache.containsKey(key)) {
-            return true;
-        }
-
-        try {
-            String tableName = dataType != null ? dataType.getTableName() : uniqueKey;
-            return storageDao.exists(tableName, key) > 0;
-        } catch (Exception e) {
-            Log.e(TAG, "检查数据存在性失败: " + e.getMessage());
-            return false;
-        }
-    }
-
-    @Override
-    public void saveAll(Map<String, T> dataMap) {
-        if (dataMap == null || dataMap.isEmpty()) {
-            return;
-        }
-
-        // 更新内存缓存
-        memoryCache.putAll(dataMap);
-
-        // 异步批量保存到数据库
-        executor.execute(() -> {
-            try {
-                String tableName = dataType != null ? dataType.getTableName() : uniqueKey;
-
-                for (Map.Entry<String, T> entry : dataMap.entrySet()) {
-                    String jsonData = gson.toJson(entry.getValue());
-                    StorageEntity entity = new StorageEntity(tableName, entry.getKey(), jsonData);
-
-                    // 使用 upsert（先删除后插入）
-                    storageDao.deleteByTypeAndKey(tableName, entry.getKey());
-                    storageDao.insert(entity);
-                }
-
-                Log.d(TAG, "批量保存数据成功: " + uniqueKey + " - " + dataMap.size() + " 条记录");
-            } catch (Exception e) {
-                Log.e(TAG, "批量保存数据失败: " + e.getMessage());
-            }
-        });
-    }
-
-    @Override
-    public Map<String, T> getAll(List<String> keys) {
+    @Override public Map<String, T> getAll(List<String> keys) {
+        requireWorker();
         Map<String, T> result = new HashMap<>();
-
-        if (keys == null || keys.isEmpty()) {
-            return result;
+        if (keys != null) for (String key : keys) {
+            T value = get(key);
+            if (value != null) result.put(key, value);
         }
-
-        // 先从内存缓存获取
-        for (String key : keys) {
-            if (key != null && memoryCache.containsKey(key)) {
-                result.put(key, memoryCache.get(key));
-            }
-        }
-
-        // 对于内存中没有的，从数据库获取
-        List<String> missingKeys = new ArrayList<>();
-        for (String key : keys) {
-            if (key != null && !result.containsKey(key)) {
-                missingKeys.add(key);
-            }
-        }
-
-        if (!missingKeys.isEmpty()) {
-            try {
-                String tableName = dataType != null ? dataType.getTableName() : uniqueKey;
-
-                // 批量查询数据库
-                for (String key : missingKeys) {
-                    StorageEntity entity = storageDao.getByTypeAndKey(tableName, key);
-                    if (entity != null && entity.getJsonData() != null) {
-                        T data = gson.fromJson(entity.getJsonData(), dataClass);
-                        if (data != null) {
-                            result.put(key, data);
-                            memoryCache.put(key, data);
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "批量获取数据失败: " + e.getMessage());
-            }
-        }
-
         return result;
     }
 
-    @Override
-    public void deleteAll(List<String> keys) {
-        if (keys == null || keys.isEmpty()) {
-            return;
-        }
-
-        // 从内存缓存移除
-        for (String key : keys) {
-            if (key != null) {
-                memoryCache.remove(key);
-            }
-        }
-
-        // 异步批量删除
-        executor.execute(() -> {
-            try {
-                String tableName = dataType != null ? dataType.getTableName() : uniqueKey;
-
-                for (String key : keys) {
-                    if (key != null) {
-                        storageDao.deleteByTypeAndKey(tableName, key);
-                    }
-                }
-
-                Log.d(TAG, "批量删除数据成功: " + uniqueKey + " - " + keys.size() + " 条记录");
-            } catch (Exception e) {
-                Log.e(TAG, "批量删除数据失败: " + e.getMessage());
-            }
-        });
+    @Override public void deleteAll(List<String> keys) {
+        if (keys != null && !keys.isEmpty()) deliver(store.deleteAll(keys), null);
     }
 
-    @Override
-    public List<T> query(QueryCondition condition) {
+    @Override public List<T> query(QueryCondition condition) {
+        requireWorker();
         List<T> result = new ArrayList<>();
-
-        // 在内存缓存中查询
-        for (Map.Entry<String, T> entry : memoryCache.entrySet()) {
-            if (condition.test(entry.getKey(), entry.getValue())) {
-                result.add(entry.getValue());
-            }
+        for (Map.Entry<String, String> entry : store.readAll().join().entrySet()) {
+            T value = decode(entry.getValue());
+            if (condition.test(entry.getKey(), value)) result.add(value);
         }
-
         return result;
     }
 
-    @Override
-    public void addDataChangeListener(DataChangeListener<T> listener) {
-        if (listener != null && !listeners.contains(listener)) {
-            listeners.add(listener);
-        }
+    @Override public void addDataChangeListener(DataChangeListener<T> listener) {
+        if (listener != null && !listeners.contains(listener)) listeners.add(listener);
     }
-
-    @Override
-    public void removeDataChangeListener(DataChangeListener<T> listener) {
+    @Override public void removeDataChangeListener(DataChangeListener<T> listener) {
         listeners.remove(listener);
     }
 
-    private void notifyDataChanged(String key, T newData) {
-        for (DataChangeListener<T> listener : listeners) {
-            listener.onDataChanged(key, newData);
-        }
-    }
-
-    private void notifyDataRemoved(String key) {
-        for (DataChangeListener<T> listener : listeners) {
-            listener.onDataRemoved(key);
-        }
-    }
-
-    // 获取该存储实例的数据类型
-    public DataType getDataType() {
-        return dataType;
-    }
-
-    // 获取所有键
+    public DataType getDataType() { return dataType; }
+    public String getUniqueKey() { return RepositoryKey.create(dataType, dataClass); }
     public List<String> getAllKeys() {
-        return new ArrayList<>(memoryCache.keySet());
+        requireWorker();
+        return new ArrayList<>(store.readAll().join().keySet());
     }
-
-    // 清空该类型的所有数据
-    public void clearAll() {
-        memoryCache.clear();
-        executor.execute(() -> {
-            try {
-                String tableName = dataType != null ? dataType.getTableName() : uniqueKey;
-                storageDao.deleteAllByType(tableName);
-                Log.d(TAG, "清空数据成功: " + uniqueKey);
-            } catch (Exception e) {
-                Log.e(TAG, "清空数据失败: " + e.getMessage());
-            }
-        });
-    }
-
-    // 获取该存储实例的唯一键
-    public String getUniqueKey() {
-        return uniqueKey;
-    }
+    public void clearMemoryCache() { deliver(store.clearCache(), null); }
+    public void clearAll() { deliver(store.clear(), null); }
 }

@@ -382,7 +382,10 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
      * 释放所有资源
      */
     public void releaseAllPlayers() {
-        for (ExoPlayer player : playerPool.values()) {
+        java.util.Set<ExoPlayer> players = new java.util.HashSet<>(playerPool.values());
+        if (currentPlayer != null) players.add(currentPlayer);
+        currentPlayer = null;
+        for (ExoPlayer player : players) {
             if (player != null) {
                 try {
                     player.release();
@@ -393,10 +396,6 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         playerCurrentUrl.clear();
         videoPreloaded.clear();
 
-        if (currentPlayer != null) {
-            currentPlayer.release();
-            currentPlayer = null;
-        }
         currentPlayingPosition = -1;
     }
 

@@ -39,6 +39,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.swiperefreshlayout)
     testImplementation(libs.junit)
+    testImplementation("com.squareup.okhttp3:mockwebserver:" + libs.versions.okhttp.get())
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
 

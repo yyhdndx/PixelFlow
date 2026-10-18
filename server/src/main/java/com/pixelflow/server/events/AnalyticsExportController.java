@@ -20,7 +20,8 @@ public class AnalyticsExportController {
         var state=db.queryForMap("SELECT * FROM event_export_state WHERE id=1 FOR UPDATE");
         if (after<0 || after>((Number)state.get("last_seq")).longValue())
             throw new ApiException(400,"INVALID_CURSOR","游标无效或源数据库已更换");
-        var rows=db.queryForList("SELECT e.*,p.author_id,p.has_video,p.title,p.status,u.enabled FROM behavior_events e "+
+        var rows=db.queryForList("SELECT e.seq,e.event_id,e.user_id,e.post_id,e.event_type,e.occurred_at,e.received_at,"+
+                "e.duration_ms,e.scene,e.source,e.recommendation_id,p.author_id,p.has_video,p.title,p.status,u.enabled FROM behavior_events e "+
                 "JOIN posts p ON e.post_id=p.id JOIN users u ON p.author_id=u.id WHERE e.seq>? ORDER BY e.seq LIMIT ?",after,count+1);
         boolean more=rows.size()>count;
         var items=new ArrayList<Map<String,Object>>();

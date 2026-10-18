@@ -69,9 +69,10 @@ public class PreloadManager implements ComponentCallbacks2 {
 
     // 单例模式（可选）
     private static PreloadManager instance;
+    private volatile boolean released;
 
     public static synchronized PreloadManager getInstance(Context context) {
-        if (instance == null) {
+        if (instance == null || instance.released) {
             instance = new PreloadManager(context.getApplicationContext());
         }
         return instance;
@@ -109,6 +110,7 @@ public class PreloadManager implements ComponentCallbacks2 {
         this.cleanupTask = new Runnable() {
             @Override
             public void run() {
+                if (released) return;
                 cleanupExpiredRecords();
                 mainHandler.postDelayed(this, CLEANUP_INTERVAL);
             }
@@ -221,8 +223,8 @@ public class PreloadManager implements ComponentCallbacks2 {
     /**
      * 批量预加载工作项（智能分批处理）
      */
-    public void preloadWorkItems(List<WorkItem> workItems, int priority) {
-        if (workItems == null || workItems.isEmpty()) {
+    public synchronized void preloadWorkItems(List<WorkItem> workItems, int priority) {
+        if (released || workItems == null || workItems.isEmpty()) {
             return;
         }
 
@@ -234,14 +236,14 @@ public class PreloadManager implements ComponentCallbacks2 {
 
         for (int i = 0; i < workItems.size(); i += batchSize) {
             int end = Math.min(i + batchSize, workItems.size());
-            List<WorkItem> batch = workItems.subList(i, end);
+            List<WorkItem> batch = new ArrayList<>(workItems.subList(i, end));
 
             final int batchStart = i;
             final int batchEnd = end - 1;
 
             executor.submit(() -> {
                 for (WorkItem item : batch) {
-                    if (Thread.currentThread().isInterrupted()) {
+                    if (released || Thread.currentThread().isInterrupted()) {
                         break;
                     }
                     preloadWorkItem(item, priority);
@@ -258,8 +260,8 @@ public class PreloadManager implements ComponentCallbacks2 {
     /**
      * 预加载单个工作项
      */
-    private void preloadWorkItem(WorkItem workItem, int priority) {
-        if (workItem == null) {
+    private synchronized void preloadWorkItem(WorkItem workItem, int priority) {
+        if (released || workItem == null) {
             return;
         }
 
@@ -584,7 +586,9 @@ public class PreloadManager implements ComponentCallbacks2 {
     /**
      * 释放资源
      */
-    public void release() {
+    public synchronized void release() {
+        if (released) return;
+        released = true;
         // 取消清理任务
         mainHandler.removeCallbacks(cleanupTask);
 
@@ -612,7 +616,7 @@ public class PreloadManager implements ComponentCallbacks2 {
         switch (level) {
             case ComponentCallbacks2.TRIM_MEMORY_COMPLETE:
                 // 应用在后台，内存极低
-                release();
+                clearAllPreloads();
                 break;
 
             case ComponentCallbacks2.TRIM_MEMORY_MODERATE:

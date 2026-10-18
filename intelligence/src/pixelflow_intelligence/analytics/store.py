@@ -21,6 +21,7 @@ class Event(BaseModel):
     duration_ms: int | None = Field(default=None, ge=1, le=1800000)
     scene: str | None = None
     source: Literal["CLIENT", "SERVER"]
+    recommendation_id: str | None = Field(default=None, max_length=36)
     author_id: str = Field(min_length=1, max_length=36)
     has_video: bool
     title: str = Field(max_length=120)

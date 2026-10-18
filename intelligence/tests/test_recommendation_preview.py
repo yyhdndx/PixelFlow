@@ -46,7 +46,8 @@ class Source:
 def test_preview_rechecks_and_never_fills_with_unchecked_content(change, expected):
     upstream = Source(change)
     result = preview("alice", build_profile("alice", [], 0, int(time.time())), upstream, "alice-token",
-                     lambda user: {"personalized": True, "version": 0, "excluded_post_ids": [], "blocked_author_ids": []})
+                     lambda user: {"user_id": user, "personalized": True, "version": 0,
+                                   "excluded_post_ids": [], "blocked_author_ids": [], "suppressed_topics": []})
     assert len(result["items"]) == expected
     assert result["removed_on_recheck"] == 1 - expected
     assert upstream.calls == 2

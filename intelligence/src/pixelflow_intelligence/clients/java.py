@@ -1,5 +1,6 @@
 import httpx
 from ..skills.models import Candidate
+from .preferences import PreferenceSnapshot
 
 
 class UpstreamError(Exception):
@@ -41,13 +42,10 @@ class JavaClient:
 
     def preferences(self, token):
         result = self._get("/api/recommendations/me/preferences", token)
-        if (not isinstance(result, dict) or not isinstance(result.get("personalized"), bool)
-                or not isinstance(result.get("version"), int)
-                or not isinstance(result.get("excluded_post_ids"), list)
-                or not isinstance(result.get("blocked_author_ids"), list)
-                or not isinstance(result.get("suppressed_topics"), list)):
-            raise UpstreamError("Invalid preference snapshot")
-        return result
+        try:
+            return PreferenceSnapshot.model_validate(result).model_dump()
+        except ValueError:
+            raise UpstreamError("Invalid preference snapshot") from None
 
     def public_candidates(self, token):
         # This endpoint filters PUBLISHED posts and enabled authors on Java's side.

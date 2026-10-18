@@ -5,6 +5,10 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
+import com.PixelFlow.app.API.CommunityClient;
+import com.PixelFlow.app.Streams.FeedItems;
+import java.util.Collections;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -31,9 +35,9 @@ import com.PixelFlow.app.Streams.WaterfallAdapter;
 import com.PixelFlow.app.Streams.WorkItem;
 import com.google.android.material.tabs.TabLayout;
 import java.util.ArrayList;
-import java.util.HashSet;
+
 import java.util.List;
-import java.util.Set;
+
 
 public class HomeFragment extends Fragment {
 
@@ -54,7 +58,12 @@ public class HomeFragment extends Fragment {
     private boolean hasMoreData = true;
     private int currentPage = 0;
 
-    private final Handler handler = new Handler();
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private CommunityClient.Job activeFeedCall;
+    private String nextCursor;
+    private String displayedAccount;
+    private int feedGeneration;
+    private boolean requestInFlight;
     private OnScrollListener scrollListener;
 
     // 滚动状态跟踪
@@ -64,7 +73,7 @@ public class HomeFragment extends Fragment {
 
     private PreloadManager preloadManager;
 
-    private Set<String> workItemSet;
+
 
     public static HomeFragment newInstance() {
         return new HomeFragment();
@@ -96,7 +105,7 @@ public class HomeFragment extends Fragment {
 
         preloadManager=new PreloadManager(requireContext());
 
-        workItemSet=new HashSet<>();
+
     }
 
     @Nullable
@@ -318,115 +327,97 @@ public class HomeFragment extends Fragment {
     }
 
     private void loadData(boolean isRefresh) {
-        if (isRefresh && isRefreshing) {
-            return;
-        }
-        if (!isRefresh && adapter.isLoading()) {
-            return;
-        }
+        if (adapter == null || recyclerView == null) return;
+        if (!isRefresh && (requestInFlight || !hasMoreData)) return;
+        if (activeFeedCall != null) activeFeedCall.cancel();
+        final int generation = ++feedGeneration;
+        requestInFlight = true;
+        isRefreshing = isRefresh;
+        adapter.setLoading(false);
+        syncAccount();
+        if (isRefresh) swipeRefreshLayout.setRefreshing(true);
+        else adapter.setLoading(true);
 
-        if (isRefresh) {
-            currentPage = 0;
-            hasMoreData = true;
-            isRefreshing = true;
-            swipeRefreshLayout.setRefreshing(true);
-        } else {
-            adapter.setLoading(true);
-        }
-
-        /*
-        大概算了一下，当前界面中最多也就是6个作品
-        两页加起来就是12个
-        只要保证大体上不重复就行了
-         */
-        final int requestCount = 12;
-
-        ApiClient.getInstance(requireContext()).getFeed(requestCount, new ApiClient.ApiCallback() {
-
+        final String requestedCursor = isRefresh ? null : nextCursor;
+        activeFeedCall = ApiClient.getInstance(requireContext()).getFeed(12, requestedCursor,
+                new CommunityClient.Callback<ApiResponse>() {
             @Override
             public void onSuccess(ApiResponse response) {
-
-                if (!isAdded() || getActivity() == null) {
-                    Log.w("HomeFragment", "Fragment已销毁，忽略网络响应");
-                    return;
-                }
-
-                requireActivity().runOnUiThread(() -> {
-                    // 将API中的数据转为WorkItem的列表中的数据
-                    List<WorkItem> newData = new ArrayList<>();
-                    if (response.getPostList() != null) {
-                        for (PostItem itm : response.getPostList()) {
-                            newData.add(new WorkItem(itm));
-                        }
+                handler.post(() -> {
+                    if (!canApplyFeed(generation)) return;
+                    List<WorkItem> incoming = new ArrayList<>();
+                    for (PostItem post : response.getPostList()) {
+                        if (post == null || post.getPostId() == null) continue;
+                        incoming.add(new WorkItem(post));
                     }
-
-                    // 去重
-                    newData=dropDuplicate(newData);
-
-                    hasMoreData = response.getHasMore() == 1;
-
+                    List<WorkItem> unique = FeedItems.unique(incoming,
+                            isRefresh ? Collections.emptyList() : adapter.getData());
+                    finishFeedRequest();
+                    nextCursor = response.getNextCursor();
+                    hasMoreData = response.getHasMore() == 1 && nextCursor != null
+                            && !nextCursor.equals(requestedCursor);
                     if (isRefresh) {
-                        // 下拉刷新，已经触底加载了
-                        if (newData.isEmpty()) {
-                            showEmptyState(); // 刷到底了
-                        } else {
-                            hideEmptyState();
-                            adapter.setData(newData);
-                        }
-                        isRefreshing = false;
-                        swipeRefreshLayout.setRefreshing(false);
+                        adapter.setData(unique);
+                        currentPage = 1;
                     } else {
-                        if (newData.isEmpty()) {
-                            hasMoreData = false;
-                            Toast.makeText(getContext(), "刷到底了捏亲亲，该休息一下嘞", Toast.LENGTH_SHORT).show();
-                        } else {
-                            adapter.addData(newData);
-                        }
-                        adapter.setLoading(false);
+                        adapter.addData(unique);
+                        currentPage++;
+                        // Avoid an endless loading loop when a server repeats the same page.
+                        if (unique.isEmpty()) hasMoreData = false;
                     }
-                    currentPage++;
-                    adapter.setLoading(false);
-
-                    if (!newData.isEmpty() && preloadManager != null) {
-                        preloadManager.preloadWorkItems(newData, PreloadManager.PRIORITY_LOW);
+                    if (adapter.getData().isEmpty()) showEmptyState();
+                    else hideEmptyState();
+                    if (!unique.isEmpty() && preloadManager != null) {
+                        preloadManager.preloadWorkItems(unique, PreloadManager.PRIORITY_LOW);
                     }
                 });
             }
 
             @Override
             public void onFailure(String errorMessage) {
-
-                if (!isAdded() || getActivity() == null) {
-                    Log.w("HomeFragment", "Fragment已销毁，忽略网络错误");
-                    return;
-                }
-
-                requireActivity().runOnUiThread(() -> {
-                    Log.e("HomePage", "API Fail " + errorMessage);
-
-                    if (isRefresh) {
-                        showEmptyState();
-                        isRefreshing = false;
-                        swipeRefreshLayout.setRefreshing(false);
-                    } else {
-                        adapter.setLoading(false);
-                        Toast.makeText(getContext(), "页面飞走了捏？？？" + errorMessage, Toast.LENGTH_SHORT).show();
-                    }
-
-                    // 如果是首次的加载失败，尝试重试
-                    if (isRefresh && adapter.getData().isEmpty()) {
-                        showEmptyState();
+                handler.post(() -> {
+                    if (!canApplyFeed(generation)) return;
+                    finishFeedRequest();
+                    Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_SHORT).show();
+                    syncAccount();
+                    if (adapter.getData().isEmpty()) showEmptyState();
+                    else {
+                        hideEmptyState();
                     }
                 });
             }
         });
     }
 
+    private boolean canApplyFeed(int generation) {
+        return generation == feedGeneration && isAdded()
+                && recyclerView != null && adapter != null;
+    }
+
+    private void syncAccount() {
+        ApiClient api = ApiClient.getInstance(requireContext());
+        String account = api.username() + "@" + api.sessionVersion();
+        if (!account.equals(displayedAccount)) {
+            adapter.setData(Collections.emptyList());
+            nextCursor = null;
+            hasMoreData = true;
+            displayedAccount = account;
+        }
+    }
+
+    private void finishFeedRequest() {
+        activeFeedCall = null;
+        requestInFlight = false;
+        isRefreshing = false;
+        swipeRefreshLayout.setRefreshing(false);
+        adapter.setLoading(false);
+    }
+
     /**
      * 预加载可见项
      */
     private void preloadVisibleItems() {
-        if (adapter == null || recyclerView.getLayoutManager() == null || preloadManager == null) return;
+        if (adapter == null || recyclerView == null || recyclerView.getLayoutManager() == null || preloadManager == null) return;
 
         try {
             StaggeredGridLayoutManager layoutManager = (StaggeredGridLayoutManager) recyclerView.getLayoutManager();
@@ -444,7 +435,7 @@ public class HomeFragment extends Fragment {
      * 预加载底部项（向下滚动时）
      */
     private void preloadBottomItems() {
-        if (adapter == null || recyclerView.getLayoutManager() == null || preloadManager == null) return;
+        if (adapter == null || recyclerView == null || recyclerView.getLayoutManager() == null || preloadManager == null) return;
 
         try {
             StaggeredGridLayoutManager layoutManager = (StaggeredGridLayoutManager) recyclerView.getLayoutManager();
@@ -475,7 +466,7 @@ public class HomeFragment extends Fragment {
      * 预加载顶部项（向上滚动时）
      */
     private void preloadTopItems() {
-        if (adapter == null || recyclerView.getLayoutManager() == null || preloadManager == null) return;
+        if (adapter == null || recyclerView == null || recyclerView.getLayoutManager() == null || preloadManager == null) return;
 
         try {
             StaggeredGridLayoutManager layoutManager = (StaggeredGridLayoutManager) recyclerView.getLayoutManager();
@@ -526,19 +517,6 @@ public class HomeFragment extends Fragment {
         return visibleItems;
     }
 
-    private List<WorkItem> dropDuplicate(List<WorkItem> newItems){
-        workItemSet.clear();
-        List<WorkItem> ans=new ArrayList<>();
-        for(WorkItem workItem:newItems){
-            if(!workItemSet.contains(workItem.getId())) {
-                workItemSet.add(workItem.getId());
-                ans.add(workItem);
-            }
-        }
-        return ans;
-    }
-
-
     private void showEmptyState() {
         emptyStateLayout.setVisibility(View.VISIBLE);
         recyclerView.setVisibility(View.GONE);
@@ -575,10 +553,38 @@ public class HomeFragment extends Fragment {
         super.onActivityResult(requestCode, resultCode, data);
 
         // 检查是否是从WorkDetailActivity返回
-        if (requestCode == WaterfallAdapter.REQUEST_CODE_DETAIL) {
+        if (requestCode == WaterfallAdapter.REQUEST_CODE_DETAIL && adapter != null) {
             // 处理详情页返回的数据
             adapter.handleDetailResult(resultCode, data);
         }
+    }
+
+    @Override
+    public void onDestroyView() {
+        ++feedGeneration;
+        if (activeFeedCall != null) activeFeedCall.cancel();
+        activeFeedCall = null;
+        requestInFlight = false;
+        isRefreshing = false;
+        handler.removeCallbacksAndMessages(null);
+        if (adapter != null) adapter.release();
+        if (recyclerView != null) {
+            recyclerView.clearOnScrollListeners();
+            recyclerView.setAdapter(null);
+        }
+        adapter = null;
+        recyclerView = null;
+        swipeRefreshLayout = null;
+        tabLayout = null;
+        emptyStateLayout = null;
+        super.onDestroyView();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Reconcile after account changes or a detail-page write, including uncertain timeouts.
+        if (adapter != null && !requestInFlight) loadData(true);
     }
 
     @Override

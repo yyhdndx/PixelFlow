@@ -1,5 +1,6 @@
 """Bounded, deterministic Skill composition; intentionally not an Agent."""
 import time
+from ..clients.java import UpstreamError
 from ..skills import Context, create_registry
 
 
@@ -8,6 +9,8 @@ def preview(user, snapshot, upstream, token, read_preferences):
     context = Context(user, frozenset({"profile:read", "candidates:read"}),
                       int(time.time()), time.monotonic() + 15)
     preferences = read_preferences(user)
+    if preferences.get("user_id") != user:
+        raise UpstreamError("Preference owner mismatch")
     pool = upstream.public_candidates(token)
     blocked_authors = set(preferences["blocked_author_ids"])
     excluded_posts = set(preferences["excluded_post_ids"])
@@ -17,6 +20,12 @@ def preview(user, snapshot, upstream, token, read_preferences):
                          if row["post_id"] in excluded_posts or row["author_id"] in blocked_authors})
     if not preferences["personalized"]:
         snapshot = None
+    elif snapshot is not None:
+        # Suppression removes topic personalization, not all works in that topic.
+        # Copy before filtering: stored/raw profile history must remain unchanged.
+        suppressed = set(preferences.get("suppressed_topics", []))
+        snapshot = {**snapshot, "topics": [topic for topic in snapshot["topics"]
+                                          if topic["name"] not in suppressed]}
     first = registry.invoke("profile_insight", {"user_id": user, "snapshot": snapshot}, context)
     second = registry.invoke("candidate_recall", {
         "user_id": user, "insight": first["output"], "candidates": pool,
@@ -26,7 +35,10 @@ def preview(user, snapshot, upstream, token, read_preferences):
         "excluded_post_ids": exclusions}, context)
     # Re-read Java's public feed rather than detail: owners/admins can see private details.
     current = {row["post_id"]: row for row in upstream.public_candidates(token)}
-    preferences_changed = read_preferences(user)["version"] != preferences["version"]
+    latest_preferences = read_preferences(user)
+    if latest_preferences.get("user_id") != user:
+        raise UpstreamError("Preference owner mismatch")
+    preferences_changed = latest_preferences["version"] != preferences["version"]
     context.checkpoint()
     original = {row["post_id"]: row for row in pool}
     ranked = third["output"]["items"]

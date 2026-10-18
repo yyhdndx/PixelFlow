@@ -1,9 +1,7 @@
 package com.PixelFlow.app;
 
-import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
@@ -19,7 +17,6 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
 
 import com.PixelFlow.app.R;
 import com.google.android.material.button.MaterialButton;
@@ -29,9 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CreateWorkActivity extends AppCompatActivity {
-
-    private static final int REQUEST_CODE_SINGLE_IMAGE = 100;
-    private static final int REQUEST_CODE_MULTIPLE_IMAGES = 101;
 
     private EditText etTitle;
     private EditText etDescription;
@@ -45,7 +39,6 @@ public class CreateWorkActivity extends AppCompatActivity {
     private TextView tvCharCount;
 
     private List<Uri> selectedMediaUris = new ArrayList<>();
-    private boolean isVideoMode = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -139,24 +132,10 @@ public class CreateWorkActivity extends AppCompatActivity {
         });
 
         // 添加图片按钮
-        btnAddImage.setOnClickListener(v -> {
-            isVideoMode = false;
-            if (checkStoragePermission()) {
-                openImagePicker();
-            } else {
-                requestStoragePermission();
-            }
-        });
+        btnAddImage.setOnClickListener(v -> openImagePicker());
 
         // 添加视频按钮
-        btnAddVideo.setOnClickListener(v -> {
-            isVideoMode = true;
-            if (checkStoragePermission()) {
-                openVideoPicker();
-            } else {
-                requestStoragePermission();
-            }
-        });
+        btnAddVideo.setOnClickListener(v -> openVideoPicker());
 
         // 保存按钮
         btnSave.setOnClickListener(v -> saveWork());
@@ -200,26 +179,6 @@ public class CreateWorkActivity extends AppCompatActivity {
             btnSave.setBackgroundColor(getResources().getColor(R.color.red_500));
         } else {
             btnSave.setBackgroundColor(getResources().getColor(R.color.gray_400));
-        }
-    }
-
-    private boolean checkStoragePermission() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            return ContextCompat.checkSelfPermission(this,
-                    Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED;
-        } else {
-            return ContextCompat.checkSelfPermission(this,
-                    Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
-        }
-    }
-
-    private void requestStoragePermission() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            requestPermissions(new String[]{Manifest.permission.READ_MEDIA_IMAGES},
-                    REQUEST_CODE_SINGLE_IMAGE);
-        } else {
-            requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
-                    REQUEST_CODE_SINGLE_IMAGE);
         }
     }
 
@@ -308,14 +267,10 @@ public class CreateWorkActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT));
         imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
 
-        // 这里应该使用图片加载库加载图片
-        // Glide.with(this).load(mediaUri).into(imageView);
-        // 临时使用占位图
-        if (isVideoMode) {
-            imageView.setImageResource(R.drawable.ic_video_placeholder);
-        } else {
-            imageView.setImageResource(R.drawable.ic_image_placeholder);
-        }
+        // 按每个 URI 加载缩略图，混选图片和视频时不依赖最后一次选择模式。
+        com.bumptech.glide.Glide.with(this).load(mediaUri)
+                .placeholder(R.drawable.ic_image_placeholder)
+                .error(R.drawable.ic_image_error).centerCrop().into(imageView);
 
         // 删除按钮
         View deleteButton = new View(this);
@@ -376,22 +331,9 @@ public class CreateWorkActivity extends AppCompatActivity {
             return;
         }
 
-        // 显示保存中
-        btnSave.setText("保存中...");
-        btnSave.setEnabled(false);
-
-        // 模拟网络请求延迟
-        new android.os.Handler().postDelayed(() -> {
-            // 保存成功
-            Toast.makeText(CreateWorkActivity.this, "作品创建成功！", Toast.LENGTH_SHORT).show();
-
-            // 返回结果到MainActivity（如果需要）
-            Intent resultIntent = new Intent();
-            resultIntent.putExtra("work_created", true);
-            setResult(RESULT_OK, resultIntent);
-
-            finish();
-        }, 1500);
+        // No persistence service is connected yet. Do not discard the user's input.
+        Toast.makeText(this, "发布服务尚未接入，内容尚未保存，请勿退出编辑页",
+                Toast.LENGTH_LONG).show();
     }
 
     @Override

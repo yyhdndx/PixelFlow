@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.ActivityOptions;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
@@ -13,15 +14,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.graphics.Bitmap;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.PixelFlow.app.DAO.DataType;
-import com.PixelFlow.app.DAO.PersistState.LikeStatus;
-import com.PixelFlow.app.DAO.StorageManager;
-import com.PixelFlow.app.DAO.impl.GenericStorageRepository;
+import com.PixelFlow.app.API.ApiClient;
+import com.PixelFlow.app.API.CommunityClient;
+import com.PixelFlow.app.API.PostItem;
 import com.PixelFlow.app.DetailPage.WorkDetailActivity;
 import com.PixelFlow.app.MainActivity;
 import com.PixelFlow.app.R;
@@ -32,10 +31,10 @@ import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.Target;
 
-import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
+import android.os.Handler;
+import android.os.Looper;
 
 public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
@@ -46,8 +45,10 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     private Context context;
     private List<WorkItem> workItems;
     private boolean isLoading = false;
-    // 数据库的接口
-    private GenericStorageRepository<LikeStatus> likeRepository;
+    private final java.util.Map<String, CommunityClient.Job> likeJobs = new java.util.HashMap<>();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private boolean released;
+    private final java.util.Set<String> exposed = new java.util.HashSet<>();
 
     // 简化的回调接口
     public interface OnWorkActionListener {
@@ -66,10 +67,6 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     public WaterfallAdapter(Context context) {
         this.context = context;
         this.workItems = new ArrayList<>();
-
-        this.likeRepository = StorageManager.getInstance(context)
-                .getRepository(DataType.LIKE_STATUS, LikeStatus.class);
-        Log.d("WaterFall", "likeRepo初始化完成");
     }
 
     public void setOnWorkActionListener(OnWorkActionListener listener) {
@@ -119,11 +116,9 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
     // 数据操作方法
     public void setData(List<WorkItem> newItems) {
+        exposed.clear();
         workItems.clear();
         workItems.addAll(newItems);
-
-        // 从持久化存储中恢复点赞状态
-        restoreLikeStatus();
 
         notifyDataSetChanged();
     }
@@ -131,9 +126,6 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     public void addData(List<WorkItem> newItems) {
         int startPosition = workItems.size();
         workItems.addAll(newItems);
-
-        // 从持久化存储中恢复点赞状态
-        restoreLikeStatus();
 
         notifyItemRangeInserted(startPosition, newItems.size());
     }
@@ -152,77 +144,57 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     public boolean isLoading() {
         return isLoading;
     }
+    @Override public void onViewAttachedToWindow(@NonNull RecyclerView.ViewHolder holder) {
+        super.onViewAttachedToWindow(holder);
+        int position=holder.getBindingAdapterPosition();
+        if (!released && position>=0 && position<workItems.size()) {
+            String id=workItems.get(position).getId();
+            if (exposed.add(id)) ApiClient.getInstance(context).trackEvent(id,"EXPOSURE",null,"HOME");
+        }
+    }
 
     public List<WorkItem> getData() {
         return workItems;
     }
 
-    // 恢复点赞状态 - 使用异步
-    private void restoreLikeStatus() {
-        Executors.newSingleThreadExecutor().execute(() -> {
-            for (WorkItem item : workItems) {
-                LikeStatus likeStatus = likeRepository.get(item.getId());
-                if (likeStatus != null) {
-                    // 回到主线程更新UI数据
-                    ((Activity) context).runOnUiThread(() -> {
-                        item.setLiked(likeStatus.isLiked());
-                        if (likeStatus.getLikeCount() > 0) {
-                            item.setLikeCount(likeStatus.getLikeCount());
-                        }
-                    });
+    public void release() {
+        released = true;
+        for (CommunityClient.Job job : likeJobs.values()) job.cancel();
+        likeJobs.clear();
+        mainHandler.removeCallbacksAndMessages(null);
+        onWorkActionListener = null;
+        onStartActivityListener = null;
+    }
+
+    public void updateLikeStatus(int position, boolean liked) {
+        if (released || position < 0 || position >= workItems.size()) return;
+        WorkItem item = workItems.get(position);
+        if (likeJobs.containsKey(item.getId())) return;
+        CommunityClient.Job job = ApiClient.getInstance(context).setLike(item.getId(), liked,
+                new CommunityClient.Callback<PostItem>() {
+            public void onSuccess(PostItem post) {
+                likeJobs.remove(item.getId());
+                if (released) return;
+                for (int i = 0; i < workItems.size(); i++) {
+                    WorkItem current = workItems.get(i);
+                    if (current.getId().equals(post.getPostId())) {
+                        current.setLiked(post.isLiked());
+                        current.setLikeCount(post.getLikeCount());
+                        notifyItemChanged(i);
+                    }
                 }
+            }
+            public void onFailure(String message) {
+                likeJobs.remove(item.getId());
+                if (!released) android.widget.Toast.makeText(context,
+                        message + "；可下拉刷新确认状态", android.widget.Toast.LENGTH_LONG).show();
             }
         });
+        likeJobs.put(item.getId(), job);
     }
 
-    // 保存点赞状态到持久化存储
-    private void saveLikeStatus(String workId, boolean isLiked, int likeCount) {
-        LikeStatus likeStatus = new LikeStatus(workId, isLiked, likeCount);
-        likeRepository.save(workId, likeStatus);
-    }
-
-    // 更新点赞状态
-    public void updateLikeStatus(int position, boolean isLiked) {
-        if (position >= 0 && position < workItems.size()) {
-            WorkItem workItem = workItems.get(position);
-            workItem.setLiked(isLiked);
-
-            if (isLiked) {
-                workItem.setLikeCount(workItem.getLikeCount() + 1);
-            } else {
-                workItem.setLikeCount(Math.max(0, workItem.getLikeCount() - 1));
-            }
-
-            // 保存到持久化存储
-            saveLikeStatus(workItem.getId(), isLiked, workItem.getLikeCount());
-
-            notifyItemChanged(position);
-        }
-    }
-
-    // 从详情页返回后更新数据 - 这个方法需要外部Activity在onActivityResult中调用
     public void handleDetailResult(int resultCode, Intent data) {
-        if (resultCode == 1 && data != null) {
-            String workId = data.getStringExtra("work_id");
-            boolean isLiked = data.getBooleanExtra("is_liked", false);
-            int likeCount = data.getIntExtra("like_count", 0);
-
-            // 找到对应的item并更新
-            for (int i = 0; i < workItems.size(); i++) {
-                WorkItem item = workItems.get(i);
-                if (item.getId().equals(workId)) {
-                    item.setLiked(isLiked);
-                    item.setLikeCount(likeCount);
-
-                    // 保存到持久化存储
-                    saveLikeStatus(workId, isLiked, likeCount);
-
-                    // 通知更新
-                    notifyItemChanged(i);
-                    break;
-                }
-            }
-        }
+        // HomeFragment re-fetches the server on resume; never restore global local like records.
     }
 
     // 作品ViewHolder
@@ -386,7 +358,9 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             // 点赞按钮点击事件
             likeContainer.setOnClickListener(v -> {
                 if (onWorkActionListener != null) {
-                    onWorkActionListener.onLikeClick(workItem, position);
+                    int current = getBindingAdapterPosition();
+                    if (current != RecyclerView.NO_POSITION)
+                        onWorkActionListener.onLikeClick(workItems.get(current), current);
                 }
             });
 
@@ -407,55 +381,14 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             likeCount.setText(String.valueOf(workItem.getLikeCount()));
         }
 
-        private Bitmap takeScreenshot(Activity activity) {
-            try {
-                // 获取根视图
-                View rootView = activity.getWindow().findViewById(android.R.id.content);
-
-                rootView.setDrawingCacheEnabled(true);
-                Bitmap bitmap = Bitmap.createBitmap(rootView.getDrawingCache());
-                rootView.setDrawingCacheEnabled(false);
-
-                // 压缩图片以减少传输大小
-                int maxWidth = 540;
-                int maxHeight = 960;
-                float scale = Math.min(
-                        (float) maxWidth / bitmap.getWidth(),
-                        (float) maxHeight / bitmap.getHeight()
-                );
-
-                if (scale < 1) {
-                    int newWidth = (int) (bitmap.getWidth() * scale);
-                    int newHeight = (int) (bitmap.getHeight() * scale);
-                    return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
-                }
-
-                return bitmap;
-            } catch (Exception e) {
-                Log.e("Screenshot", "截屏失败", e);
-                return null;
-            }
-        }
-
         private void openDetailPageWithAnimation(WorkItem workItem, int position) {
             // 获取屏幕位置
             int[] location = new int[2];
             coverImage.getLocationOnScreen(location);
 
-            // 截取当前屏幕（瀑布流页面）
-            Bitmap waterfallScreenshot = takeScreenshot((Activity) context);
-
-            // 将Bitmap转换为字节数组（因为Intent不能直接传递Bitmap）
-            ByteArrayOutputStream stream = new ByteArrayOutputStream();
-            assert waterfallScreenshot != null;
-            waterfallScreenshot.compress(Bitmap.CompressFormat.JPEG, 50, stream); // 70%质量压缩
-            byte[] screenshotBytes = stream.toByteArray();
-
-
             // 创建详情页Intent
             Intent intent = new Intent(context, WorkDetailActivity.class);
             intent.putExtra("work_item", workItem);
-            intent.putExtra("waterfall_screenshot", screenshotBytes);
             intent.putExtra("transition_name", "image_" + workItem.getId());
             intent.putExtra("start_left", location[0]);
             intent.putExtra("start_top", location[1]);

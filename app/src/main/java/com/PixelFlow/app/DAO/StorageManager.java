@@ -36,19 +36,15 @@ public class StorageManager {
      * 获取指定数据类型的存储仓库
      */
     @SuppressWarnings("unchecked")
-    public <T> GenericStorageRepository<T> getRepository(DataType dataType, Class<T> dataClass) {
+    public synchronized <T> GenericStorageRepository<T> getRepository(DataType dataType, Class<T> dataClass) {
         // 创建唯一的键：DataType + Class全名
-        String key = dataClass.getName();
+        String key = createKey(dataType, dataClass);
 
         if (!repositories.containsKey(key)) {
-            synchronized (this) {
-                if (!repositories.containsKey(key)) {
-                    GenericStorageRepository<T> repository =
-                            GenericStorageRepository.getInstance(context, key, dataClass);
-                    repositories.put(key, repository);
-                    Log.d(TAG, "创建存储仓库: " + key + " for " + dataClass.getSimpleName());
-                }
-            }
+            GenericStorageRepository<T> repository =
+                    GenericStorageRepository.getInstance(context, dataType, dataClass);
+            repositories.put(key, repository);
+            Log.d(TAG, "创建存储仓库: " + key + " for " + dataClass.getSimpleName());
         }
         return (GenericStorageRepository<T>) repositories.get(key);
     }
@@ -57,7 +53,7 @@ public class StorageManager {
      * 创建唯一的存储键
      */
     private String createKey(DataType dataType, Class<?> dataClass) {
-        return dataType.name() + "_" + dataClass.getSimpleName();
+        return RepositoryKey.create(dataType, dataClass);
     }
 
     /**
@@ -73,9 +69,9 @@ public class StorageManager {
     /**
      * 清理所有内存缓存
      */
-    public void clearAllMemoryCache() {
+    public synchronized void clearAllMemoryCache() {
         for (GenericStorageRepository<?> repository : repositories.values()) {
-            repository.clearAll();
+            repository.clearMemoryCache();
         }
         Log.d(TAG, "清理所有内存缓存完成");
     }
@@ -83,7 +79,7 @@ public class StorageManager {
     /**
      * 获取存储统计信息
      */
-    public void printStorageStats() {
+    public synchronized void printStorageStats() {
         Log.d(TAG, "存储管理器统计:");
         Log.d(TAG, "管理的存储仓库数量: " + repositories.size());
         for (String key : repositories.keySet()) {
@@ -94,7 +90,7 @@ public class StorageManager {
     /**
      * 清理特定类型的损坏数据（用于修复类型混淆问题）
      */
-    public void clearCorruptedData(DataType dataType, Class<?> dataClass) {
+    public synchronized void clearCorruptedData(DataType dataType, Class<?> dataClass) {
         String key = createKey(dataType, dataClass);
         GenericStorageRepository<?> repository = repositories.get(key);
         if (repository != null) {

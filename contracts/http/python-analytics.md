@@ -97,12 +97,12 @@ topics/authors/media 各最多10项，score 为非负规则分，share 为该维
 
 ## 本人推荐偏好
 
-推荐偏好已迁移至 Java（`GET/PUT /api/recommendations/me/*`），Java 为唯一写入来源。本服务只读代理：
+推荐偏好的运行时权威来源已切换到 Java（`GET/PUT /api/recommendations/me/*`），但历史 SQLite 数据不会自动搬迁，需按 [迁移步骤](../../docs/architecture/旧偏好迁移与修复验证.md) 检查并显式导入。本服务只读代理：
 
 - `GET /recommendations/me/preferences`：使用用户 access token，代理 Java 同名端点返回本人偏好快照。
 - 旧写端点 `PUT /recommendations/me/preferences`、`PUT /recommendations/me/exclusions/{post_id}`、`PUT /recommendations/me/blocked-authors/{author_id}`：一律返回 410，不再本地落盘。请改用 Java 的 `/api/recommendations/me/preferences`、`/api/interactions/not-interested`、`/api/recommendations/me/blocked-authors/{author_id}`。
 
-预览流水线（`GET /recommendations/me/preview`）通过上述 GET 端点读取 Java 权威偏好；单作品排除、作者屏蔽、个性化开关均来自 Java。
+预览流水线（`GET /recommendations/me/preview`）通过上述 GET 端点读取 Java 权威偏好；单作品排除、作者屏蔽、主题抑制、个性化开关均来自 Java。主题抑制在 profile_insight 前对画像副本生效，只移除主题偏好权重，不禁止该主题在热门/作者/媒介推荐中出现；撤销自动恢复，下次画像重算也不会绕过抑制。Java 读取快照与写入共用用户锁；Python 两次读取都校验归属及版本。
 
 ## GET /recommendations/me/preview
 
@@ -134,5 +134,7 @@ topics/authors/media 各最多10项，score 为非负规则分，share 为该维
 边界：候选只覆盖最近50条，而非全库；作品“不感兴趣”和作者推荐屏蔽已接入。公开状态和偏好复核都是快照，不保证响应送达后状态不再改变；客户端打开作品仍需 Java 再次鉴权。高并发下因候选窗口、点赞或偏好变化导致少返回是有意的保守行为。正式推荐上线前仍需补齐 Java 交付层与客户端接入。
 
 ## 安全与兼容边界
+
+事件导出包含 V6 新增的 recommendation_id（最长36字符，可空）；Python 兼容旧批次缺省此字段，但仍拒绝未声明字段。Java 显式选择导出列，不再把所有新增数据库列自动暴露。此归因标识目前仅保存来源值，不等同于已验证实际推荐交付归属。
 
 服务仅在受控内网运行；生产需要 HTTPS、密钥轮换、请求限流和日志/数据保留策略。画像是行为与规则的推断，不推断身份、健康等敏感属性。旧 Java DWELL 事件没有 duration_ms 时只计事件次数，不计停留权重。旧客户端自报 LIKE 不增加点赞权重；取消点赞只移除 SERVER LIKE 的权重。

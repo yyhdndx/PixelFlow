@@ -4,11 +4,45 @@ import json
 from pathlib import Path
 import secrets
 import socket
+import sqlite3
+from contextlib import closing
 import subprocess
 import sys
 import tempfile
 import time
 import httpx
+from pixelflow_intelligence.migrate_preferences import run as migrate_preferences
+
+
+def check_legacy_migration(client, java_url, python_url, runtime, post_id, author_id):
+    password = secrets.token_hex(16)
+    client.post(java_url+"/api/auth/register", json={"username": "migration_demo", "password": password,
+                                                  "nickname": "迁移联调"}).raise_for_status()
+    login = client.post(java_url+"/api/auth/login", json={"username": "migration_demo", "password": password})
+    login.raise_for_status()
+    headers = {"Authorization": "Bearer " + login.json()["accessToken"]}
+    identity = client.get(java_url+"/api/users/me", headers=headers)
+    identity.raise_for_status()
+    user_id = identity.json()["id"]
+    legacy = runtime / "legacy-preferences.sqlite3"
+    with closing(sqlite3.connect(legacy)) as db, db:
+        db.executescript("""CREATE TABLE recommendation_preferences(user_id TEXT PRIMARY KEY,personalized INTEGER,version INTEGER);
+            CREATE TABLE recommendation_exclusions(user_id TEXT,post_id TEXT);
+            CREATE TABLE recommendation_blocked_authors(user_id TEXT,author_id TEXT);""")
+        db.execute("INSERT INTO recommendation_preferences VALUES(?,0,3)", (user_id,))
+        db.execute("INSERT INTO recommendation_exclusions VALUES(?,?)", (user_id,post_id))
+        db.execute("INSERT INTO recommendation_blocked_authors VALUES(?,?)", (user_id,author_id))
+    before = legacy.read_bytes()
+    with httpx.Client(base_url=java_url, headers=headers, timeout=8, trust_env=False, follow_redirects=False) as migration:
+        assert migrate_preferences(migration, legacy)["status"] == "ready_no_changes"
+        assert migration.get("/api/recommendations/me/preferences").json()["version"] == 0
+        assert migrate_preferences(migration, legacy, apply=True)["status"] == "imported"
+        assert migrate_preferences(migration, legacy, apply=True)["status"] == "already_matches"
+    assert legacy.read_bytes() == before
+    result = client.get(python_url+"/recommendations/me/preview", headers=headers)
+    result.raise_for_status()
+    assert result.json()["strategy"] == "popular"
+    assert all(item["post_id"] != post_id and item["author_id"] != author_id for item in result.json()["items"])
 
 
 def free_port():
@@ -126,21 +160,21 @@ def main():
             assert client.get(python_url+"/recommendations/me/preview").status_code == 401
             excluded_id = recommended["items"][0]["post_id"]
             blocked_author = recommended["items"][0]["author_id"]
-            block_url = python_url+"/recommendations/me/blocked-authors/"+blocked_author
+            block_url = java_url+"/api/recommendations/me/blocked-authors/"+blocked_author
             client.put(block_url, headers=user, json={"blocked": True}).raise_for_status()
             blocked = client.get(python_url+"/recommendations/me/preview", headers=user)
             blocked.raise_for_status()
             assert all(item["author_id"] != blocked_author for item in blocked.json()["items"])
             client.put(block_url, headers=user, json={"blocked": False}).raise_for_status()
-            control_url = python_url+"/recommendations/me/exclusions/"+excluded_id
-            control = client.put(control_url, headers=user, json={"excluded": True})
+            control_url = java_url+"/api/interactions/not-interested"
+            control = client.put(control_url, headers=user, json={"targetId": excluded_id, "active": True})
             control.raise_for_status()
-            assert excluded_id in control.json()["excluded_post_ids"]
+            assert excluded_id in client.get(python_url+"/recommendations/me/preferences", headers=user).json()["excluded_post_ids"]
             filtered = client.get(python_url+"/recommendations/me/preview", headers=user)
             filtered.raise_for_status()
             assert excluded_id not in {item["post_id"] for item in filtered.json()["items"]}
-            client.put(control_url, headers=user, json={"excluded": False}).raise_for_status()
-            preferences_url = python_url+"/recommendations/me/preferences"
+            client.put(control_url, headers=user, json={"targetId": excluded_id, "active": False}).raise_for_status()
+            preferences_url = java_url+"/api/recommendations/me/preferences"
             client.put(preferences_url, headers=user, json={"personalized": False}).raise_for_status()
             disabled = client.get(python_url+"/recommendations/me/preview", headers=user)
             disabled.raise_for_status()
@@ -149,18 +183,34 @@ def main():
             client.put(preferences_url, headers=user, json={"personalized": True}).raise_for_status()
             gateway = client.get(java_url+"/api/users/me/profile", headers=user)
             gateway.raise_for_status()
-            assert gateway.json() == profile
+            assert gateway.json() == {**profile, "suppressed_topics": []}
             assert gateway.headers["cache-control"] == "no-store"
             assert client.get(java_url+"/api/users/me/profile").status_code == 401
+            topic_url = java_url+"/api/users/me/profile/topics/美食"
+            client.put(topic_url, headers=user, json={"suppressed": True}).raise_for_status()
+            suppressed = client.get(python_url+"/recommendations/me/preview", headers=user)
+            suppressed.raise_for_status()
+            assert suppressed.json()["items"]
+            assert all(item["components"]["topic"] == 0 for item in suppressed.json()["items"])
+            visible_profile = client.get(java_url+"/api/users/me/profile", headers=user).json()
+            assert visible_profile["topics"] == [] and visible_profile["suppressed_topics"] == ["美食"]
+            client.put(topic_url, headers=user, json={"suppressed": False}).raise_for_status()
+            restored = client.get(python_url+"/recommendations/me/preview", headers=user).json()
+            assert any(item["components"]["topic"] > 0 for item in restored["items"])
+            assert client.put(python_url+"/recommendations/me/preferences", headers=user,
+                              json={"personalized": False}).status_code == 410
+            # Java now emits NOT_INTERESTED; its attribution field must import as well.
+            assert client.post(python_url+"/internal/sync", headers=sync).json()["imported"] == 1
             assert client.post(python_url+"/internal/sync", headers=sync).json()["imported"] == 0
-            assert client.get(python_url+"/profiles/me", headers=user).json()["version"] == 1
+            assert client.get(python_url+"/profiles/me", headers=user).json()["version"] == 2
             client.put(java_url+"/api/interactions/likes", headers=user,
                        json={"targetId": post_id, "active": False}).raise_for_status()
             assert client.post(python_url+"/internal/sync", headers=sync).json()["imported"] == 1
             assert client.get(python_url+"/profiles/me", headers=user).json()["topics"][0]["score"] == 3
             assert client.post(python_url+"/internal/sync", headers=user).status_code == 401
             assert client.get(java_url+"/api/internal/analytics/events", headers=user).status_code == 401
-            print("PASS: Java events -> Python profile -> Skills -> preview; maintenance API and CLI; persistent exclusions and personalization controls; replay unchanged; unlike removes weight; service scopes isolated.")
+            check_legacy_migration(client, java_url, python_url, runtime, excluded_id, blocked_author)
+            print("PASS: Java events -> Python profile -> Skills -> preview; authoritative preferences; topic suppression/undo; legacy migration; maintenance; service scopes isolated.")
             print("Runtime data and logs retained under:", runtime)
     finally:
         for process in reversed(processes):

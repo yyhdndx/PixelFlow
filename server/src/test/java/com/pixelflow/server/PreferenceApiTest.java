@@ -20,6 +20,8 @@ class PreferenceApiTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate db;
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
+    @Autowired com.pixelflow.server.interaction.PreferenceService preferences;
     private static final String PASSWORD="test-password-2026";
     @BeforeEach void clean() {
         for (String t:List.of("recommendation_suppressed_topics","recommendation_blocked_authors","recommendation_preferences",
@@ -143,5 +145,74 @@ class PreferenceApiTest {
                 .content(encode(Map.of("targetId",id,"active",true))))
                 .andExpect(status().isConflict()).andExpect(jsonPath("code").value("EXCLUSION_LIMIT"));
         assertEquals(1000,db.queryForObject("SELECT COUNT(*) FROM interactions WHERE user_id=? AND kind='not-interested'",Integer.class,aliceId));
+    }
+
+    @Test void preferenceReadWaitsForWholeConcurrentUpdate() throws Exception {
+        token("alice");
+        String id=db.queryForObject("SELECT id FROM users WHERE username='alice'",String.class);
+        var actor=new com.pixelflow.server.auth.AuthService.Actor(id,"CREATOR","test-session");
+        var pool=java.util.concurrent.Executors.newSingleThreadExecutor();
+        var transaction=transactionManager.getTransaction(new org.springframework.transaction.support.DefaultTransactionDefinition());
+        boolean committed=false;
+        try {
+            db.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",String.class,id);
+            db.update("INSERT INTO recommendation_preferences(user_id,personalized,version) VALUES(?,FALSE,1)",id);
+            db.update("INSERT INTO recommendation_blocked_authors VALUES(?,'blocked-author')",id);
+            var started=new java.util.concurrent.CountDownLatch(1);
+            var read=pool.submit(() -> { started.countDown(); return preferences.read(actor); });
+            assertTrue(started.await(2,java.util.concurrent.TimeUnit.SECONDS));
+            assertThrows(java.util.concurrent.TimeoutException.class,
+                    () -> read.get(200,java.util.concurrent.TimeUnit.MILLISECONDS));
+            transactionManager.commit(transaction);
+            committed=true;
+            var result=read.get(3,java.util.concurrent.TimeUnit.SECONDS);
+            assertEquals(false,result.get("personalized"));
+            assertEquals(1L,((Number)result.get("version")).longValue());
+            assertEquals(List.of("blocked-author"),result.get("blocked_author_ids"));
+        } finally {
+            if (!committed) transactionManager.rollback(transaction);
+            pool.shutdownNow();
+            pool.awaitTermination(3,java.util.concurrent.TimeUnit.SECONDS);
+        }
+    }
+
+    @Test void legacyImportIsAtomicScopedIdempotentAndNeverOverwrites() throws Exception {
+        String alice=token("alice"), bob=token("bob");
+        String id=db.queryForObject("SELECT id FROM users WHERE username='alice'",String.class);
+        var payload=Map.of("source_user_id",id,"personalized",false,
+                "excluded_post_ids",List.of("123","999"),"blocked_author_ids",List.of("old-author"));
+        String path="/api/recommendations/me/preferences/import";
+        mvc.perform(post(path).contentType("application/json").content(encode(payload))).andExpect(status().isUnauthorized());
+        mvc.perform(post(path).header("Authorization",bob).contentType("application/json").content(encode(payload)))
+                .andExpect(status().isForbidden());
+        for (int i=0;i<2;i++)
+            mvc.perform(post(path).header("Authorization",alice).contentType("application/json").content(encode(payload)))
+                    .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store"))
+                    .andExpect(jsonPath("version").value(1)).andExpect(jsonPath("personalized").value(false))
+                    .andExpect(jsonPath("excluded_post_ids.length()").value(2));
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM behavior_events",Integer.class));
+        mvc.perform(put("/api/recommendations/me/preferences").header("Authorization",alice)
+                .contentType("application/json").content("{\"personalized\":true}")).andExpect(status().isOk());
+        mvc.perform(post(path).header("Authorization",alice).contentType("application/json").content(encode(payload)))
+                .andExpect(status().isConflict()).andExpect(jsonPath("code").value("PREFERENCE_MIGRATION_CONFLICT"));
+        mvc.perform(get("/api/recommendations/me/preferences").header("Authorization",alice))
+                .andExpect(jsonPath("version").value(2)).andExpect(jsonPath("personalized").value(true))
+                .andExpect(jsonPath("blocked_author_ids[0]").value("old-author"));
+    }
+
+    @Test void legacyImportRejectsInvalidDataAndExistingUnversionedExclusions() throws Exception {
+        String alice=token("alice");
+        String id=db.queryForObject("SELECT id FROM users WHERE username='alice'",String.class);
+        String path="/api/recommendations/me/preferences/import";
+        for (List<String> posts:List.of(List.of("1","1"),List.of("bad-id")))
+            mvc.perform(post(path).header("Authorization",alice).contentType("application/json").content(encode(
+                    Map.of("source_user_id",id,"personalized",false,"excluded_post_ids",posts,"blocked_author_ids",List.of()))))
+                    .andExpect(status().isBadRequest());
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM recommendation_preferences",Integer.class));
+        db.update("INSERT INTO interactions VALUES(?,'not-interested','456')",id);
+        mvc.perform(post(path).header("Authorization",alice).contentType("application/json").content(encode(
+                Map.of("source_user_id",id,"personalized",false,"excluded_post_ids",List.of("123"),"blocked_author_ids",List.of()))))
+                .andExpect(status().isConflict());
+        assertEquals(List.of("456"),preferences.read(new com.pixelflow.server.auth.AuthService.Actor(id,"CREATOR","s")).get("excluded_post_ids"));
     }
 }

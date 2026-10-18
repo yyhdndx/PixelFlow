@@ -58,6 +58,7 @@
         </activity>
 
         <!-- ================== MainActivity（主界面） ================== -->
+        <activity android:name=".AccountActivity" android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="false"

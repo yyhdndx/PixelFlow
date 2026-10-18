@@ -44,6 +44,17 @@ public class AudioPlayer {
         return instance;
     }
 
+    /** 页面独占播放器；页面销毁不会释放其他页面持有的实例。 */
+    public static AudioPlayer createForScreen(Context context) {
+        return new AudioPlayer(context);
+    }
+
+    public void pauseMusic() {
+        if (exoPlayer != null) exoPlayer.pause();
+        isPlaying = false;
+        notifyPlaybackStateChanged(false);
+    }
+
     private void initExoPlayer() {
         Log.d(TAG, "初始化ExoPlayer");
 
@@ -164,8 +175,6 @@ public class AudioPlayer {
             exoPlayer.setPlayWhenReady(true);
             isPlaying = true;
 
-            // 播放时取消全局静音
-            MainActivity.setGlobalMuted(false);
 
         } catch (Exception e) {
             Log.e(TAG, "播放音乐失败: " + e.getMessage(), e);
@@ -181,17 +190,15 @@ public class AudioPlayer {
             return;
         }
 
-        if (isPlaying && exoPlayer.isPlaying()) {
+        if (exoPlayer.getPlayWhenReady()) {
             // 暂停播放
             exoPlayer.pause();
             isPlaying = false;
-            MainActivity.setGlobalMuted(true);
             Log.d(TAG, "音乐暂停");
         } else {
             // 恢复播放
             exoPlayer.setPlayWhenReady(true);
             isPlaying = true;
-            MainActivity.setGlobalMuted(false);
             Log.d(TAG, "音乐恢复播放");
         }
 
@@ -205,9 +212,10 @@ public class AudioPlayer {
             exoPlayer.clearMediaItems();
             isPlaying = false;
             currentMusic = null;
-            MainActivity.clearCurrentPlayingMusic();
-            MainActivity.unregisterAudioPlayer();
-            MainActivity.setGlobalMuted(true);
+            if (MainActivity.getCurrentAudioPlayer() == this) {
+                MainActivity.clearCurrentPlayingMusic();
+                MainActivity.unregisterAudioPlayer();
+            }
             notifyPlaybackStateChanged(false);
             Log.d(TAG, "音乐停止");
         }
@@ -279,7 +287,7 @@ public class AudioPlayer {
     public void setVolume(int volume) {
         if (exoPlayer != null) {
             float volumeFloat = Math.max(0, Math.min(100, volume)) / 100.0f;
-            exoPlayer.setVolume(volumeFloat);
+            exoPlayer.setVolume(isMuted ? 0f : volumeFloat);
             if (currentMusic != null) {
                 currentMusic.setVolume(volume);
             }
@@ -295,8 +303,11 @@ public class AudioPlayer {
         }
         isPlaying = false;
         currentMusic = null;
-        MainActivity.unregisterAudioPlayer();
-        instance = null;
+        if (MainActivity.getCurrentAudioPlayer() == this) {
+            MainActivity.clearCurrentPlayingMusic();
+            MainActivity.unregisterAudioPlayer();
+        }
+        if (instance == this) instance = null;
         Log.d(TAG, "AudioPlayer释放");
     }
 

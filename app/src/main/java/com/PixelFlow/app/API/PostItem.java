@@ -9,6 +9,10 @@ public class PostItem {
 
     private String title;
     private String content;
+    @SerializedName("like_count") private int likeCount;
+    @SerializedName("is_liked") private boolean liked;
+    public int getLikeCount() { return Math.max(0, likeCount); }
+    public boolean isLiked() { return liked; }
 
     @SerializedName("create_time")
     private long createTime;

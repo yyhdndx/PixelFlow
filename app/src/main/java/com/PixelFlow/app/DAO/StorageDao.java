@@ -15,6 +15,12 @@ public interface StorageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insert(StorageEntity entity);
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void insertAll(List<StorageEntity> entities);
+
+    @Query("DELETE FROM storage_entities WHERE dataType = :dataType AND itemKey IN (:keys)")
+    void deleteKeys(String dataType, List<String> keys);
+
     @Update
     void update(StorageEntity entity);
 

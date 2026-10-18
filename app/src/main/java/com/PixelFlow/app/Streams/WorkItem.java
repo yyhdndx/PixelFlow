@@ -182,9 +182,8 @@ public class WorkItem implements Serializable {
             this.hasAudio = this.music.isValid(); // 检查是否有有效音乐
         }
 
-        // 模拟点赞数
-        this.likeCount = (int) (Math.random() * 1000);
-        this.isLiked = false;
+        this.likeCount = postItem.getLikeCount();
+        this.isLiked = postItem.isLiked();
 
         // 设置clips信息
         if (postItem.getClips() != null && !postItem.getClips().isEmpty()) {

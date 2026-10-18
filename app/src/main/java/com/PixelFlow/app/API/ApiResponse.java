@@ -9,6 +9,8 @@ public class ApiResponse {
 
     @SerializedName("has_more")
     private int hasMore;
+    @SerializedName("next_cursor") private String nextCursor;
+    public String getNextCursor() { return nextCursor; }
 
     @SerializedName("post_list")
     private List<PostItem> postList;

@@ -16,11 +16,45 @@ public class PreferenceService {
     private final JdbcTemplate db;
     public PreferenceService(JdbcTemplate db) { this.db = db; }
 
-    public Map<String,Object> read(Actor actor) { return snapshot(actor.id()); }
+    // All preference writers lock the same user row. Hold that lock until the
+    // complete snapshot has been read; readOnly/READ_COMMITTED alone is not enough.
+    @Transactional
+    public Map<String,Object> read(Actor actor) {
+        lock(actor);
+        return snapshot(actor.id());
+    }
 
     public List<String> suppressedTopics(String userId) {
         return db.queryForList("SELECT topic FROM recommendation_suppressed_topics WHERE user_id=? ORDER BY topic",
                 String.class, userId);
+    }
+
+    @Transactional
+    public Map<String,Object> importLegacy(Actor actor, boolean personalized, List<String> exclusions, List<String> authors) {
+        lock(actor);
+        if (new HashSet<>(exclusions).size()!=exclusions.size() || new HashSet<>(authors).size()!=authors.size())
+            throw new ApiException(400,"INVALID_ARGUMENT","导入列表不能包含重复项");
+        var before=snapshot(actor.id());
+        boolean same=before.get("personalized").equals(personalized)
+                && new HashSet<>((List<?>)before.get("excluded_post_ids")).equals(new HashSet<>(exclusions))
+                && new HashSet<>((List<?>)before.get("blocked_author_ids")).equals(new HashSet<>(authors))
+                && ((List<?>)before.get("suppressed_topics")).isEmpty();
+        if (same) return before; // Safe replay after a response was lost.
+        if (((Number)before.get("version")).longValue()!=0 || !Boolean.TRUE.equals(before.get("personalized"))
+                || !((List<?>)before.get("excluded_post_ids")).isEmpty()
+                || !((List<?>)before.get("blocked_author_ids")).isEmpty()
+                || !((List<?>)before.get("suppressed_topics")).isEmpty())
+            throw new ApiException(409,"PREFERENCE_MIGRATION_CONFLICT","Java 已有偏好，请核对差异后人工处理；不会覆盖或合并");
+        // Import historical exclusion intent even if a post has since disappeared.
+        // This does not grant access and must not fabricate new behavioral events.
+        insertRowIfAbsent(actor.id());
+        db.update("UPDATE recommendation_preferences SET personalized=?,version=version+1 WHERE user_id=?",
+                personalized, actor.id());
+        for (String id:exclusions)
+            db.update("INSERT INTO interactions(user_id,kind,target_id) VALUES(?,'not-interested',?)",actor.id(),id);
+        for (String id:authors)
+            db.update("INSERT INTO recommendation_blocked_authors(user_id,author_id) VALUES(?,?)",actor.id(),id);
+        return snapshot(actor.id());
     }
 
     @Transactional

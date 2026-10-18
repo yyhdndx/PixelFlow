@@ -1,6 +1,6 @@
 # Java 核心业务服务
 
-状态：目录骨架，尚未配置依赖或实现启动类。拟采用 Spring Boot，服务端 JDK 和框架版本独立于 Android，实施时确定。
+独立 Maven 工程：Spring Boot 3.5.16、Java 17、Spring Security、Spring JDBC、Flyway。默认使用 H2 文件数据库，不依赖外部内容 API，不影响 Android Gradle 工程。
 
 源码根目录：`src/main/java/com/pixelflow/server/`。
 
@@ -15,6 +15,81 @@
 |intelligence|调用 Python 服务、请求超时与普通 Feed 降级|
 |common|统一错误、请求标识及必要公共配置|
 
-资源放入 `src/main/resources/`，测试放入 `src/test/java/com/pixelflow/server/`。数据库初始化放入根目录 `deploy/database/`。
+## 启动
 
-开发前先在 `contracts/http/` 定义接口。模型和数据库凭据只在服务端运行时注入。不得将 Python 数据处理故障扩散为普通 Feed 故障。
+需要 JDK 17+、Maven 3.6.3+，建议统一使用 JDK 17 或 21。在仓库根目录执行：
+
+```powershell
+cd server
+mvn test
+mvn package
+$env:PIXELFLOW_SEED='true'
+java -jar target/pixelflow-server-0.1.0.jar
+```
+
+访问 `http://127.0.0.1:8080/health` 和 `http://127.0.0.1:8080/feed/?count=10&accept_video_clip=true`。种子开关在空库插入 6 个带插画头像的演示账号和 33 条图文/视频作品（含两个三图作品），使用随 JAR 打包的素材；按批次幂等执行，已有首批 24 条的库追加 9 条，已有前两批 30 条的库只追加 3 条。默认不创建管理员，不提供固定账号密码。旧版占位作品保持不动，详见[演示素材说明](../docs/server/演示素材说明.md)。
+
+审核演示需启动前从私有配置注入 `PIXELFLOW_ADMIN_PASSWORD`，首次创建用户名 `admin` 的账号。密码至少 10 字符、UTF-8 不超过 72 字节；该变量不会重置已有账号。不要将真实密码保存到 Git、截图或共享终端历史。
+
+## 配置
+
+|变量|默认值|含义|
+|---|---|---|
+|SERVER_ADDRESS|127.0.0.1|默认仅本机；局域网联调可显式设为 0.0.0.0|
+|SERVER_PORT|8080|HTTP 端口|
+|DB_URL|jdbc:h2:file:./runtime-data/pixelflow;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE|相对于进程工作目录的持久化数据库|
+|DB_USER / DB_PASSWORD|sa / 空|仅适合默认本地 H2|
+|PIXELFLOW_JWT_SECRET|空|空时每次启动生成随机内存密钥；固定部署需注入至少 32 字节随机密钥|
+|PIXELFLOW_SEED|false|首次插入演示作品|
+|PIXELFLOW_PUBLIC_BASE_URL|http://127.0.0.1:8080|首次生成种子媒体 URL 使用的客户端可达地址|
+|PIXELFLOW_ADMIN_PASSWORD|空|首次创建 admin；不输出到日志|
+|PIXELFLOW_ANALYTICS_EXPORT_TOKEN|空|独立只读分析导出密钥，至少32字符；为空时内部导出全部拒绝|
+|PIXELFLOW_INTELLIGENCE_BASE_URL|空|Java 访问 Python 的 origin，例如 http://127.0.0.1:8001；为空时画像查询返回503|
+
+应用不自动读取 `.env`；变量由终端、IDE 或部署平台注入。未固定 JWT 密钥时重启会使旧 access token 失效，但数据库中未过期的 refresh token 仍可换新令牌。`runtime-data/` 已忽略，请单独备份，不要当构建产物删除。
+
+H2 的 PostgreSQL 模式不等于已经支持 PostgreSQL 部署。切换前需补驱动、Flyway 数据库模块及兼容性测试。
+
+## Android 联调
+
+模拟器访问宿主机使用 `http://10.0.2.2:8080`；首次生成种子数据前将 `PIXELFLOW_PUBLIC_BASE_URL` 设为这个地址。真机使用电脑局域网 IP，并显式配置监听地址和防火墙，不要公开暴露开发服务。
+
+在 `app/src/main/assets/api.properties` 设置基础 origin `url`，不含路径或 `/feed/` 后缀，默认使用模拟器地址 http://10.0.2.2:8080。Android 已接入账号页、内存会话与令牌刷新、next_cursor 分页和首页/详情点赞；关注、收藏、发布及资料同步仍待接入。启动与设备验收见 [Android 联调说明](../docs/android/Java服务联调说明.md)。
+
+已有种子作品的 URL 不会随环境变量变更自动更新，应显式编辑对应数据或使用独立演示数据库，勿误删业务数据。
+
+## 文档与测试
+
+- [实现设计与剩余任务](../docs/server/服务端实现说明.md)
+- [OpenAPI 3.0 契约](../contracts/http/java-api.yaml)
+- [社区图片、头像与视频素材及许可](../docs/server/演示素材说明.md)
+- Flyway 数据库迁移：`src/main/resources/db/migration/`，启动自动执行。
+- 测试：`src/test/java/com/pixelflow/server/`，`mvn test` 使用独立内存数据库，不修改本地业务数据。
+
+此版本用于本地课程开发，不是可直接公开部署的生产服务。Python 已通过独立只读身份同步事件并生成规则画像；Java intelligence 包提供本人画像查询代理（3秒请求超时、身份交叉校验、不跟随重定向），推荐网关和 Agent 尚未实现。见 [Python 运行说明](../intelligence/README.md)。
+
+## 图片上传与草稿（2026-10-03）
+
+登录后使用 `POST /api/media`，`multipart/form-data` 的文件字段为 `file`。支持 JPEG/PNG，输入/转换后文件均最多 8 MiB，最多 400 万像素；内容识别并重新编码为 PNG。视频上传未开放。
+
+上传响应包含 `mediaId`，用它创建草稿：
+
+```json
+{"title":"我的作品","content":"正文","mediaIds":["上传返回的 mediaId"]}
+```
+
+也可先用 `{"title":"","content":"未完成正文"}` 保存无媒体草稿，再 `PUT /api/posts/{id}` 完整替换。提交审核要求标题非空白且至少一个媒体；未完成草稿返回 409，不丢内容。
+
+不要将上传响应的 URL 放进 `clips`；上传归属使用 `mediaIds` 校验。编辑时根据详情 `media_ids` 回填请求 `mediaIds`；遗漏媒体字段代表清空附件，PUT 不是局部合并。外部 URL 的 clips 接口仍保留，但不能与非空 mediaIds 混用。
+
+图片与元数据当前同存数据库，V3 迁移自动建表；无需另建上传目录。每用户最多 100 张，未引用图片可由本人手动删除，自动过期清理尚未实现。该方案用于小规模课程演示，后续迁移对象存储；文件库备份包含图片。`PIXELFLOW_PUBLIC_BASE_URL` 同时用于生成上传图片地址，不使用请求 Host 头。它须为无路径/查询/凭据的 HTTP(S) origin；模拟器、真机地址要按上文配置。
+
+未公开图片只能由上传者或管理员带 Bearer 令牌访问；作品公开后游客可访问。下架/停用作者后重新鉴权，响应禁止缓存，但无法收回用户此前已下载的副本。一张图关联多个作品时，只要仍有一个公开作品就保持公开可读。
+
+## 上传图片管理
+
+登录后使用 `GET /api/media?count=20` 查询本人的上传记录、referenceCount、usedCount 和 limit。用响应 nextCursor 作为下一页的 after 参数；末页 nextCursor 为 null。按 UUID 字符串排序，不是时间排序；新增图片后应从第一页刷新。
+
+`GET /api/media?unusedOnly=true` 只返回没有作品引用的图片，便于挑选需要清理的上传内容。usedCount 仍是本人全部上传数量。列表仅为当前查询结果，最终删除会在事务内重新校验。
+
+`DELETE /api/media/{mediaId}` 删除本人未引用的图片，成功返回 204 并释放一个上传名额；此操作没有回收站，客户端执行前应让用户确认。已删除或不属于本人的 ID 返回 404，不能用管理员身份代删；仍被任何草稿、待审、公开、驳回或下架作品引用时返回 409 MEDIA_IN_USE。先从所有相关作品移除引用再删除，单纯下架不会移除引用。数据库文件不保证立即缩小，已做备份和已下载副本也不会随之消失。
