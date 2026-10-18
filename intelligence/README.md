@@ -1,6 +1,8 @@
 # Python 数据分析与智能服务
 
-状态：已实现 FastAPI 服务、Java 事件增量同步、SQLite 事件与画像快照、用户本人画像查询、三个推荐业务 Skill 和注册表，以及读取真实 Java Feed 的本人推荐预览。Skill 使用确定性规则，不调用模型、不需要模型密钥；Agent、MCP 和面向客户端的正式推荐入口尚未实现。
+状态：已实现 FastAPI 服务、Java 事件增量同步、MySQL 事件与画像快照、用户本人画像查询、三个推荐业务 Skill 和注册表，以及读取真实 Java Feed 的本人推荐预览。SQLite 保留用于离线测试和旧数据迁移。Skill 使用确定性规则，不调用模型、不需要模型密钥；Agent、MCP 和面向客户端的正式推荐入口尚未实现。
+
+部署时设置 `ANALYTICS_DB=mysql://pixelflow_analytics:<URL编码后的密码>@127.0.0.1:3306/pixelflow_analytics`。省略时默认连接本机 MySQL，同名账号、不含密码，因此必须先配置账号。不要提交带密码的 URL。MySQL 初始化版本由 `analytics/mysql_schema.py` 管理；同步与重算共用 checkpoint 行锁，状态查询使用一致快照。完整步骤见 [MySQL 部署与迁移](../deploy/MySQL部署与迁移.md)。
 
 源码采用 `src/pixelflow_intelligence/` 布局。
 
@@ -44,7 +46,7 @@ $env:JAVA_BASE_URL='http://127.0.0.1:8080'
 |---|---|---|
 |PIXELFLOW_ANALYTICS_EXPORT_TOKEN|Java 与 Python 使用同一值|Python 读取 Java 的 /api/internal/analytics/events，只有 events:read 权限|
 |PIXELFLOW_INTELLIGENCE_TOKEN|Python 与受控调度/运维调用方|事件同步、画像重算及 GET /internal/status 汇总状态|
-|ANALYTICS_DB|Python，可选|默认 runtime-data/analytics.sqlite3，相对于进程工作目录|
+|ANALYTICS_DB|Python，部署必填|mysql://账号:URL编码密码@127.0.0.1:3306/pixelflow_analytics；显式文件路径仅用于 SQLite 兼容测试|
 
 Java 未配置导出密钥时该接口全部拒绝；Python 未配置同步密钥时同步返回503。管理员 JWT 不代替服务身份。不要使用示例字符串作为部署密钥，也不要复用两个服务密钥。
 
@@ -59,7 +61,7 @@ GET /profiles/me 使用 Java 登录得到的用户 access token，Python 每次�
 ## 数据与画像规则
 
 - Java V5 增加停留时长、场景、事件来源、稳定导出序列与审计。客户端只能生成 CLIENT 事件；点赞/取消点赞的 SERVER 事件与互动同事务写入，重复设置不重复发事件。
-- SQLite 保存来源 ID、事件、同步游标及按版本保存的画像。每页导入、画像更新、游标推进同事务完成；坏数据/超时回滚，源数据库更换时拒绝复用游标。不要手工回退游标；重建时使用独立分析库并保留旧库备份。
+- MySQL 保存来源 ID、事件、同步游标及按版本保存的画像。每页导入、画像更新、游标推进同事务完成；坏数据/超时回滚，源数据库更换时拒绝复用游标。不要手工回退游标；重建时使用独立分析库并保留旧库备份。
 - 规则使用生成时最近30天事件：点击每作品每天最多1分；停留每作品每天最多120秒，30秒=1分；当前有效的服务端点赞3分，取消移除。曝光只作次数统计，客户端自报 LIKE 不增加点赞权重。
 - 基于标题关键词分类美食、宠物、旅行、阅读、数码、运动、园艺，未匹配归为其他；并聚合作者、图片/视频偏好及 UTC 活跃时段。规则可解释，但没有训练或验证推荐准确率。
 - 新用户返回 version=0 的冷启动空画像。导入新事件或维护重算可生成新版本；过期重算按当前时间移除30天窗口外的兴趣，尚无自动调度。画像记录历史兴趣，不表示相关作品目前仍可推荐，推荐阶段必须重查权限与状态。

@@ -1,5 +1,5 @@
 import secrets
-import sqlite3
+from ..analytics.database import DATABASE_ERRORS
 from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import ValidationError, BaseModel, ConfigDict, Field
@@ -75,7 +75,7 @@ def create_app(settings=None, upstream=None):
             return store.sync_page(upstream.events)
         except (UpstreamError, AuthenticationError):
             raise HTTPException(503, "Java export unavailable; checkpoint unchanged") from None
-        except (ValueError, ValidationError, sqlite3.Error):
+        except (ValueError, ValidationError, *DATABASE_ERRORS):
             raise HTTPException(502, "Invalid event batch or store unavailable; checkpoint unchanged") from None
 
     def verify_maintenance(credentials):
@@ -91,7 +91,7 @@ def create_app(settings=None, upstream=None):
         verify_maintenance(credentials)
         try:
             return store.refresh_profiles(body.after, body.count, body.max_age_seconds)
-        except (ValueError, KeyError, TypeError, sqlite3.Error):
+        except (ValueError, KeyError, TypeError, *DATABASE_ERRORS):
             raise HTTPException(503, "Profile refresh unavailable; page unchanged") from None
 
     @app.get("/internal/status")
@@ -99,7 +99,7 @@ def create_app(settings=None, upstream=None):
         verify_maintenance(credentials)
         try:
             return store.status()
-        except (ValueError, KeyError, TypeError, sqlite3.Error):
+        except (ValueError, KeyError, TypeError, *DATABASE_ERRORS):
             raise HTTPException(503, "Analytics status unavailable") from None
 
     @app.get("/profiles/me")
@@ -115,7 +115,7 @@ def create_app(settings=None, upstream=None):
             raise HTTPException(503, "Java identity service unavailable") from None
         try:
             return store.profile(user)
-        except (ValueError, sqlite3.Error):
+        except (ValueError, *DATABASE_ERRORS):
             raise HTTPException(503, "Profile store unavailable") from None
 
     @app.get("/recommendations/me/preview")
@@ -131,7 +131,7 @@ def create_app(settings=None, upstream=None):
             raise HTTPException(401, "Invalid or disabled user session") from None
         except UpstreamError:
             raise HTTPException(503, "Java recommendation source unavailable") from None
-        except (SkillError, TimeoutError, sqlite3.Error):
+        except (SkillError, TimeoutError, *DATABASE_ERRORS):
             raise HTTPException(503, "Recommendation preview unavailable") from None
 
     return app

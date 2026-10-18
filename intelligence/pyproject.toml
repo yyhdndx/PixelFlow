@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "pixelflow-intelligence"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["fastapi==0.142.2", "uvicorn==0.54.0", "httpx==0.28.1"]
+dependencies = ["fastapi==0.142.2", "uvicorn==0.54.0", "httpx==0.28.1", "PyMySQL[rsa]==1.1.1"]
 
 [project.optional-dependencies]
 test = ["pytest==9.1.1"]

@@ -19,6 +19,10 @@ pydantic==2.13.5
 pydantic_core==2.46.5
 Pygments==2.21.0
 pytest==9.1.1
+PyMySQL==1.1.1
+cryptography==46.0.3
+cffi==2.0.0
+pycparser==2.23
 starlette==1.7.0
 tomli==2.4.1
 typing-inspection==0.4.4

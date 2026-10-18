@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 from .profile import build_profile, RULE_VERSION
+from .database import MySQLConnection
 
 
 class Event(BaseModel):
@@ -39,35 +40,52 @@ class Page(BaseModel):
 class Store:
     def __init__(self, database):
         self.database = database
-        Path(database).parent.mkdir(parents=True, exist_ok=True)
+        self.mysql = str(database).startswith("mysql://")
+        if not self.mysql:
+            if "://" in str(database):
+                raise ValueError("Unsupported analytics database URL")
+            Path(database).parent.mkdir(parents=True, exist_ok=True)
         with closing(self.connect()) as db, db:
-            db.executescript("""
+            if self.mysql:
+                from .mysql_schema import initialize
+                initialize(db)
+            else:
+                db.executescript("""
                 CREATE TABLE IF NOT EXISTS checkpoint (
-                    id INTEGER PRIMARY KEY CHECK(id=1), source_id TEXT, cursor INTEGER NOT NULL);
-                INSERT OR IGNORE INTO checkpoint VALUES(1,NULL,0);
+                    id INTEGER PRIMARY KEY CHECK(id=1), source_id TEXT, cursor BIGINT NOT NULL);
+                INSERT INTO checkpoint VALUES(1,NULL,0) ON CONFLICT(id) DO NOTHING;
                 CREATE TABLE IF NOT EXISTS events (
-                    source_id TEXT NOT NULL, seq INTEGER NOT NULL, user_id TEXT NOT NULL,
+                    source_id TEXT NOT NULL, seq BIGINT NOT NULL, user_id TEXT NOT NULL,
                     event_id TEXT NOT NULL, document TEXT NOT NULL,
                     PRIMARY KEY(source_id,seq), UNIQUE(source_id,user_id,event_id));
                 CREATE INDEX IF NOT EXISTS events_user ON events(user_id,seq);
                 CREATE TABLE IF NOT EXISTS profiles (
-                    user_id TEXT NOT NULL, version INTEGER NOT NULL, document TEXT NOT NULL,
+                    user_id TEXT NOT NULL, version BIGINT NOT NULL, document TEXT NOT NULL,
                     PRIMARY KEY(user_id,version));
                 CREATE TABLE IF NOT EXISTS maintenance_state (
-                    operation TEXT PRIMARY KEY, completed_at INTEGER NOT NULL, has_more INTEGER NOT NULL);
+                    operation TEXT PRIMARY KEY, completed_at BIGINT NOT NULL, has_more INTEGER NOT NULL);
             """)
 
     def connect(self):
+        if self.mysql:
+            return MySQLConnection(self.database)
         db = sqlite3.connect(self.database, timeout=10)
         db.row_factory = sqlite3.Row
         return db
+
+    def _begin_write(self, db):
+        if self.mysql:
+            # Both sync and refresh lock the singleton before reading versions.
+            db.execute("SELECT id FROM checkpoint WHERE id=1 FOR UPDATE")
+        else:
+            db.execute("BEGIN IMMEDIATE")
 
     def sync_page(self, fetch, now=None):
         now = int(time.time()) if now is None else now
         with closing(self.connect()) as db:
             # Serializes both multiple requests and multiple local workers. Page + profiles +
             # checkpoint commit together; a crash or malformed page cannot skip source events.
-            db.execute("BEGIN IMMEDIATE")
+            self._begin_write(db)
             try:
                 checkpoint = db.execute("SELECT * FROM checkpoint WHERE id=1").fetchone()
                 cursor = checkpoint["cursor"]
@@ -92,7 +110,7 @@ class Store:
                     version = db.execute("SELECT COALESCE(MAX(version),0)+1 FROM profiles WHERE user_id=?", (user,)).fetchone()[0]
                     profile = build_profile(user, events, version, now)
                     db.execute("INSERT INTO profiles VALUES(?,?,?)", (user, version, json.dumps(profile, ensure_ascii=False)))
-                db.execute("UPDATE checkpoint SET source_id=?,cursor=? WHERE id=1", (page.source_id, page.next_cursor))
+                db.execute("UPDATE checkpoint SET source_id=?,`cursor`=? WHERE id=1", (page.source_id, page.next_cursor))
                 self._record_operation(db, "sync", now, page.has_more)
                 db.commit()
                 return {"imported": len(page.items), "updated_users": len(users),
@@ -115,7 +133,7 @@ class Store:
         now = int(time.time()) if now is None else now
         with closing(self.connect()) as db, db:
             # Shares the writer lock with sync; no duplicate versions or lost profile updates.
-            db.execute("BEGIN IMMEDIATE")
+            self._begin_write(db)
             rows = db.execute("""SELECT p.user_id,p.version,p.document FROM profiles p
                 JOIN (SELECT user_id,MAX(version) AS version FROM profiles
                       WHERE user_id>? GROUP BY user_id ORDER BY user_id LIMIT ?) latest
@@ -139,18 +157,24 @@ class Store:
                     "next_cursor": selected[-1]["user_id"] if selected else after,
                     "has_more": len(rows) > count, "evaluated_at": now}
 
-    @staticmethod
-    def _record_operation(db, operation, now, more):
-        db.execute("""INSERT INTO maintenance_state VALUES(?,?,?) ON CONFLICT(operation)
-            DO UPDATE SET completed_at=excluded.completed_at,has_more=excluded.has_more""",
+    def _record_operation(self, db, operation, now, more):
+        sql = ("INSERT INTO maintenance_state VALUES(?,?,?) ON DUPLICATE KEY UPDATE "
+               "completed_at=VALUES(completed_at),has_more=VALUES(has_more)" if self.mysql else
+               "INSERT INTO maintenance_state VALUES(?,?,?) ON CONFLICT(operation) "
+               "DO UPDATE SET completed_at=excluded.completed_at,has_more=excluded.has_more")
+        db.execute(sql,
             (operation, now, int(more)))
 
     def status(self, now=None):
         now = int(time.time()) if now is None else now
         with closing(self.connect()) as db:
             # All counters and watermarks come from the same read transaction.
-            db.execute("BEGIN")
-            checkpoint = db.execute("SELECT source_id,cursor FROM checkpoint WHERE id=1").fetchone()
+            if self.mysql:
+                db.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+                db.execute("START TRANSACTION READ ONLY")
+            else:
+                db.execute("BEGIN")
+            checkpoint = db.execute("SELECT source_id,`cursor` FROM checkpoint WHERE id=1").fetchone()
             events = db.execute("SELECT COUNT(*) FROM events").fetchone()[0]
             snapshots = db.execute("SELECT COUNT(*) FROM profiles").fetchone()[0]
             users = stale = cold = 0

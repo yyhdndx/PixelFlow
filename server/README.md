@@ -1,6 +1,6 @@
 # Java 核心业务服务
 
-独立 Maven 工程：Spring Boot 3.5.16、Java 17、Spring Security、Spring JDBC、Flyway。默认使用 H2 文件数据库，不依赖外部内容 API，不影响 Android Gradle 工程。
+独立 Maven 工程：Spring Boot 3.5.16、Java 17、Spring Security、Spring JDBC、Flyway。默认使用 MySQL，H2 仅用于离线测试和旧数据迁移。建库、配置和旧数据导入见 [MySQL 部署与迁移](../deploy/MySQL部署与迁移.md)。
 
 源码根目录：`src/main/java/com/pixelflow/server/`。
 
@@ -24,6 +24,9 @@ cd server
 mvn test
 mvn package
 $env:PIXELFLOW_SEED='true'
+# 先创建 pixelflow_app 数据库和同名账号，再通过私有环境注入 DB_PASSWORD。
+$env:DB_URL='jdbc:mysql://127.0.0.1:3306/pixelflow_app?connectionTimeZone=UTC&tinyInt1isBit=true'
+$env:DB_USER='pixelflow_app'
 java -jar target/pixelflow-server-0.1.0.jar
 ```
 
@@ -37,8 +40,8 @@ java -jar target/pixelflow-server-0.1.0.jar
 |---|---|---|
 |SERVER_ADDRESS|127.0.0.1|默认仅本机；局域网联调可显式设为 0.0.0.0|
 |SERVER_PORT|8080|HTTP 端口|
-|DB_URL|jdbc:h2:file:./runtime-data/pixelflow;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE|相对于进程工作目录的持久化数据库|
-|DB_USER / DB_PASSWORD|sa / 空|仅适合默认本地 H2|
+|DB_URL|jdbc:mysql://127.0.0.1:3306/pixelflow_app?connectionTimeZone=UTC&tinyInt1isBit=true|MySQL 业务库；远程连接需配置 TLS|
+|DB_USER / DB_PASSWORD|pixelflow_app / 空|必须配置实际数据库账号密码|
 |PIXELFLOW_JWT_SECRET|空|空时每次启动生成随机内存密钥；固定部署需注入至少 32 字节随机密钥|
 |PIXELFLOW_SEED|false|首次插入演示作品|
 |PIXELFLOW_PUBLIC_BASE_URL|http://127.0.0.1:8080|首次生成种子媒体 URL 使用的客户端可达地址|
@@ -48,7 +51,7 @@ java -jar target/pixelflow-server-0.1.0.jar
 
 应用不自动读取 `.env`；变量由终端、IDE 或部署平台注入。未固定 JWT 密钥时重启会使旧 access token 失效，但数据库中未过期的 refresh token 仍可换新令牌。`runtime-data/` 已忽略，请单独备份，不要当构建产物删除。
 
-H2 的 PostgreSQL 模式不等于已经支持 PostgreSQL 部署。切换前需补驱动、Flyway 数据库模块及兼容性测试。
+Flyway 自动选择 `src/main/resources/db/mysql/` 或 `db/h2/`。H2 历史脚本仅移动路径，内容及校验和保留；MySQL 独立维护 V1–V6。新增结构修改必须追加版本，不能改已执行的脚本。H2 的 PostgreSQL 模式只是测试兼容选项，不代表部署 PostgreSQL。
 
 ## Android 联调
 

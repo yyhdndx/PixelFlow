@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 
 @dataclass(frozen=True)
 class Settings:
-    database: str = "runtime-data/analytics.sqlite3"
+    database: str = field(default="mysql://pixelflow_analytics@127.0.0.1:3306/pixelflow_analytics", repr=False)
     java_url: str = "http://127.0.0.1:8080"
     export_token: str = field(default="", repr=False)
     sync_token: str = field(default="", repr=False)
@@ -24,7 +24,7 @@ class Settings:
     @classmethod
     def from_env(cls):
         return cls(
-            database=os.getenv("ANALYTICS_DB", "runtime-data/analytics.sqlite3"),
+            database=os.getenv("ANALYTICS_DB", cls.__dataclass_fields__["database"].default),
             java_url=os.getenv("JAVA_BASE_URL", "http://127.0.0.1:8080"),
             export_token=os.getenv("PIXELFLOW_ANALYTICS_EXPORT_TOKEN", ""),
             sync_token=os.getenv("PIXELFLOW_INTELLIGENCE_TOKEN", ""),

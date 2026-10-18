@@ -1,0 +1,8 @@
+CREATE TABLE user_status_audit (
+ id BIGINT AUTO_INCREMENT PRIMARY KEY,
+ actor_id VARCHAR(36) NOT NULL, user_id VARCHAR(36) NOT NULL,
+ before_enabled BOOLEAN NOT NULL, after_enabled BOOLEAN NOT NULL,
+ reason VARCHAR(500) NOT NULL, created_at BIGINT NOT NULL,
+ FOREIGN KEY (actor_id) REFERENCES users(id),
+ FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_bin;
