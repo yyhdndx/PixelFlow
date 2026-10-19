@@ -119,25 +119,30 @@ def test_wrong_version_state_file_reports_error(monkeypatch, tmp_path, capsys):
 
 
 def test_lock_busy_returns_3(monkeypatch, tmp_path, capsys):
-    (tmp_path / sm.LOCK_FILENAME).write_text(str(os.getpid()))
-    code, out = run_main(monkeypatch, tmp_path, ok_run, capsys)
+    (tmp_path / sm.LOCK_FILENAME).write_text("held by another process")
+    with sm.hold_state_lock(tmp_path):
+        code, out = run_main(monkeypatch, tmp_path, ok_run, capsys)
     assert code == 3 and "LOCK_BUSY" in out
     assert not calls  # maintenance.run must not be invoked
 
 
-def test_stale_lock_is_replaced(monkeypatch, tmp_path, capsys):
-    (tmp_path / sm.LOCK_FILENAME).write_text("999999999")
+def test_stale_lock_file_from_crashed_process_does_not_block(monkeypatch, tmp_path, capsys):
+    # A leftover lock file (e.g. after a crash) is not probed by PID and does
+    # not need manual cleanup: the OS lock is free again, so this run succeeds.
+    (tmp_path / sm.LOCK_FILENAME).write_bytes(b"garbage from a dead process")
     next_responses.append({"refresh_after": ""})
     code, _ = run_main(monkeypatch, tmp_path, ok_run, capsys)
     assert code == 0
-    assert not (tmp_path / sm.LOCK_FILENAME).exists()
 
 
 def test_lock_released_after_run(monkeypatch, tmp_path, capsys):
     next_responses.append({"refresh_after": ""})
     code, _ = run_main(monkeypatch, tmp_path, ok_run, capsys)
     assert code == 0
-    assert not (tmp_path / sm.LOCK_FILENAME).exists()
+    # No process holds the lock anymore, even though the lock file itself may
+    # remain on disk (its content is irrelevant to the OS-level lock).
+    with sm.hold_state_lock(tmp_path):
+        pass
 
 
 def test_concurrent_same_directory_only_one_runs(monkeypatch, tmp_path, capsys):
@@ -198,11 +203,51 @@ def test_invalid_config_fails_without_echo(monkeypatch, tmp_path, capsys):
     assert json.loads((tmp_path / "state.json").read_text())["last_status"] == "failed"
 
 
-def test_time_budget_exhausted_result(monkeypatch, tmp_path, capsys):
-    next_responses.append({"status": "failed", "reason": "TIME_BUDGET_EXHAUSTED"})
+def test_time_budget_exhausted_is_incomplete_and_keeps_cursor(monkeypatch, tmp_path, capsys):
+    (tmp_path / "state.json").write_text(json.dumps({"version": 1, "refresh_after": "alice"}))
+    next_responses.append({"status": "incomplete", "reason": "TIME_BUDGET_EXHAUSTED",
+                           "refresh_after": "bob"})
     code, _ = run_main(monkeypatch, tmp_path, ok_run, capsys, argv=[
         "--state-dir", str(tmp_path), "--budget-seconds", "1"])
-    assert code == 1
+    assert code == 2
+    saved = json.loads((tmp_path / "state.json").read_text())
+    assert saved["refresh_after"] == "bob" and saved["last_status"] == "incomplete"
+
+
+def test_state_missing_refresh_after_is_rejected(monkeypatch, tmp_path, capsys):
+    (tmp_path / "state.json").write_text(json.dumps({"version": 1}))
+    code, out = run_main(monkeypatch, tmp_path, ok_run, capsys)
+    assert code == 1 and "CORRUPT_STATE_FILE" in out
+    assert not calls
+
+
+def test_state_non_object_is_rejected(monkeypatch, tmp_path, capsys):
+    (tmp_path / "state.json").write_text(json.dumps([1, 2, 3]))
+    code, out = run_main(monkeypatch, tmp_path, ok_run, capsys)
+    assert code == 1 and "CORRUPT_STATE_FILE" in out
+
+
+def test_state_bad_field_types_are_rejected(monkeypatch, tmp_path, capsys):
+    (tmp_path / "state.json").write_text(json.dumps(
+        {"version": 1, "refresh_after": "alice", "last_run_at": "soon",
+         "last_status": "unknown"}))
+    code, out = run_main(monkeypatch, tmp_path, ok_run, capsys)
+    assert code == 1 and "CORRUPT_STATE_FILE" in out
+
+
+def test_state_save_failure_keeps_previous_state(monkeypatch, tmp_path, capsys):
+    state_path = tmp_path / "state.json"
+    state_path.write_text(json.dumps({"version": 1, "refresh_after": "alice"}))
+    next_responses.append({"refresh_after": ""})
+
+    def failing_save(state_dir, state):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(sm, "save_state", failing_save)
+    code, out = run_main(monkeypatch, tmp_path, ok_run, capsys)
+    assert code == 1 and "STATE_SAVE_FAILED" in out
+    # The previous state file is untouched so the pass can be replayed.
+    assert json.loads(state_path.read_text())["refresh_after"] == "alice"
 
 
 def test_state_dir_env_override(monkeypatch, tmp_path, capsys):

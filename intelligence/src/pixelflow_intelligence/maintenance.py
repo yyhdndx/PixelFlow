@@ -12,6 +12,10 @@ class MaintenanceError(Exception):
     pass
 
 
+class BudgetExhausted(Exception):
+    """Raised internally when the time budget runs out mid-pass."""
+
+
 class SyncPage(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid")
     imported: int = Field(ge=0, le=50)
@@ -58,7 +62,7 @@ def run(client, *, max_sync_pages=20, max_refresh_pages=20, refresh_after="", bu
     def post(path, body, model):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
-            raise MaintenanceError("TIME_BUDGET_EXHAUSTED")
+            raise BudgetExhausted
         try:
             response = client.post(path, json=body, timeout=min(30, remaining))
             if response.status_code != 200:
@@ -98,6 +102,11 @@ def run(client, *, max_sync_pages=20, max_refresh_pages=20, refresh_after="", bu
                 result["status"] = "complete"
                 return result
         result["reason"] = "REFRESH_PAGE_LIMIT"
+    except BudgetExhausted:
+        # Running out of time is a normal bounded stop, not a failure: report
+        # incomplete with the last confirmed cursor so the next pass resumes
+        # from it instead of rescanning earlier pages.
+        result["reason"] = "TIME_BUDGET_EXHAUSTED"
     except MaintenanceError as error:
         result.update(status="failed", reason=str(error))
     return result
