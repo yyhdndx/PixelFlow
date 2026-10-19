@@ -1,0 +1,48 @@
+name: Mirror Gitee master
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-gitee
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    if: vars.ENABLE_GITEE_MIRROR == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # A dedicated PAT is required: pushes using GITHUB_TOKEN do not trigger CI.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: master
+          fetch-depth: 0
+          token: ${{ secrets.GH_MIRROR_TOKEN }}
+      - name: Fetch Gitee and fast-forward GitHub
+        env:
+          GITEE_REPOSITORY: ${{ vars.GITEE_REPOSITORY }}
+          GITEE_SSH_KEY: ${{ secrets.GITEE_SSH_KEY }}
+          GITEE_KNOWN_HOSTS: ${{ secrets.GITEE_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [[ "$GITEE_REPOSITORY" =~ ^git@gitee.com:[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+\.git$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$GITEE_SSH_KEY" > ~/.ssh/gitee_key
+          printf '%s\n' "$GITEE_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/gitee_key ~/.ssh/known_hosts
+          export GIT_SSH_COMMAND='ssh -i ~/.ssh/gitee_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes'
+          git fetch --no-tags "$GITEE_REPOSITORY" refs/heads/master
+          git merge-base --is-ancestor origin/master FETCH_HEAD || {
+            echo 'Histories diverged: refusing to overwrite GitHub master.' >&2
+            exit 1
+          }
+          git push origin FETCH_HEAD:refs/heads/master
+      - name: Remove Gitee key
+        if: always()
+        run: rm -f "$HOME/.ssh/gitee_key"

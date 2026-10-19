@@ -219,7 +219,7 @@ mysqldump -u root -p --single-transaction --hex-blob --no-tablespaces --set-gtid
 
 备份目录需 root 私有，实际任务使用带时间戳的新文件名，备份成功需确认退出码并定期在独立实例演练恢复。DDL 升级前暂停任务并备份；两端配置和密钥仍单独保存。三人本地开发各用自己的 MySQL 库，不共用云端库跑自动测试。
 
-Java 快速测试仍用 H2；真实 MySQL 测试使用独立空测试库，通过环境变量指定：`MYSQL_TEST_URL`（业务接口）、`MYSQL_TEST_PREFERENCES_URL`（偏好）、`MYSQL_TEST_MIGRATION_URL`（一次性空迁移目标），以及 `MYSQL_TEST_USER` / `MYSQL_TEST_PASSWORD`。这些测试会写入、清理测试数据，禁止指向联调库。运行 `mvn test`。
+Java 快速测试仍用 H2；真实 MySQL 测试使用独立空测试库，通过环境变量指定：`MYSQL_TEST_URL`（业务接口）、`MYSQL_TEST_PREFERENCES_URL`（偏好）、`MYSQL_TEST_STATS_URL`（个人主页统计）、`MYSQL_TEST_MIGRATION_URL`（一次性空迁移目标），以及 `MYSQL_TEST_USER` / `MYSQL_TEST_PASSWORD`。这些测试会写入、清理测试数据，禁止指向联调库。运行 `mvn test`。统计接口的专项运行说明见 [个人主页统计验收](../docs/testing/个人主页统计验收.md)。
 
 Python 设置 `MYSQL_TEST_ANALYTICS_DB=mysql://.../pixelflow_analytics_test` 后运行 `python -m pytest -q`；测试库名称必须以 `_test` 结尾。未配置时 MySQL 集成测试明确跳过，不能据此宣称已验证 MySQL。
 

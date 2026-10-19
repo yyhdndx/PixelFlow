@@ -1,0 +1,153 @@
+name: Backend CI and deployment
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci-only-password
+          MYSQL_ROOT_HOST: '%'
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      MYSQL_TEST_USER: root
+      MYSQL_TEST_PASSWORD: ci-only-password
+      MYSQL_TEST_URL: jdbc:mysql://127.0.0.1:3306/pf_business_test?useSSL=false&allowPublicKeyRetrieval=true
+      MYSQL_TEST_PREFERENCES_URL: jdbc:mysql://127.0.0.1:3306/pf_preferences_test?useSSL=false&allowPublicKeyRetrieval=true
+      MYSQL_TEST_STATS_URL: jdbc:mysql://127.0.0.1:3306/pf_stats_test?useSSL=false&allowPublicKeyRetrieval=true
+      MYSQL_TEST_MIGRATION_URL: jdbc:mysql://127.0.0.1:3306/pf_migration_test?useSSL=false&allowPublicKeyRetrieval=true
+      MYSQL_TEST_ANALYTICS_DB: mysql://root:ci-only-password@127.0.0.1:3306/pf_analytics_test
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: server/pom.xml
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.11'
+      - name: Install Python dependencies
+        run: |
+          python -m pip install './intelligence[test]'
+          python -m pip freeze --exclude pixelflow-intelligence > intelligence/constraints-ci.txt
+      - name: Create disposable databases
+        run: |
+          python - <<'PY'
+          import pymysql
+          with pymysql.connect(host='127.0.0.1', user='root', password='ci-only-password') as db:
+              with db.cursor() as cursor:
+                  for name in ('business', 'preferences', 'stats', 'migration', 'analytics'):
+                      cursor.execute(f'CREATE DATABASE pf_{name}_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin')
+          PY
+      - name: Java tests and package (including all MySQL suites)
+        run: mvn -B -ntp -f server/pom.xml verify
+      - name: Python tests (including MySQL)
+        working-directory: intelligence
+        run: python -m pytest -q --junitxml=../test-results/python.xml
+      - name: Deployment script tests
+        run: |
+          bash -n deploy/scripts/deploy-release.sh
+          python -m unittest discover -s tests/deploy -v
+      - name: Save test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-reports
+          path: |
+            server/target/surefire-reports/
+            test-results/
+          retention-days: 14
+      - name: Package tested revision
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        run: |
+          mkdir -p dist
+          printf '%s\n' "$GITHUB_SHA" > RELEASE_COMMIT
+          tar --exclude='__pycache__' --exclude='*.pyc' -czf dist/release.tar.gz \
+            RELEASE_COMMIT server/target/pixelflow-server-0.1.0.jar \
+            server/src/main/resources/db/mysql intelligence/src intelligence/pyproject.toml intelligence/constraints-ci.txt
+          sha256sum dist/release.tar.gz | cut -d ' ' -f 1 > dist/release.sha256
+      - name: Save release artifact
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backend-release
+          path: dist/
+          retention-days: 7
+
+  deploy:
+    needs: verify
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request' && vars.AUTO_DEPLOY == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production
+    concurrency:
+      group: pixelflow-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: backend-release
+          path: dist
+      - name: Skip outdated revision
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/commits/master" --jq .sha)
+          if [[ "$latest" == "$GITHUB_SHA" ]]; then
+            echo 'current=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'Newer master exists; this revision will not deploy.'
+          fi
+      - name: Upload and deploy
+        if: steps.latest.outputs.current == 'true'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ && "$DEPLOY_USER" != root ]]
+          DEPLOY_PORT=${DEPLOY_PORT:-22}
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+          opts=(-i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -o ServerAliveInterval=15)
+          release="$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          digest=$(cat dist/release.sha256)
+          [[ "$digest" =~ ^[a-f0-9]{64}$ ]]
+          scp "${opts[@]}" -P "$DEPLOY_PORT" dist/release.tar.gz \
+            "$DEPLOY_USER@$DEPLOY_HOST:/opt/pixelflow/incoming/$release.tar.gz"
+          ssh "${opts[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "timeout --signal=TERM --kill-after=60s 900 bash -s -- '$GITHUB_SHA' '$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT' '$digest'" \
+            < deploy/scripts/deploy-release.sh
+      - name: Remove runner SSH key
+        if: always()
+        run: rm -f "$HOME/.ssh/deploy_key"
