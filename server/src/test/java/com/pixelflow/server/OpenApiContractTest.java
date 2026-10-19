@@ -34,6 +34,17 @@ class OpenApiContractTest {
         var userBio=(Map<?,?>)((Map<?,?>)((Map<?,?>)schemas.get("User")).get("properties")).get("bio");
         assertEquals(60,userBio.get("x-utf16-maxLength"));
         assertFalse(userBio.containsKey("maxLength"));
+        var paths=(Map<?,?>)document.get("paths");
+        for (String kind:List.of("followers","following")) {
+            var operation=(Map<?,?>)((Map<?,?>)paths.get("/api/users/me/"+kind)).get("get");
+            var responses=(Map<?,?>)operation.get("responses");
+            assertTrue(responses.keySet().containsAll(List.of("200","400","401")));
+        }
+        var card=(Map<?,?>)schemas.get("UserConnectionCard");
+        assertEquals(false,card.get("additionalProperties"));
+        assertEquals(List.of("user_id","nickname","bio","avatar","is_following"),card.get("required"));
+        var page=(Map<?,?>)schemas.get("UserConnectionsPage");
+        assertEquals(List.of("status_code","user_list","has_more","next_cursor"),page.get("required"));
         references(document,document);
     }
     private void references(Object node,Map<String,Object> root) {
