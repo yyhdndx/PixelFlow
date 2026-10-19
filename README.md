@@ -59,7 +59,7 @@ APK 输出到 `app/build/outputs/apk/debug/`。服务地址由 `app/src/main/ass
 
 ## 协作约定
 
-当前两个前端驱动的后端任务可并行开发：[个人资料读取与编辑](docs/issues/01-java-个人资料读取与编辑.md)和[个人主页统计](docs/issues/02-java-个人主页统计.md)。分工边界及线上发布状态见 [任务索引](docs/issues/README.md)。
+当前已准备个人资料、个人主页统计、收藏作品分页和 Python 周期分析调度四份任务草稿，可按模块独立领取。分工边界、并行组合及线上发布状态见 [任务索引](docs/issues/README.md)，无需同时开启所有任务。
 
 按业务 Story 建分支，例如 `feature/us-01-auth`，提交信息说明模块与目的。接口变化先更新 `contracts/`，再同步调用方；业务实现同步补充模块测试和使用说明。密钥、上传内容、数据库文件、构建产物及本地配置不提交。
 
