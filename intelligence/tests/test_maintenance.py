@@ -83,5 +83,26 @@ def test_deadline_stops_before_network(monkeypatch):
     monkeypatch.setattr("pixelflow_intelligence.maintenance.time.monotonic", lambda: next(values))
     calls = []
     with client_for([], calls) as client:
-        assert run(client)["reason"] == "TIME_BUDGET_EXHAUSTED"
+        result = run(client)
+    assert result["status"] == "incomplete" and result["reason"] == "TIME_BUDGET_EXHAUSTED"
     assert not calls
+
+
+def test_budget_exhausted_mid_refresh_keeps_confirmed_cursor(monkeypatch):
+    # One refresh page confirms cursor "bob"; the budget then runs out before
+    # the next page: the pass must be incomplete and resume from "bob".
+    values = iter([100, 100, 100, 300])
+    monkeypatch.setattr("pixelflow_intelligence.maintenance.time.monotonic", lambda: next(values))
+    with client_for([sync(), refresh(True, "bob")], []) as client:
+        result = run(client, refresh_after="alice", budget_seconds=120)
+    assert result["status"] == "incomplete" and result["reason"] == "TIME_BUDGET_EXHAUSTED"
+    assert result["refresh_after"] == "bob"
+
+
+def test_budget_exhausted_mid_sync_keeps_input_cursor(monkeypatch):
+    values = iter([100, 100, 300])
+    monkeypatch.setattr("pixelflow_intelligence.maintenance.time.monotonic", lambda: next(values))
+    with client_for([sync(True)], []) as client:
+        result = run(client, refresh_after="alice", budget_seconds=120)
+    assert result["status"] == "incomplete" and result["reason"] == "TIME_BUDGET_EXHAUSTED"
+    assert result["refresh_after"] == "alice" and result["refresh_pages"] == 0

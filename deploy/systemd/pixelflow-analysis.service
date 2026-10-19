@@ -1,0 +1,26 @@
+[Unit]
+Description=PixelFlow scheduled analytics maintenance (one bounded pass)
+Requires=pixelflow-python.service
+After=pixelflow-python.service
+
+[Service]
+Type=oneshot
+User=pixelflow
+Group=pixelflow
+WorkingDirectory=/opt/pixelflow/current/intelligence
+EnvironmentFile=/etc/pixelflow/analysis.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+# State directory is created/owned by systemd and the only writable path.
+StateDirectory=pixelflow/python/maintenance
+StateDirectoryMode=0750
+Environment=PIXELFLOW_MAINTENANCE_STATE_DIR=/var/lib/pixelflow/python/maintenance
+ExecStart=/opt/pixelflow/current/intelligence/.venv/bin/python -m pixelflow_intelligence.scheduled_maintenance --budget-seconds 120
+TimeoutStartSec=180
+# Exit 2 means the pass hit a page/time budget with pending work; that is not a service failure.
+SuccessExitStatus=2
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/pixelflow/python/maintenance

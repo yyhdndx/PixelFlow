@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodically run PixelFlow scheduled analytics maintenance
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=5min
+Unit=pixelflow-analysis.service
+
+[Install]
+WantedBy=timers.target
