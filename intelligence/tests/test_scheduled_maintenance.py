@@ -1,6 +1,13 @@
 import json
 import os
 import threading
+import errno
+import subprocess
+import sys
+import time
+from contextlib import contextmanager
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -257,3 +264,96 @@ def test_state_dir_env_override(monkeypatch, tmp_path, capsys):
     next_responses.append({"refresh_after": ""})
     assert sm.main([]) == 0
     assert (tmp_path / "state.json").exists()
+
+
+def test_state_is_loaded_after_lock_acquisition(monkeypatch, tmp_path, capsys):
+    sm.save_state(tmp_path, dict(version=1, refresh_after="bob", last_run_at=1,
+                                 last_status="incomplete"))
+    original_lock = sm.hold_state_lock
+
+    @contextmanager
+    def another_pass_completes_before_we_acquire(directory):
+        # Deterministic interleaving: another process resets the cursor before
+        # this caller obtains the lock. Never reuse a pre-lock state snapshot.
+        with original_lock(directory):
+            sm.save_state(directory, dict(version=1, refresh_after="", last_run_at=2,
+                                           last_status="complete"))
+        with original_lock(directory) as handle:
+            yield handle
+
+    monkeypatch.setattr(sm, "hold_state_lock", another_pass_completes_before_we_acquire)
+    next_responses.append({"status": "incomplete", "reason": "SYNC_PAGE_LIMIT",
+                           "refresh_after": ""})
+    code, out = run_main(monkeypatch, tmp_path, ok_run, capsys)
+    assert code == 2
+    assert calls[0]["refresh_after"] == ""
+    assert sm.load_state(tmp_path)["refresh_after"] == ""
+    assert json.loads(out)["cursor_before"] == ""
+
+
+@pytest.mark.parametrize("failure_site", ["mkdir", "open", "backend"])
+def test_lock_initialization_io_failure_is_json_not_busy(monkeypatch, tmp_path, capsys, failure_site):
+    def fail(*args, **kwargs):
+        raise OSError(errno.EIO, "simulated filesystem error")
+
+    if failure_site == "mkdir":
+        monkeypatch.setattr(sm.Path, "mkdir", fail)
+    elif failure_site == "open":
+        monkeypatch.setattr(sm, "open", fail, raising=False)
+    else:
+        monkeypatch.setattr(sm, "fcntl", SimpleNamespace(flock=fail, LOCK_EX=2, LOCK_NB=4))
+    code, out = run_main(monkeypatch, tmp_path, ok_run, capsys)
+    log = json.loads(out)
+    assert code == 1 and log["exit_code"] == 1
+    assert log["status"] == "failed" and log["complete"] is False
+    assert log["lock_held"] is False
+    assert "STATE_IO_FAILED" in log["reason"] and "LOCK_BUSY" not in out
+    assert not calls
+    assert not (tmp_path / sm.STATE_FILENAME).exists()
+
+
+def test_unsupported_lock_backend_is_handled(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(sm, "fcntl", None)
+    monkeypatch.setattr(sm, "msvcrt", None)
+    code, out = run_main(monkeypatch, tmp_path, ok_run, capsys)
+    assert code == 1 and json.loads(out)["reason"] == "LOCK_BACKEND_UNSUPPORTED"
+    assert not calls
+
+
+def test_corrupt_state_failure_releases_lock(monkeypatch, tmp_path, capsys):
+    (tmp_path / sm.STATE_FILENAME).write_text('{"version":1}', encoding="utf-8")
+    code, out = run_main(monkeypatch, tmp_path, ok_run, capsys)
+    assert code == 1 and "CORRUPT_STATE_FILE" in out
+    with sm.hold_state_lock(tmp_path):
+        pass
+
+
+def test_real_process_exclusion_and_crash_release(tmp_path):
+    source = str(Path(sm.__file__).resolve().parents[1])
+    script = '''import sys,time
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+from pixelflow_intelligence.scheduled_maintenance import hold_state_lock
+directory=Path(sys.argv[2])
+with hold_state_lock(directory):
+    (directory / "ready").write_text("locked", encoding="utf-8")
+    time.sleep(30)
+'''
+    child = subprocess.Popen([sys.executable, "-c", script, source, str(tmp_path)])
+    try:
+        deadline = time.monotonic() + 10
+        while not (tmp_path / "ready").exists():
+            assert child.poll() is None, "child exited before acquiring the lock"
+            assert time.monotonic() < deadline, "child did not acquire the lock in time"
+            time.sleep(0.02)
+        with pytest.raises(sm.StateLockBusy):
+            with sm.hold_state_lock(tmp_path):
+                pass
+        child.kill()
+        child.wait(timeout=5)
+        with sm.hold_state_lock(tmp_path):
+            pass
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.wait(timeout=5)

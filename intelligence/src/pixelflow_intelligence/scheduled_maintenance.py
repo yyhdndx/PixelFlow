@@ -5,6 +5,7 @@ process lock, and exit-code semantics. Credentials and per-user details are
 never written to the state file or the log line.
 """
 import argparse
+import errno
 import json
 import os
 import sys
@@ -102,8 +103,10 @@ def hold_state_lock(state_dir):
         if fcntl is not None:
             try:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except OSError:
-                raise StateLockBusy() from None
+            except OSError as error:
+                if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
+                    raise StateLockBusy() from None
+                raise
         elif msvcrt is not None:
             handle.seek(0)
             written = handle.write(b"\0" * 64)
@@ -113,8 +116,10 @@ def hold_state_lock(state_dir):
             handle.seek(0)
             try:
                 msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 64)
-            except OSError:
-                raise StateLockBusy() from None
+            except OSError as error:
+                if error.errno in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+                    raise StateLockBusy() from None
+                raise
         else:  # pragma: no cover - no supported lock backend
             raise StateError("LOCK_BACKEND_UNSUPPORTED")
         yield handle
@@ -144,14 +149,7 @@ def main(argv=None):
 
     state_dir = Path(args.state_dir) if args.state_dir else state_dir_from_env()
     started = time.monotonic()
-    entry = {"entry": "scheduled_maintenance", "state_dir": str(state_dir), "lock_held": True}
-
-    try:
-        state = load_state(state_dir)
-    except StateError as error:
-        entry.update(lock_held=False, status="failed", reason=str(error), duration=0.0)
-        print(json.dumps(entry, ensure_ascii=True))
-        return 1
+    entry = {"entry": "scheduled_maintenance", "state_dir": str(state_dir), "lock_held": False}
 
     origin = os.getenv("PIXELFLOW_MAINTENANCE_URL", "http://127.0.0.1:8001")
     token = os.getenv("PIXELFLOW_INTELLIGENCE_TOKEN", "")
@@ -160,6 +158,8 @@ def main(argv=None):
             # Locked scope: reading the state, running the maintenance pass and
             # saving the state are all protected by the same lock, so the pass
             # can never run against a stale cursor saved by a previous pass.
+            entry["lock_held"] = True
+            state = load_state(state_dir)
             cursor_in = state["refresh_after"]
             result = None
             exit_code = 1
@@ -220,11 +220,19 @@ def main(argv=None):
                 print(json.dumps(entry, ensure_ascii=True))
                 return 1
     except StateLockBusy:
-        entry.update(status="failed", reason="LOCK_BUSY",
+        entry.update(lock_held=False, status="failed", complete=False, reason="LOCK_BUSY",
                      detail="another scheduled_maintenance process holds the lock for this state directory",
                      duration=round(time.monotonic() - started, 3), exit_code=3)
         print(json.dumps(entry, ensure_ascii=True))
         return 3
+    except (StateError, OSError) as error:
+        # Includes failures before __enter__ yields (mkdir/open/lock backend),
+        # as well as state loading inside the lock. Do not label I/O errors busy.
+        reason = str(error) if isinstance(error, StateError) else f"STATE_IO_FAILED: {error}"
+        entry.update(status="failed", complete=False, reason=reason,
+                     duration=round(time.monotonic() - started, 3), exit_code=1)
+        print(json.dumps(entry, ensure_ascii=True))
+        return 1
 
     entry.update(
         status=status,
