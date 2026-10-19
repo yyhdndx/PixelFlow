@@ -53,7 +53,19 @@ java -jar target/pixelflow-server-0.1.0.jar
 
 应用不自动读取 `.env`；变量由终端、IDE 或部署平台注入。未固定 JWT 密钥时重启会使旧 access token 失效，但数据库中未过期的 refresh token 仍可换新令牌。`runtime-data/` 已忽略，请单独备份，不要当构建产物删除。
 
-Flyway 自动选择 `src/main/resources/db/mysql/` 或 `db/h2/`。H2 历史脚本仅移动路径，内容及校验和保留；MySQL 独立维护 V1–V6。新增结构修改必须追加版本，不能改已执行的脚本。H2 的 PostgreSQL 模式只是测试兼容选项，不代表部署 PostgreSQL。
+Flyway 自动选择 `src/main/resources/db/mysql/` 或 `db/h2/`。H2 历史脚本仅移动路径，内容及校验和保留；MySQL 独立维护 V1–V7；V7 为旧账号补充默认空简介，头像沿用 V4。新增结构修改必须追加版本，不能改已执行的脚本。H2 的 PostgreSQL 模式只是测试兼容选项，不代表部署 PostgreSQL。
+
+## 本人资料
+
+登录后 `GET /api/users/me` 返回原有身份字段及非 null 的 `bio`、`avatar`，响应禁止缓存。`PUT /api/users/me` 仅完整替换昵称和简介；两字段均必填，昵称 trim 后为 1–40 个 UTF-16 单元，简介原样保存、最多 60 个 UTF-16 单元。未知字段或非法输入返回 400 `INVALID_ARGUMENT`，不修改头像和角色。
+
+```bash
+curl -H "Authorization: Bearer <access-token>" http://127.0.0.1:8080/api/users/me
+curl -X PUT -H "Authorization: Bearer <access-token>" -H "Content-Type: application/json" \
+  -d '{"nickname":"小明","bio":"摄影与旅行"}' http://127.0.0.1:8080/api/users/me
+```
+
+本地验收可在独立测试库启动服务，注册并登录后按上述顺序 GET、PUT、重新登录再 GET；不要在日常业务库试验迁移。
 
 ## Android 联调
 

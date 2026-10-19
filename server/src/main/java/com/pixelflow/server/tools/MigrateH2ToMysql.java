@@ -18,7 +18,7 @@ public final class MigrateH2ToMysql {
         } catch (Exception error) {
             // Avoid logging URLs, passwords or user data in driver messages.
             System.err.println("Migration failed (" + error.getClass().getSimpleName()
-                    + "). Check offline H2 source, schema version V6 and empty MySQL target. Source unchanged.");
+                    + "). Check offline H2 source, schema version V6/V7 and empty MySQL target. Source unchanged.");
             System.exit(1);
         }
     }
@@ -37,7 +37,8 @@ public final class MigrateH2ToMysql {
             // Refuse silently dropping fields/tables from an unknown source version.
             try (var st = src.createStatement(); var rs = st.executeQuery(
                     "SELECT version FROM flyway_schema_history WHERE success=TRUE AND version IS NOT NULL ORDER BY installed_rank DESC LIMIT 1")) {
-                if (!rs.next() || !"6".equals(rs.getString(1))) throw new IllegalStateException("Expected source V6");
+                if (!rs.next() || !Set.of("6", "7").contains(rs.getString(1)))
+                    throw new IllegalStateException("Expected source V6 or V7");
             }
             Flyway.configure().dataSource(targetUrl, targetUser, targetPassword)
                     .locations("classpath:db/mysql").load().migrate();
