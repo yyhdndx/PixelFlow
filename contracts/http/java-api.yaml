@@ -172,6 +172,14 @@ paths:
       responses:
         '200': {description: 当前身份, content: {application/json: {schema: {$ref: '#/components/schemas/User'}}}}
         default: {$ref: '#/components/responses/Error'}
+  /api/users/me/stats:
+    get:
+      summary: 当前用户统计（作品/粉丝/关注），单次读取，计数不含停用账号
+      responses:
+        '200':
+          description: '响应头含 Cache-Control: no-store'
+          content: {application/json: {schema: {$ref: '#/components/schemas/UserStats'}}}
+        default: {$ref: '#/components/responses/Error'}
   /feed/:
     get:
       security: []
@@ -583,6 +591,14 @@ components:
         nickname: {type: string}
         role: {type: string, enum: [CREATOR, ADMIN]}
         enabled: {type: boolean}
+    UserStats:
+      type: object
+      required: [user_id, post_count, follower_count, following_count]
+      properties:
+        user_id: {type: string, description: 当前用户 UUID}
+        post_count: {type: integer, format: int64, minimum: 0, description: 状态为 PUBLISHED 的作品数}
+        follower_count: {type: integer, format: int64, minimum: 0, description: 关注当前用户的启用账号数}
+        following_count: {type: integer, format: int64, minimum: 0, description: 当前用户关注的启用账号数}
     Clip:
       type: object
       additionalProperties: false
