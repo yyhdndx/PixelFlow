@@ -169,9 +169,27 @@ paths:
         default: {$ref: '#/components/responses/Error'}
   /api/users/me:
     get:
+      summary: 查询本人资料
       responses:
-        '200': {description: 当前身份, content: {application/json: {schema: {$ref: '#/components/schemas/User'}}}}
-        default: {$ref: '#/components/responses/Error'}
+        '200': {$ref: '#/components/responses/CurrentUser'}
+        '401': {$ref: '#/components/responses/Error'}
+    put:
+      summary: 完整替换本人可编辑资料
+      description: 仅允许 nickname 和 bio，均必填；昵称先 trim 再按 Java UTF-16 String.length() 校验 1–40，简介原样保存且长度 0–60。最后一次成功写入覆盖之前的值；不修改账号、角色或头像。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UserProfileUpdate'}
+            example: {nickname: 小明, bio: "摄影与旅行\n记录生活"}
+      responses:
+        '200': {$ref: '#/components/responses/CurrentUser'}
+        '400':
+          description: INVALID_ARGUMENT；字段缺失、null、类型或长度错误，以及未知字段均不保存
+          content:
+            application/json:
+              example: {status_code: 400, code: INVALID_ARGUMENT, message: 请求字段或格式不正确, requestId: request-uuid}
+        '401': {$ref: '#/components/responses/Error'}
   /api/users/me/stats:
     get:
       summary: 当前用户统计（作品/粉丝/关注），单次读取，计数不含停用账号
@@ -569,6 +587,14 @@ components:
               refreshToken: {type: string}
               tokenType: {type: string, enum: [Bearer]}
               expiresIn: {type: integer, example: 900}
+    CurrentUser:
+      description: '本人资料；响应头 Cache-Control: no-store'
+      headers:
+        Cache-Control: {schema: {type: string, enum: [no-store]}}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/User'}
+          example: {id: user-id, username: alice, nickname: 小明, role: CREATOR, enabled: true, bio: '', avatar: ''}
     Post: {description: 作品详情, content: {application/json: {schema: {$ref: '#/components/schemas/Post'}}}}
     Posts: {description: 作品列表，续页取末项 post_id；空数组表示结束, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Post'}}}}}
     PostStatus: {description: 作品状态, content: {application/json: {schema: {type: object, properties: {postId: {type: string}, status: {type: string}}}}}}
@@ -585,12 +611,22 @@ components:
         suppressed_topics: {type: array, maxItems: 7, items: {type: string}}
     User:
       type: object
+      required: [id, username, nickname, role, enabled, bio, avatar]
       properties:
         id: {type: string}
         username: {type: string}
         nickname: {type: string}
         role: {type: string, enum: [CREATOR, ADMIN]}
         enabled: {type: boolean}
+        bio: {type: string, x-utf16-maxLength: 60, description: 默认空字符串，不为 null；最多 60 个 Java UTF-16 单元}
+        avatar: {type: string, description: 现有头像 URL，普通新账号为空字符串，不为 null}
+    UserProfileUpdate:
+      type: object
+      additionalProperties: false
+      required: [nickname, bio]
+      properties:
+        nickname: {type: string, x-utf16-minLength: 1, x-utf16-maxLength: 40, description: trim 后按 Java UTF-16 String.length() 校验 1–40 个单元}
+        bio: {type: string, x-utf16-maxLength: 60, description: 原样保存，按 Java UTF-16 String.length() 校验最多 60 个单元}
     UserStats:
       type: object
       required: [user_id, post_count, follower_count, following_count]

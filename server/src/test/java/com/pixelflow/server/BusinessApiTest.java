@@ -2,6 +2,9 @@ package com.pixelflow.server;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pixelflow.server.auth.AuthService.Actor;
+import com.pixelflow.server.common.ApiException;
+import com.pixelflow.server.users.UserController;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -23,6 +26,7 @@ class BusinessApiTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate db;
+    @Autowired UserController users;
     private static final String PASSWORD="test-password-2026";
     @BeforeEach void clean() {
         for (String table:List.of("event_export_audit","post_media","media","user_status_audit","moderation_records","behavior_events","interactions","posts","sessions","users")) db.update("DELETE FROM "+table);
@@ -67,6 +71,104 @@ class BusinessApiTest {
         mvc.perform(post("/api/auth/register").contentType("application/json")
                 .content(encode(Map.of("username","Alice","password",PASSWORD,"nickname","same"))))
                 .andExpect(status().isConflict());
+    }
+    @Test void profileReadWritePersistsAndUpdatesPublishedAuthor() throws Exception {
+        String alice=token(account("alice")), bob=token(account("bob"));
+        String id=db.queryForObject("SELECT id FROM users WHERE username='alice'",String.class);
+        mvc.perform(get("/api/users/me").header("Authorization",alice)).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control","no-store"))
+                .andExpect(jsonPath("id").value(id)).andExpect(jsonPath("username").value("alice"))
+                .andExpect(jsonPath("nickname").value("alice")).andExpect(jsonPath("role").value("CREATOR"))
+                .andExpect(jsonPath("enabled").value(true)).andExpect(jsonPath("bio").value(""))
+                .andExpect(jsonPath("avatar").value(""));
+        String post=published(alice,admin());
+        String input=encode(Map.of("nickname","  新名字  ","bio","  中文\n😀  "));
+        for (int i=0;i<2;i++) mvc.perform(put("/api/users/me").header("Authorization",alice)
+                .contentType("application/json").content(input)).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control","no-store"))
+                .andExpect(jsonPath("nickname").value("新名字")).andExpect(jsonPath("bio").value("  中文\n😀  "))
+                .andExpect(jsonPath("avatar").value(""));
+        mvc.perform(get("/api/users/me").header("Authorization",bob)).andExpect(jsonPath("nickname").value("bob"))
+                .andExpect(jsonPath("bio").value(""));
+        mvc.perform(get("/feed/")).andExpect(jsonPath("post_list[0].author.nickname").value("新名字"));
+        mvc.perform(get("/api/posts/"+post)).andExpect(jsonPath("author.nickname").value("新名字"));
+        mvc.perform(get("/api/users/me").header("Authorization",token(login("alice"))))
+                .andExpect(jsonPath("nickname").value("新名字")).andExpect(jsonPath("bio").value("  中文\n😀  "));
+        mvc.perform(put("/api/users/me").header("Authorization",alice).contentType("application/json")
+                .content(encode(Map.of("nickname","alice","bio","")))).andExpect(jsonPath("bio").value(""));
+    }
+    @Test void profileRejectsInvalidInputsWithoutMutation() throws Exception {
+        String alice=token(account("alice")), bob=token(account("bob"));
+        mvc.perform(put("/api/users/me").header("Authorization",alice).contentType("application/json")
+                .content(encode(Map.of("nickname","saved","bio","saved bio")))).andExpect(status().isOk());
+        mvc.perform(put("/api/users/me").header("Authorization",bob).contentType("application/json")
+                .content(encode(Map.of("nickname","bob saved","bio","bob bio")))).andExpect(status().isOk());
+        var invalid=new java.util.ArrayList<String>(List.of("{}","{\"nickname\":null,\"bio\":\"\"}","{\"nickname\":\"ok\"}",
+                "{\"nickname\":\"ok\",\"bio\":null}","{\"nickname\":42,\"bio\":\"\"}",
+                "{\"nickname\":\"ok\",\"bio\":false}",
+                encode(Map.of("nickname"," \t ","bio","changed")),
+                encode(Map.of("nickname","  "+"x".repeat(41)+"  ","bio","changed")),
+                encode(Map.of("nickname","changed","bio","😀".repeat(31)))));
+        for (String field:List.of("role","avatar","id","userId","username","enabled"))
+            invalid.add(encode(Map.of("nickname","changed","bio","changed",field,"forged")));
+        for (String input:invalid) {
+            mvc.perform(put("/api/users/me").header("Authorization",alice).contentType("application/json")
+                    .content(input)).andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("INVALID_ARGUMENT"));
+            mvc.perform(get("/api/users/me").header("Authorization",alice))
+                    .andExpect(jsonPath("nickname").value("saved")).andExpect(jsonPath("bio").value("saved bio"));
+            mvc.perform(get("/api/users/me").header("Authorization",bob))
+                    .andExpect(jsonPath("nickname").value("bob saved")).andExpect(jsonPath("bio").value("bob bio"));
+        }
+        assertEquals("saved",db.queryForObject("SELECT nickname FROM users WHERE username='alice'",String.class));
+        assertEquals("saved bio",db.queryForObject("SELECT bio FROM users WHERE username='alice'",String.class));
+        assertEquals("bob saved",db.queryForObject("SELECT nickname FROM users WHERE username='bob'",String.class));
+        assertEquals("bob bio",db.queryForObject("SELECT bio FROM users WHERE username='bob'",String.class));
+    }
+    @Test void profileAcceptsExactUtf16Limits() throws Exception {
+        String alice=token(account("alice"));
+        for (var values:List.of(Map.of("nickname","x".repeat(40),"bio","y".repeat(60)),
+                Map.of("nickname","😀".repeat(20),"bio","😀".repeat(30)))) {
+            mvc.perform(put("/api/users/me").header("Authorization",alice).contentType("application/json")
+                    .content(encode(values))).andExpect(status().isOk())
+                    .andExpect(jsonPath("nickname").value(values.get("nickname")))
+                    .andExpect(jsonPath("bio").value(values.get("bio")));
+        }
+    }
+    @Test void profileRequiresLiveAuthentication() throws Exception {
+        String alice=token(account("alice"));
+        String payload=encode(Map.of("nickname","changed","bio","changed"));
+        mvc.perform(get("/api/users/me")).andExpect(status().isUnauthorized());
+        mvc.perform(put("/api/users/me").contentType("application/json").content(payload)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/users/me").header("Authorization","Bearer forged")).andExpect(status().isUnauthorized());
+        mvc.perform(put("/api/users/me").header("Authorization","Bearer forged")
+                .contentType("application/json").content(payload)).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/auth/logout").header("Authorization",alice)).andExpect(status().isOk());
+        mvc.perform(get("/api/users/me").header("Authorization",alice)).andExpect(status().isUnauthorized());
+        mvc.perform(put("/api/users/me").header("Authorization",alice)
+                .contentType("application/json").content(payload)).andExpect(status().isUnauthorized());
+        assertEquals("alice",db.queryForObject("SELECT nickname FROM users WHERE username='alice'",String.class));
+    }
+    @Test void missingProfileRowHasExplicitNotFoundOutcome() {
+        var missing=new Actor("missing","CREATOR","missing");
+        ApiException read=assertThrows(ApiException.class,() -> users.me(missing));
+        assertEquals(404,read.status); assertEquals("USER_NOT_FOUND",read.code);
+        ApiException write=assertThrows(ApiException.class,() -> users.profile(new UserController.Profile("new","bio"),missing));
+        assertEquals(404,write.status); assertEquals("USER_NOT_FOUND",write.code);
+    }
+    @Test void refreshedTokenCanReadAndWriteProfile() throws Exception {
+        var old=account("alice");
+        var refreshed=body(mvc.perform(post("/api/auth/refresh").contentType("application/json")
+                .content(encode(Map.of("refreshToken",old.get("refreshToken").asText()))))
+                .andExpect(status().isOk()).andReturn());
+        mvc.perform(get("/api/users/me").header("Authorization",token(old))).andExpect(status().isUnauthorized());
+        mvc.perform(put("/api/users/me").header("Authorization",token(old)).contentType("application/json")
+                .content(encode(Map.of("nickname","stale","bio","stale")))).andExpect(status().isUnauthorized());
+        mvc.perform(put("/api/users/me").header("Authorization",token(refreshed)).contentType("application/json")
+                .content(encode(Map.of("nickname","updated","bio","refreshed"))))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store"));
+        mvc.perform(get("/api/users/me").header("Authorization",token(refreshed)))
+                .andExpect(status().isOk()).andExpect(jsonPath("nickname").value("updated"))
+                .andExpect(jsonPath("bio").value("refreshed"));
     }
     @Test void authenticationAndAdminBoundary() throws Exception {
         String user=token(account("alice"));
