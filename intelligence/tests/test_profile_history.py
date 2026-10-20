@@ -175,6 +175,18 @@ def test_http_large_before_version_is_valid(client, store):
     assert [item["version"] for item in response.json()["items"]] == [100, 10, 2, 1]
 
 
+@pytest.mark.parametrize("parameter", ["count", "before_version"])
+def test_http_very_long_decimal_parameters_are_bounded(client, parameter):
+    headers = {"Authorization": "Bearer alice-token"}
+    for value in ("9" * 5000, "0" * 5000):
+        response = client.get("/profiles/me/history", params={parameter: value}, headers=headers)
+        assert response.status_code == 422
+        assert response.headers["cache-control"] == "no-store"
+    response = client.get("/profiles/me/history", params={parameter: "0" * 5000 + "1"}, headers=headers)
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+
+
 def test_http_identity_scope_and_forged_user_id(client, store):
     seed_versions(store)
     seed_versions(store, user="bob", versions=(1, 2))
@@ -230,6 +242,9 @@ def corrupt_variants():
         "topic-score-string": {**base, "topics": [{"name": "美食", "score": "6", "share": 1.0}]},
         "topic-score-nan": {**base, "topics": [{"name": "美食", "score": float("nan"), "share": 1.0}]},
         "topic-score-inf": {**base, "topics": [{"name": "美食", "score": float("inf"), "share": 1.0}]},
+        "topic-score-overflow": {**base, "topics": [{"name": "美食", "score": 10**400, "share": 1.0}]},
+        "topic-share-overflow": {**base, "topics": [{"name": "美食", "score": 1.0, "share": 10**400}]},
+        "media-score-overflow": {**base, "media": [{"name": "image", "score": 10**400, "share": 1.0}]},
         "user-id-mismatch": snapshot("bob", 5),
         "version-mismatch": snapshot("alice", 4),
     }
@@ -256,6 +271,21 @@ def test_http_corrupt_snapshot_outside_page_does_not_block(client, store):
                           headers={"Authorization": "Bearer alice-token"})
     assert response.status_code == 200
     assert [item["version"] for item in response.json()["items"]] == [10]
+
+
+def test_http_corrupt_lookahead_fails_but_beyond_limit_does_not(client, store):
+    insert_snapshot(store, "alice", 3)
+    insert_snapshot(store, "alice", 2, "{broken")
+    headers = {"Authorization": "Bearer alice-token"}
+    response = client.get("/profiles/me/history?count=1", headers=headers)
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Profile history unavailable"}
+    assert response.headers["cache-control"] == "no-store"
+    insert_snapshot(store, "alice", 4)
+    response = client.get("/profiles/me/history?count=1", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["has_more"] is True
+    assert response.json()["next_cursor"] == "4"
 
 
 def test_http_java_identity_unavailable(tmp_path):

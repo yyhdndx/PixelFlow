@@ -34,8 +34,13 @@ def _require_summary_topics(value):
             raise InvalidProfileHistory("Invalid stored profile history")
         for field in ("score", "share"):
             number = entry[field]
-            if type(number) is bool or not isinstance(number, (int, float)) \
-                    or not math.isfinite(number):
+            if type(number) is bool or not isinstance(number, (int, float)):
+                raise InvalidProfileHistory("Invalid stored profile history")
+            try:
+                finite = math.isfinite(number)
+            except OverflowError:
+                raise InvalidProfileHistory("Invalid stored profile history") from None
+            if not finite:
                 raise InvalidProfileHistory("Invalid stored profile history")
     return [{"name": entry["name"], "score": entry["score"], "share": entry["share"]}
             for entry in value]
@@ -80,12 +85,13 @@ def parse_history_page(user_id, count, rows):
     """
     has_more = len(rows) > count
     items = []
-    for row_version, text in rows[:count]:
+    for row_version, text in rows:
         try:
             document = json.loads(text)
         except (ValueError, TypeError):
             raise InvalidProfileHistory("Invalid stored profile history") from None
         items.append(validate_history_snapshot(document, user_id, row_version))
+    items = items[:count]
     return {"user_id": user_id,
             "items": items,
             "has_more": has_more,

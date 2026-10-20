@@ -62,7 +62,12 @@ def _parse_decimal(raw, name, minimum, maximum):
     # negatives, decimals, other bases and long overflow all fail validation.
     if type(raw) is not str or not raw or not raw.isascii() or not raw.isdigit():
         raise HTTPException(422, f"Invalid {name}; expected a decimal positive integer")
-    value = int(raw)
+    # Strip leading zeros before comparing lengths, so valid decimal values
+    # retain their meaning without feeding unbounded input to int().
+    digits = raw.lstrip("0") or "0"
+    if len(digits) > len(str(maximum)):
+        raise HTTPException(422, f"{name} out of range")
+    value = int(digits)
     if not minimum <= value <= maximum:
         raise HTTPException(422, f"{name} out of range")
     return value
