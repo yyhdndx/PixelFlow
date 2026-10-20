@@ -43,6 +43,7 @@ Python 负责 [14：画像链路迁移兼容与 CI 验收](14-python-画像链�
 | [04：周期分析调度](04-python-周期分析调度.md) | 可恢复的画像扫描、互斥执行、systemd 模板 | 新建 Python 调度包装器、独立测试和部署文件 | 复用既有内部接口，不依赖 01/02/03 |
 | [05：本人粉丝与关注分页](05-java-本人粉丝与关注分页.md) | 用户卡片、关注状态及游标分页 | 独立 UserConnectionsController / QueryService、测试和 schema | 使用现有用户与互动表，不新增迁移；不占用 03 |
 | [06：用户主页公开资料](06-java-用户主页公开资料.md) | 主页公开资料、统计及访问者关注状态 | 独立 PublicUserProfileController、测试和 schema | 当前分支基于 05；功能不调用 05，不新增迁移 |
+| [09：本人头像设置与清除](09-java-本人头像设置与清除.md) | 上传图片设为头像、清除、引用与访问权限 | 独立 UserAvatarController、MediaService、V8、测试 | 不占用 07 作者作品分页；本任务包含迁移 |
 | [10：Java 历史画像代理](10-java-历史画像代理.md) | 本人历史摘要与版本游标分页 | 独立 ProfileHistoryController、网关测试及 schema | Python 历史画像已合入；无数据库迁移 |
 | [12：画像历史偏好真实链路验收](https://gitee.com/yyhSEU/pixel-flow/issues/IKQ8GD) | 两账号可复现联调脚本、失败模式回归测试与验收记录 | 新增 `intelligence/scripts/verify_profile_pipeline.py`、`tests/test_profile_failures.py`、`docs/testing/画像历史偏好真实链路验收.md` | 复用既有接口与调度包装器，不新增迁移 |
 
