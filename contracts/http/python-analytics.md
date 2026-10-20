@@ -95,6 +95,28 @@ topics/authors/media 各最多10项，score 为非负规则分，share 为该维
 
 已有画像 version 在同步新事件或维护重算时递增，重复空同步页不变。已支持维护接口重算长期不活跃用户，但需要运维触发，尚无自动调度；generated_at 较旧时不能当作实时30天画像。Android 通过 Java /api/users/me/profile 查询，只展示版本和主题偏好。Python 已支持关闭推荐个性化，但尚未接入 Android，也不等同于删除画像或停止行为采集。
 
+## GET /profiles/me/history
+
+使用 Java 用户 access token，每次调用 Java /api/users/me 校验身份与启用状态，只返回认证用户本人的已保存历史画像快照。没有接受 userId 的查询接口；传入 user_id 查询参数不会切换身份。服务密钥、运维密钥不能替代用户 JWT；令牌缺失/失效/账号停用返回 401，Java 身份服务不可用返回 503。
+
+查询参数：`count`（默认20，范围1–50）与 `before_version`（游标，首次省略，后续传上一页 next_cursor，范围1–9223372036854775807）。两者均为十进制正整数字符串；显式空值、0、负数、小数、非数字及超出上限返回 422。重复出现同名分页参数返回 422。分页参数错误同样返回 Cache-Control: no-store。
+
+200 示例：
+
+```json
+{"user_id":"用户UUID","items":[{"version":2,"rule_version":"profile-rules-v1","generated_at":1791000000,"window_days":30,"timezone":"UTC","cold_start":false,"topics":[{"name":"美食","score":6.0,"share":1.0}],"media":[{"name":"image","score":6.0,"share":1.0}],"event_counts":{"CLICK":1},"explanation":"点击、停留与服务端有效点赞规则说明"}],"has_more":false,"next_cursor":null}
+```
+
+- items 按 version 数字降序，每页至多 count 条；has_more 为布尔值，true 时 next_cursor 为本页最后一个版本的十进制字符串，否则为 null。
+- 每项仅包含 version、rule_version、generated_at、window_days、timezone、cold_start、topics、media、event_counts、explanation，字段含义与 GET /profiles/me 一致；不返回 authors、active_hours、事件明细或存储细节。
+- 展示的是生成当时的兴趣摘要：不按当前偏好重写历史，也不据此认定历史作品/作者现在可见或可推荐。界面应明确标注"历史画像"。
+- 查询按认证用户与版本范围在数据库内 LIMIT count+1 完成，一次请求一次查询；不读取全部历史再分页。翻页期间新增更高版本不干扰旧版本读取，刷新后可见；版本允许有空洞。
+- 仅返回实际持久化的快照；从未生成过画像的用户返回空 items，不会合成 version=0 冷启动项，也不会因查询生成新版本或触发维护。
+- 读取范围内存在损坏快照（非对象、字段缺失或类型错误、user_id/version 与行不符）时整页返回脱敏的 503，不跳过损坏项；范围外的损坏快照不影响本页。错误响应与日志不回显原始文档、令牌或数据库异常。
+- 全部成功与错误响应 Cache-Control: no-store。本接口为只读，不改变事件游标、画像内容或推荐偏好。
+
+Java 侧的历史画像代理与 Android 历史页面另行任务交付；不要将本端口开放公网。
+
 ## 本人推荐偏好
 
 推荐偏好的运行时权威来源已切换到 Java（`GET/PUT /api/recommendations/me/*`），但历史 SQLite 数据不会自动搬迁，需按 [迁移步骤](../../docs/architecture/旧偏好迁移与修复验证.md) 检查并显式导入。本服务只读代理：

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 from .profile import build_profile, RULE_VERSION
+from .profile_history import parse_history_page
 from .database import MySQLConnection
 
 
@@ -123,6 +124,27 @@ class Store:
         with closing(self.connect()) as db:
             row = db.execute("SELECT document FROM profiles WHERE user_id=? ORDER BY version DESC LIMIT 1", (user_id,)).fetchone()
             return json.loads(row[0]) if row else build_profile(user_id, [], 0, int(time.time()))
+
+    def profile_history(self, user_id, count, before_version=None):
+        """One read-only page of the user's persisted snapshots, newest first."""
+        if type(user_id) is not str or not user_id or len(user_id) > 36 \
+                or type(count) is not int or not 1 <= count <= 50 \
+                or (before_version is not None
+                    and (type(before_version) is not int or before_version < 1)):
+            raise ValueError("Invalid profile history page")
+        with closing(self.connect()) as db:
+            # No shared lock with sync/refresh: a newly committed higher version
+            # does not disturb paging over older versions.
+            if before_version is None:
+                rows = db.execute(
+                    "SELECT version,document FROM profiles WHERE user_id=? "
+                    "ORDER BY version DESC LIMIT ?", (user_id, count + 1)).fetchall()
+            else:
+                rows = db.execute(
+                    "SELECT version,document FROM profiles WHERE user_id=? "
+                    "AND version<? ORDER BY version DESC LIMIT ?",
+                    (user_id, before_version, count + 1)).fetchall()
+            return parse_history_page(user_id, count, [(row[0], row[1]) for row in rows])
 
     def refresh_profiles(self, after="", count=50, max_age_seconds=86400, now=None):
         """Recompute one bounded user page from imported events, without moving the event cursor."""
