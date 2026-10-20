@@ -61,6 +61,35 @@ def test_sqlite_import_preserves_cursor_documents_and_refuses_overwrite(store, t
     assert legacy.status(NOW)["event_cursor"] == 1
 
 
+def test_profile_history_read_only_page(store):
+    store.sync_page(lambda _: page([event(title="咖啡☕😀")]), NOW)
+    store.refresh_profiles(now=NOW + 86400)
+    first = store.profile_history("alice", 1)
+    assert [item["version"] for item in first["items"]] == [2]
+    assert first["has_more"] is True and first["next_cursor"] == "2"
+    second = store.profile_history("alice", 1, int(first["next_cursor"]))
+    assert [item["version"] for item in second["items"]] == [1]
+    assert second["has_more"] is False and second["next_cursor"] is None
+    assert store.status()["profile_snapshots"] == 2
+
+
+def test_profile_history_corrupt_lookahead_is_rejected(store):
+    import json
+    from pixelflow_intelligence.analytics.profile import build_profile
+    from pixelflow_intelligence.analytics.profile_history import InvalidProfileHistory
+
+    with closing(store.connect()) as db, db:
+        db.execute("INSERT INTO profiles VALUES(?,?,?)",
+                   ("alice", 2, json.dumps(build_profile("alice", [], 2, NOW))))
+        db.execute("INSERT INTO profiles VALUES(?,?,?)", ("alice", 1, "{broken"))
+    with pytest.raises(InvalidProfileHistory):
+        store.profile_history("alice", 1)
+    with closing(store.connect()) as db, db:
+        db.execute("INSERT INTO profiles VALUES(?,?,?)",
+                   ("alice", 3, json.dumps(build_profile("alice", [], 3, NOW))))
+    assert store.profile_history("alice", 1)["next_cursor"] == "3"
+
+
 def test_mysql_errors_are_sanitized(store, monkeypatch):
     settings = Settings(database=store.database, sync_token="s" * 32)
     app = create_app(settings, FakeJava())

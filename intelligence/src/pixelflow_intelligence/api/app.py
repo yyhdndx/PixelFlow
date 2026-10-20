@@ -1,6 +1,6 @@
 import secrets
 from ..analytics.database import DATABASE_ERRORS
-from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import ValidationError, BaseModel, ConfigDict, Field
 from ..common.settings import Settings
@@ -15,6 +15,62 @@ class ProfileRefreshInput(BaseModel):
     after: str = Field(default="", max_length=36)
     count: int = Field(default=50, ge=1, le=100)
     max_age_seconds: int = Field(default=86400, ge=3600, le=2592000)
+
+
+class ProfileTopicWeight(BaseModel):
+    name: str
+    score: float
+    share: float
+
+
+class ProfileHistoryItem(BaseModel):
+    version: int
+    rule_version: str
+    generated_at: int
+    window_days: int
+    timezone: str
+    cold_start: bool
+    topics: list[ProfileTopicWeight]
+    media: list[ProfileTopicWeight]
+    event_counts: dict[str, int]
+    explanation: str
+
+
+class ProfileHistoryPage(BaseModel):
+    user_id: str
+    items: list[ProfileHistoryItem]
+    has_more: bool
+    next_cursor: str | None = None
+
+
+HISTORY_COUNT_DEFAULT = 20
+MAX_BEFORE_VERSION = 9223372036854775807
+
+
+def _parse_history_count(raw):
+    if raw is None:
+        return HISTORY_COUNT_DEFAULT
+    return _parse_decimal(raw, "count", 1, 50)
+
+
+def _parse_history_cursor(raw):
+    return _parse_decimal(raw, "before_version", 1, MAX_BEFORE_VERSION)
+
+
+def _parse_decimal(raw, name, minimum, maximum):
+    # Accept ASCII decimal positive integers only: explicit empty values, 0,
+    # negatives, decimals, other bases and long overflow all fail validation.
+    if type(raw) is not str or not raw or not raw.isascii() or not raw.isdigit():
+        raise HTTPException(422, f"Invalid {name}; expected a decimal positive integer")
+    # Strip leading zeros before comparing lengths, so valid decimal values
+    # retain their meaning without feeding unbounded input to int().
+    digits = raw.lstrip("0") or "0"
+    if len(digits) > len(str(maximum)):
+        raise HTTPException(422, f"{name} out of range")
+    value = int(digits)
+    if not minimum <= value <= maximum:
+        raise HTTPException(422, f"{name} out of range")
+    return value
 
 
 def create_app(settings=None, upstream=None):
@@ -117,6 +173,30 @@ def create_app(settings=None, upstream=None):
             return store.profile(user)
         except (ValueError, *DATABASE_ERRORS):
             raise HTTPException(503, "Profile store unavailable") from None
+
+    @app.get("/profiles/me/history", response_model=ProfileHistoryPage)
+    def profile_history(request: Request, response: Response,
+                        count: str | None = Query(default=None),
+                        before_version: str | None = Query(default=None),
+                        credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        response.headers["Cache-Control"] = "no-store"
+        if credentials is None:
+            raise HTTPException(401, "User authentication required")
+        if len(request.query_params.getlist("count")) > 1 \
+                or len(request.query_params.getlist("before_version")) > 1:
+            raise HTTPException(422, "Duplicate pagination parameter")
+        page_size = _parse_history_count(count)
+        before = None if before_version is None else _parse_history_cursor(before_version)
+        try:
+            user = upstream.me(credentials.credentials)
+        except AuthenticationError:
+            raise HTTPException(401, "Invalid or disabled user session") from None
+        except UpstreamError:
+            raise HTTPException(503, "Java identity service unavailable") from None
+        try:
+            return store.profile_history(user, page_size, before)
+        except (ValueError, KeyError, TypeError, ValidationError, *DATABASE_ERRORS):
+            raise HTTPException(503, "Profile history unavailable") from None
 
     @app.get("/recommendations/me/preview")
     def recommendations(response: Response, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):

@@ -2,7 +2,7 @@
 
 首次开发先阅读 [后端开发上手指南](../docs/后端开发上手指南.md)，使用 Python 3.11，复制 [.env.example](.env.example) 并显式加载环境变量。本页保留模块和接口细节，不要直接跳过数据库与令牌配置执行启动命令。
 
-状态：已实现 FastAPI 服务、Java 事件增量同步、MySQL 事件与画像快照、用户本人画像查询、三个推荐业务 Skill 和注册表，以及读取真实 Java Feed 的本人推荐预览。SQLite 保留用于离线测试和旧数据迁移。Skill 使用确定性规则，不调用模型、不需要模型密钥；Agent、MCP 和面向客户端的正式推荐入口尚未实现。
+状态：已实现 FastAPI 服务、Java 事件增量同步、MySQL 事件与画像快照、用户本人画像查询、本人历史画像游标分页、三个推荐业务 Skill 和注册表，以及读取真实 Java Feed 的本人推荐预览。SQLite 保留用于离线测试和旧数据迁移。Skill 使用确定性规则，不调用模型、不需要模型密钥；Agent、MCP 和面向客户端的正式推荐入口尚未实现。
 
 部署时设置 `ANALYTICS_DB=mysql://pixelflow_analytics:<URL编码后的密码>@127.0.0.1:3306/pixelflow_analytics`。省略时默认连接本机 MySQL，同名账号、不含密码，因此必须先配置账号。不要提交带密码的 URL。MySQL 初始化版本由 `analytics/mysql_schema.py` 管理；同步与重算共用 checkpoint 行锁，状态查询使用一致快照。完整步骤见 [MySQL 部署与迁移](../deploy/MySQL部署与迁移.md)。
 
@@ -59,6 +59,8 @@ GET /internal/status 使用同一运维密钥，查询事件数、画像人数/�
 画像维护使用同一运维密钥 POST /internal/profiles/refresh，请求体 `{}` 默认扫描50名用户并重算超过24小时的画像。has_more=true 时传回 next_cursor 作为下一页 after，完整扫描后的下一轮重新从空游标开始。规则变化或异常未来时间也会触发重算；整页事务与同步互斥，失败可重试。重算不改变同步游标，不清理数据或修改推荐偏好。当前需要调用方周期触发，并非自动后台任务。
 
 GET /profiles/me 使用 Java 登录得到的用户 access token，Python 每次向 Java 验证当前用户；不允许指定别人的 userId。Android 使用 Java GET /api/users/me/profile 代理查询，在“我的 → 账号与登录 → 查看我的兴趣画像”展示版本和主题分。Java 启动前设置 PIXELFLOW_INTELLIGENCE_BASE_URL=http://127.0.0.1:8001（这是 Java 访问 Python 的地址，不是手机地址）。字段、错误码及样例见 [Python API 契约](../contracts/http/python-analytics.md)。
+
+GET /profiles/me/history 使用同一用户 access token，返回本人已保存的历史画像快照：version 数字降序游标分页（count 默认20、范围1–50；before_version 为上一页 next_cursor）。接口只读持久化快照，不合成冷启动项、不按当前偏好重写历史，也不改变事件游标或推荐偏好；Java 侧历史画像代理与 Android 历史页面另行任务接入。字段白名单、错误语义及样例见 [Python API 契约](../contracts/http/python-analytics.md)。
 
 ## 数据与画像规则
 
