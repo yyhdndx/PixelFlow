@@ -8,6 +8,17 @@ servers:
 security:
   - bearerAuth: []
 paths:
+  /api/users/{id}/profile:
+    get:
+      summary: 查看用户主页公开资料、统计及本人关注状态（需登录）
+      description: 仅返回启用账号的公开字段；不存在和停用统一返回 404。支持通过真实 ID 查看本人，me 不作为别名。作品数仅计 PUBLISHED，关系数仅计存在且启用的用户。响应 Cache-Control 为 no-store。
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9_-]{1,36}$'}}
+      responses:
+        '200': {description: 用户公开资料，不含用户名、角色和账号状态, content: {application/json: {schema: {$ref: '#/components/schemas/PublicUserProfile'}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
   /api/users/me/followers:
     get:
       summary: 分页查询本人粉丝用户卡片
@@ -668,6 +679,7 @@ components:
         follower_count: {type: integer, format: int64, minimum: 0, description: 关注当前用户的启用账号数}
         following_count: {type: integer, format: int64, minimum: 0, description: 当前用户关注的启用账号数}
     UserConnectionCard:
+      description: 用户卡片不包含私有账号字段。
       type: object
       additionalProperties: false
       required: [user_id, nickname, bio, avatar, is_following]
@@ -686,6 +698,19 @@ components:
         user_list: {type: array, maxItems: 50, items: {$ref: '#/components/schemas/UserConnectionCard'}}
         has_more: {type: integer, enum: [0, 1]}
         next_cursor: {type: string, nullable: true, description: 有下一页时为本页最后一个 user_id，否则为 null}
+    PublicUserProfile:
+      type: object
+      additionalProperties: false
+      required: [user_id, nickname, bio, avatar, post_count, follower_count, following_count, is_following]
+      properties:
+        user_id: {type: string}
+        nickname: {type: string}
+        bio: {type: string, description: 可以为空字符串，不为 null}
+        avatar: {type: string, description: 可以为空字符串，不为 null}
+        post_count: {type: integer, format: int64, minimum: 0}
+        follower_count: {type: integer, format: int64, minimum: 0}
+        following_count: {type: integer, format: int64, minimum: 0}
+        is_following: {type: boolean, description: 当前认证用户是否关注目标账号}
     Clip:
       type: object
       additionalProperties: false

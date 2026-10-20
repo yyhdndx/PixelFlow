@@ -45,6 +45,10 @@ class OpenApiContractTest {
         assertEquals(List.of("user_id","nickname","bio","avatar","is_following"),card.get("required"));
         var page=(Map<?,?>)schemas.get("UserConnectionsPage");
         assertEquals(List.of("status_code","user_list","has_more","next_cursor"),page.get("required"));
+        assertTrue(paths.containsKey("/api/users/{id}/profile"));
+        var publicProfile=(Map<?,?>)schemas.get("PublicUserProfile");
+        assertEquals(false,publicProfile.get("additionalProperties"));
+        assertEquals(List.of("user_id","nickname","bio","avatar","post_count","follower_count","following_count","is_following"),publicProfile.get("required"));
         references(document,document);
     }
     private void references(Object node,Map<String,Object> root) {

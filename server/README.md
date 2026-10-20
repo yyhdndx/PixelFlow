@@ -77,7 +77,13 @@ curl -X PUT -H "Authorization: Bearer <access-token>" -H "Content-Type: applicat
 
 验收与独立 MySQL 测试方式见 [issue 05](../docs/issues/05-java-本人粉丝与关注分页.md)。
 
-### 连接地址
+### 查看作者或其他用户主页
+
+`GET /api/users/{id}/profile` 需要 Bearer 登录身份，返回 `user_id`、`nickname`、`bio`、`avatar`、`post_count`、`follower_count`、`following_count` 和 `is_following`。最后一个字段表示访问者是否关注此用户，不是反向关系。仅返回启用账号；不存在和停用均为 404。只提供公开资料，不含用户名、角色、草稿或收藏；作品列表不在本接口内。资料统计口径与本人统计一致，响应禁止缓存；本人资料编辑仍使用 `/api/users/me`。
+
+验收与复测见 [issue 06](../docs/issues/06-java-用户主页公开资料.md)。
+
+### 设备连接
 
 模拟器访问宿主机使用 `http://10.0.2.2:8080`；首次生成种子数据前将 `PIXELFLOW_PUBLIC_BASE_URL` 设为这个地址。真机使用电脑局域网 IP，并显式配置监听地址和防火墙，不要公开暴露开发服务。
 
