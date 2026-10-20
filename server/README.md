@@ -69,6 +69,22 @@ curl -X PUT -H "Authorization: Bearer <access-token>" -H "Content-Type: applicat
 
 ## Android 联调
 
+### 本人粉丝与关注列表
+
+登录后调用 `GET /api/users/me/followers?count=20` 或 `GET /api/users/me/following?count=20`。响应包含 `status_code`、`user_list`、数值型 `has_more`（0/1）和 `next_cursor`。用户卡片仅包含 `user_id`、`nickname`、`bio`、`avatar`、`is_following`；粉丝列表的 `is_following` 表示是否回关。关注/取消仍调用原有互动接口。
+
+下一页传 `cursor=<next_cursor>`，末页游标为 null；第一页省略 cursor，不能传空字符串。count 范围 1–50。按用户 ID 字符串升序，不是关注时间排序；账号停用和关系变化可能改变结果，刷新时从第一页开始。不存在/停用账号在分页前过滤，不受推荐屏蔽偏好影响。接口只认登录身份，不接受查询其他用户；不新增表和迁移。
+
+验收与独立 MySQL 测试方式见 [issue 05](../docs/issues/05-java-本人粉丝与关注分页.md)。
+
+### 查看作者或其他用户主页
+
+`GET /api/users/{id}/profile` 需要 Bearer 登录身份，返回 `user_id`、`nickname`、`bio`、`avatar`、`post_count`、`follower_count`、`following_count` 和 `is_following`。最后一个字段表示访问者是否关注此用户，不是反向关系。仅返回启用账号；不存在和停用均为 404。只提供公开资料，不含用户名、角色、草稿或收藏；作品列表不在本接口内。资料统计口径与本人统计一致，响应禁止缓存；本人资料编辑仍使用 `/api/users/me`。
+
+验收与复测见 [issue 06](../docs/issues/06-java-用户主页公开资料.md)。
+
+### 设备连接
+
 模拟器访问宿主机使用 `http://10.0.2.2:8080`；首次生成种子数据前将 `PIXELFLOW_PUBLIC_BASE_URL` 设为这个地址。真机使用电脑局域网 IP，并显式配置监听地址和防火墙，不要公开暴露开发服务。
 
 在 `app/src/main/assets/api.properties` 设置基础 origin `url`，不含路径或 `/feed/` 后缀，默认使用模拟器地址 http://10.0.2.2:8080。Android 已接入账号页、内存会话与令牌刷新、next_cursor 分页和首页/详情点赞；关注、收藏、发布及资料同步仍待接入。启动与设备验收见 [Android 联调说明](../docs/android/Java服务联调说明.md)。

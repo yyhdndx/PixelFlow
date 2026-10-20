@@ -8,6 +8,39 @@ servers:
 security:
   - bearerAuth: []
 paths:
+  /api/users/{id}/profile:
+    get:
+      summary: 查看用户主页公开资料、统计及本人关注状态（需登录）
+      description: 仅返回启用账号的公开字段；不存在和停用统一返回 404。支持通过真实 ID 查看本人，me 不作为别名。作品数仅计 PUBLISHED，关系数仅计存在且启用的用户。响应 Cache-Control 为 no-store。
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9_-]{1,36}$'}}
+      responses:
+        '200': {description: 用户公开资料，不含用户名、角色和账号状态, content: {application/json: {schema: {$ref: '#/components/schemas/PublicUserProfile'}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /api/users/me/followers:
+    get:
+      summary: 分页查询本人粉丝用户卡片
+      description: 仅查询认证本人。只返回存在且启用的用户，按用户 ID 字符串升序，不按关注时间排序；不提供跨页快照，关系变化后请重新刷新。响应 Cache-Control 为 no-store。
+      parameters:
+        - {$ref: '#/components/parameters/ConnectionsCount'}
+        - {$ref: '#/components/parameters/ConnectionsCursor'}
+      responses:
+        '200': {description: 粉丝卡片，is_following 表示本人是否回关, content: {application/json: {schema: {$ref: '#/components/schemas/UserConnectionsPage'}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+  /api/users/me/following:
+    get:
+      summary: 分页查询本人关注用户卡片
+      description: 仅查询认证本人。过滤条件、排序和分页规则与 followers 相同；is_following 为 true。推荐屏蔽偏好不改变关注关系。响应 Cache-Control 为 no-store。
+      parameters:
+        - {$ref: '#/components/parameters/ConnectionsCount'}
+        - {$ref: '#/components/parameters/ConnectionsCursor'}
+      responses:
+        '200': {description: 关注用户卡片, content: {application/json: {schema: {$ref: '#/components/schemas/UserConnectionsPage'}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
   /demo-assets/{file}:
     parameters:
       - {name: file, in: path, required: true, schema: {type: string}, description: 随 JAR 打包的文件名，见 catalog.json}
@@ -551,6 +584,16 @@ components:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
     analyticsRead: {type: http, scheme: bearer, bearerFormat: opaque, description: PIXELFLOW_ANALYTICS_EXPORT_TOKEN，至少32字符；仅允许读取内部事件接口，禁止放入客户端。}
   parameters:
+    ConnectionsCount:
+      name: count
+      in: query
+      description: 省略时为 20；显式空值、非十进制正整数或越界返回 INVALID_ARGUMENT。
+      schema: {type: integer, minimum: 1, maximum: 50, default: 20}
+    ConnectionsCursor:
+      name: cursor
+      in: query
+      description: 上页 next_cursor；第一页省略，不能传空字符串。不要求游标对应用户仍存在。
+      schema: {type: string, pattern: '^[A-Za-z0-9_-]{1,36}$'}
     Id: {name: id, in: path, required: true, schema: {type: string, pattern: '^[1-9][0-9]*$'}}
     Count: {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
     Cursor: {name: cursor, in: query, schema: {type: integer, format: int64, minimum: 1}, description: 上页 next_cursor 或末项作品 ID，仅向更小 ID 翻页}
@@ -635,6 +678,39 @@ components:
         post_count: {type: integer, format: int64, minimum: 0, description: 状态为 PUBLISHED 的作品数}
         follower_count: {type: integer, format: int64, minimum: 0, description: 关注当前用户的启用账号数}
         following_count: {type: integer, format: int64, minimum: 0, description: 当前用户关注的启用账号数}
+    UserConnectionCard:
+      description: 用户卡片不包含私有账号字段。
+      type: object
+      additionalProperties: false
+      required: [user_id, nickname, bio, avatar, is_following]
+      properties:
+        user_id: {type: string}
+        nickname: {type: string}
+        bio: {type: string}
+        avatar: {type: string, description: 无头像时为空字符串}
+        is_following: {type: boolean, description: 当前登录用户是否关注此卡片用户}
+    UserConnectionsPage:
+      type: object
+      additionalProperties: false
+      required: [status_code, user_list, has_more, next_cursor]
+      properties:
+        status_code: {type: integer, enum: [0]}
+        user_list: {type: array, maxItems: 50, items: {$ref: '#/components/schemas/UserConnectionCard'}}
+        has_more: {type: integer, enum: [0, 1]}
+        next_cursor: {type: string, nullable: true, description: 有下一页时为本页最后一个 user_id，否则为 null}
+    PublicUserProfile:
+      type: object
+      additionalProperties: false
+      required: [user_id, nickname, bio, avatar, post_count, follower_count, following_count, is_following]
+      properties:
+        user_id: {type: string}
+        nickname: {type: string}
+        bio: {type: string, description: 可以为空字符串，不为 null}
+        avatar: {type: string, description: 可以为空字符串，不为 null}
+        post_count: {type: integer, format: int64, minimum: 0}
+        follower_count: {type: integer, format: int64, minimum: 0}
+        following_count: {type: integer, format: int64, minimum: 0}
+        is_following: {type: boolean, description: 当前认证用户是否关注目标账号}
     Clip:
       type: object
       additionalProperties: false
