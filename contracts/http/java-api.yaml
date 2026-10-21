@@ -343,6 +343,49 @@ paths:
       responses:
         '200': {description: 事件已落库或已处理, content: {application/json: {example: {eventId: unique-client-event-id, duplicate: false}}}}
         default: {$ref: '#/components/responses/Error'}
+  /api/users/me/favorites:
+    get:
+      description: 本人收藏的完整作品卡片，仅返回启用作者的 PUBLISHED 图文及视频。按作品数字 ID 降序，不是收藏时间；可见性在分页前过滤。身份来自 Bearer 会话，忽略 userId/user_id；不受推荐偏好影响。不提供跨请求快照，变更后可刷新第一页。原互动收藏读写接口保持不变。
+      parameters:
+        - {$ref: '#/components/parameters/NumericPageCount'}
+        - name: cursor
+          in: query
+          description: 首次省略；后续传上页 next_cursor。仅接受十进制正整数，显式空值、重复参数或超过 long 上限返回 400。
+          schema: {type: string, pattern: '^[0-9]+$', example: '123'}
+      responses:
+        '200':
+          description: 本人收藏作品分页；has_more 为数字 0/1，末页游标为 null。
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FavoritesPage'}
+              example: {status_code: 0, post_list: [], has_more: 0, next_cursor: null}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/users/me/profile/history:
+    get:
+      description: 本人历史画像只读代理，转发当前用户 JWT 到 Python /profiles/me/history。忽略 userId/user_id，不触发同步或重算，不按当前主题抑制改写历史。验证上游身份、摘要字段、降序版本及游标，只返回白名单摘要字段；所有响应禁止缓存。Python 端口仍保持内部访问。
+      parameters:
+        - {$ref: '#/components/parameters/NumericPageCount'}
+        - name: before_version
+          in: query
+          description: 首次省略；后续传 next_cursor。十进制正整数，最大 9223372036854775807；显式空值、重复参数、非数字或越界返回 Java 400 INVALID_ARGUMENT（Python 原生端点为 422）。
+          schema: {type: string, pattern: '^[0-9]+$', example: '8'}
+      responses:
+        '200':
+          description: 实际持久化的历史摘要；has_more 为布尔值，无历史返回空 items，末页 next_cursor 为 null。
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProfileHistoryPage'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '502': {description: INVALID_ANALYTICS_RESPONSE，上游身份不符、JSON/摘要无效或分页矛盾；不回显上游正文}
+        '503': {description: ANALYTICS_UNAVAILABLE，分析服务未配置、连接失败、三秒请求超时或上游非成功状态；不跟随重定向}
+        default: {$ref: '#/components/responses/Error'}
   /api/users/me/profile:
     get:
       description: 登录用户本人画像代理。Java 转发当前用户 JWT 到 Python /profiles/me，并校验响应 user_id；不可指定别人的 userId，不触发同步。字段详见 python-analytics.md。
@@ -584,6 +627,11 @@ components:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
     analyticsRead: {type: http, scheme: bearer, bearerFormat: opaque, description: PIXELFLOW_ANALYTICS_EXPORT_TOKEN，至少32字符；仅允许读取内部事件接口，禁止放入客户端。}
   parameters:
+    NumericPageCount:
+      name: count
+      in: query
+      description: 省略为 20；十进制正整数，值为 1–50；允许前导零，空值、非数字、越界和重复参数返回 400 INVALID_ARGUMENT。
+      schema: {type: integer, minimum: 1, maximum: 50, default: 20}
     ConnectionsCount:
       name: count
       in: query
@@ -642,6 +690,55 @@ components:
     Posts: {description: 作品列表，续页取末项 post_id；空数组表示结束, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Post'}}}}}
     PostStatus: {description: 作品状态, content: {application/json: {schema: {type: object, properties: {postId: {type: string}, status: {type: string}}}}}}
   schemas:
+    FavoritePost:
+      allOf:
+        - {$ref: '#/components/schemas/Post'}
+        - type: object
+          required: [post_id, title, content, create_time, status, author, clips, media_ids, hashtag, music, like_count, is_liked, is_favorited]
+          properties:
+            is_liked: {type: boolean, description: 当前请求用户的点赞状态}
+            is_favorited: {type: boolean, enum: [true]}
+    FavoritesPage:
+      type: object
+      additionalProperties: false
+      required: [status_code, post_list, has_more, next_cursor]
+      properties:
+        status_code: {type: integer, enum: [0]}
+        post_list: {type: array, maxItems: 50, items: {$ref: '#/components/schemas/FavoritePost'}}
+        has_more: {type: integer, enum: [0, 1]}
+        next_cursor: {type: string, nullable: true, description: 有下一页时为本页最后一个作品 ID，否则为 null}
+    ProfileHistoryWeight:
+      type: object
+      additionalProperties: false
+      required: [name, score, share]
+      properties:
+        name: {type: string}
+        score: {type: number, format: double, description: 有限数值}
+        share: {type: number, format: double, description: 有限数值}
+    ProfileHistoryItem:
+      type: object
+      additionalProperties: false
+      required: [version, rule_version, generated_at, window_days, timezone, cold_start, topics, media, event_counts, explanation]
+      properties:
+        version: {type: integer, format: int64, minimum: 1}
+        rule_version: {type: string}
+        generated_at: {type: integer, format: int64}
+        window_days: {type: integer, format: int64}
+        timezone: {type: string}
+        cold_start: {type: boolean}
+        topics: {type: array, items: {$ref: '#/components/schemas/ProfileHistoryWeight'}}
+        media: {type: array, items: {$ref: '#/components/schemas/ProfileHistoryWeight'}}
+        event_counts: {type: object, additionalProperties: {type: integer, format: int64, minimum: 0}}
+        explanation: {type: string}
+    ProfileHistoryPage:
+      type: object
+      additionalProperties: false
+      required: [user_id, items, has_more, next_cursor]
+      properties:
+        user_id: {type: string}
+        items: {type: array, maxItems: 50, items: {$ref: '#/components/schemas/ProfileHistoryItem'}}
+        has_more: {type: boolean}
+        next_cursor: {type: string, nullable: true, description: 有下一页时为本页最后一个 version 的十进制字符串，否则为 null}
     PreferenceSnapshot:
       type: object
       required: [user_id, personalized, version, excluded_post_ids, blocked_author_ids, suppressed_topics]

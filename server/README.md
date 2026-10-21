@@ -69,6 +69,20 @@ curl -X PUT -H "Authorization: Bearer <access-token>" -H "Content-Type: applicat
 
 ## Android 联调
 
+### 本人收藏作品
+
+`GET /api/users/me/favorites?count=20` 返回可直接展示的图文/视频卡片，下一页传 `cursor=<next_cursor>`。响应沿用 Feed 的 `status_code`、`post_list`、数字 `has_more` 和字符串或 null 的 `next_cursor`；卡片含请求用户的 `is_liked` 及恒为 true 的 `is_favorited`。只返回启用作者的 PUBLISHED 作品，作者本人和管理员也不能通过收藏页看到私有作品。
+
+按作品数字 ID 降序，不是收藏时间排序；过滤不可见作品后再取 count+1 条，取消收藏、撤回或停用作者会影响后续查询。既有 GET/PUT `/api/interactions/favorites` 保持兼容。参数 count 默认20、范围1–50；cursor 为正整数 long；显式空值、重复分页参数、非十进制数字或越界返回400 `INVALID_ARGUMENT`。成功和业务错误响应禁止缓存，不接受查询参数切换身份。
+
+### 本人历史画像
+
+`GET /api/users/me/profile/history?count=20` 使用当前用户 Bearer token，下一页传 `before_version=<next_cursor>`。Java 仅通过配置的 `PIXELFLOW_INTELLIGENCE_BASE_URL` 访问内部 Python；Android 不直接访问 Python。返回 `user_id`、`items`、布尔 `has_more` 及字符串或 null 的 `next_cursor`，与收藏列表的 has_more 类型不同。
+
+items 是版本降序的已保存摘要：version、rule_version、generated_at、window_days、timezone、cold_start、topics、media、event_counts、explanation。历史摘要不按当前抑制主题重写，不触发同步或重算，无历史时返回空 items。Java 校验本人归属、字段类型、版本顺序及游标一致性，剔除未约定字段。参数错误返回400；上游401保留为401；无效JSON/摘要返回502 `INVALID_ANALYTICS_RESPONSE`；未配置、连接失败、三秒请求超时或其他上游非成功状态返回503 `ANALYTICS_UNAVAILABLE`。全部响应禁止缓存，不向客户端透出上游错误正文，不跟随重定向。
+
+本轮接口交付及测试见 [后端接口补全验收](../docs/testing/后端接口补全验收.md)。新增接口无需数据库迁移；作者作品分页仍由任务07交付，头像接口仍在独立分支。
+
 ### 本人粉丝与关注列表
 
 登录后调用 `GET /api/users/me/followers?count=20` 或 `GET /api/users/me/following?count=20`。响应包含 `status_code`、`user_list`、数值型 `has_more`（0/1）和 `next_cursor`。用户卡片仅包含 `user_id`、`nickname`、`bio`、`avatar`、`is_following`；粉丝列表的 `is_following` 表示是否回关。关注/取消仍调用原有互动接口。

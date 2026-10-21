@@ -49,6 +49,7 @@ APK 输出到 `app/build/outputs/apk/debug/`。服务地址由 `app/src/main/ass
 - [社区演示素材与来源许可](docs/server/演示素材说明.md)
 - [Python 智能服务](intelligence/README.md)
 - [后端开发上手指南](docs/后端开发上手指南.md)
+- [收藏分页与Java历史画像代理验收](docs/testing/后端接口补全验收.md)
 - [跨服务契约](contracts/README.md)
 - [Android 设计资料](docs/android/技术方案设计文档.md)
 - [Android 代码审查与整改计划](docs/android/代码审查与整改计划.md)
