@@ -88,6 +88,7 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
                 .setInterpolator(new DecelerateInterpolator())
                 .start();
 
+        if (!isFabVisible) return;
         // 2. FAB弹跳进入（有节奏感）
         fabCamera.animate()
                 .alpha(1f)

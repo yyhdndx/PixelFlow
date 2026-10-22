@@ -164,6 +164,32 @@ public class CommunityClient implements AutoCloseable {
     public Job getPost(String id, Callback<PostItem> callback) {
         return submit((job, expected) -> post(job, id, expected), callback);
     }
+    public Job getCurrentUser(Callback<CurrentUser> callback) {
+        return submit((job, expected) -> currentUser(authenticated(job, "/api/users/me", "GET", null, expected, true)), callback);
+    }
+    public Job getUserStats(String userId, Callback<UserStats> callback) {
+        return submit((job, expected) -> {
+            try {
+                return UserStats.parse(gson.fromJson(authenticated(job, "/api/users/me/stats", "GET", null, expected, true), JsonObject.class), userId);
+            } catch (IllegalArgumentException | ArithmeticException error) {
+                throw new ApiError(0, "统计响应不完整，请刷新重试");
+            }
+        }, callback);
+    }
+    public Job updateCurrentUser(String userId, String nickname, String bio, Callback<CurrentUser> callback) {
+        return submit((job, expected) -> {
+            if (nickname == null || nickname.trim().isEmpty() || nickname.trim().length() > 40 || bio == null || bio.length() > 60)
+                throw new ApiError(400, "昵称需为 1–40 字，简介最多 60 字");
+            JsonObject input = new JsonObject(); input.addProperty("nickname", nickname.trim()); input.addProperty("bio", bio);
+            CurrentUser result = currentUser(authenticated(job, "/api/users/me", "PUT", input, expected, true));
+            if (!result.id.equals(userId)) throw new ApiError(0, "资料归属异常，请重新登录");
+            return result;
+        }, callback);
+    }
+    private CurrentUser currentUser(String raw) throws IOException {
+        try { return CurrentUser.parse(gson.fromJson(raw, JsonObject.class)); }
+        catch (RuntimeException error) { throw new ApiError(0, "资料响应不完整，请刷新重试"); }
+    }
     public Job getProfile(Callback<JsonObject> callback) {
         return submit((job, expected) -> {
             JsonObject result = gson.fromJson(authenticated(job, "/api/users/me/profile", "GET", null, expected, true), JsonObject.class);

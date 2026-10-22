@@ -155,4 +155,52 @@ public class CommunityClientTest {
         reply(200, "{\"version\":1,\"topics\":[7]}");
         profile = new Result<>(); client.getProfile(profile); profile.fails();
     }
+    private static final String USER = "{\"id\":\"user-a\",\"username\":\"alice\",\"nickname\":\"小明\",\"bio\":\"摄影\",\"avatar\":\"\"}";
+    @Test public void readsServerProfileAndRealZeroStatistics() throws Exception {
+        Result<CurrentUser> guest = new Result<>(); client.getCurrentUser(guest); guest.fails();
+        assertTrue(requests.isEmpty());
+        login(); reply(200, USER);
+        Result<CurrentUser> me = new Result<>(); client.getCurrentUser(me);
+        assertEquals("小明", me.get().nickname);
+        reply(200, "{\"user_id\":\"user-a\",\"post_count\":0,\"follower_count\":2,\"following_count\":3}");
+        Result<UserStats> stats = new Result<>(); client.getUserStats("user-a", stats);
+        assertEquals(0, stats.get().posts); assertEquals(2, stats.get().followers); assertEquals(3, stats.get().following);
+        assertTrue(requests.get(1).contains("GET /api/users/me Bearer first"));
+        assertTrue(requests.get(2).contains("GET /api/users/me/stats Bearer first"));
+    }
+    @Test public void editsOnlyNicknameAndBioAndUsesServerResponse() throws Exception {
+        login(); reply(200, USER);
+        Result<CurrentUser> result = new Result<>(); client.updateCurrentUser("user-a", " 小明 ", "摄影\n旅行", result);
+        assertEquals("摄影", result.get().bio);
+        String sent = requests.get(1); assertTrue(sent.startsWith("PUT /api/users/me Bearer first"));
+        assertTrue(sent.contains("\"nickname\":\"小明\"")); assertTrue(sent.contains("摄影\\n旅行"));
+        assertFalse(sent.contains("avatar")); assertFalse(sent.contains("userId"));
+        int before = requests.size();
+        for (String invalid : Arrays.asList("", "   ", String.join("", Collections.nCopies(41, "a")))) {
+            result = new Result<>(); client.updateCurrentUser("user-a", invalid, "", result); result.fails();
+        }
+        result = new Result<>(); client.updateCurrentUser("user-a", "Alice", String.join("", Collections.nCopies(61, "a")), result); result.fails();
+        assertEquals(before, requests.size());
+        reply(200, USER.replace("user-a", "user-b"));
+        result = new Result<>(); client.updateCurrentUser("user-a", "Alice", "", result); result.fails();
+    }
+    @Test public void missingStatisticsAndCrossAccountStatisticsAreNotDisplayedAsZero() throws Exception {
+        login();
+        for (String raw : Arrays.asList("{}", "{\"user_id\":\"user-b\",\"post_count\":0,\"follower_count\":0,\"following_count\":0}",
+                "{\"user_id\":\"user-a\",\"post_count\":-1,\"follower_count\":0,\"following_count\":0}",
+                "{\"user_id\":\"user-a\",\"post_count\":1.5,\"follower_count\":0,\"following_count\":0}",
+                "{\"user_id\":\"user-a\",\"post_count\":\"0\",\"follower_count\":0,\"following_count\":0}")) {
+            reply(200, raw); Result<UserStats> result = new Result<>(); client.getUserStats("user-a", result); result.fails();
+        }
+        reply(200, USER.replace("\"bio\":\"摄影\",", ""));
+        Result<CurrentUser> me = new Result<>(); client.getCurrentUser(me); me.fails();
+    }
+    @Test public void userReadRefreshesSessionAndFailedUpdateDoesNotReportSuccess() throws Exception {
+        login(); reply(401, "{}"); reply(200, "{\"accessToken\":\"second\",\"refreshToken\":\"refresh-second\"}"); reply(200, USER);
+        Result<CurrentUser> me = new Result<>(); client.getCurrentUser(me); assertEquals("user-a", me.get().id);
+        assertTrue(requests.get(3).contains("GET /api/users/me Bearer second"));
+        reply(503, "{\"message\":\"暂时不可用\"}");
+        Result<CurrentUser> update = new Result<>(); client.updateCurrentUser("user-a", "Alice", "bio", update); update.fails();
+        assertTrue(client.isLoggedIn()); assertEquals(5, requests.size());
+    }
 }

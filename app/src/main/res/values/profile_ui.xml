@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="profile_bg">#F7F7FC</color>
+    <color name="profile_surface">#FFFFFF</color>
+    <color name="profile_ink">#242337</color>
+    <color name="profile_muted">#747387</color>
+    <color name="profile_accent">#6155CE</color>
+    <color name="profile_soft">#EFEDFF</color>
+    <color name="profile_border">#E7E6F0</color>
+    <color name="profile_error">#B3261E</color>
+    <style name="Theme.PixelFlow.ProfileBase" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/profile_accent</item>
+        <item name="colorPrimaryVariant">@color/profile_accent</item>
+        <item name="colorSecondary">@color/profile_accent</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="android:windowBackground">@color/profile_bg</item>
+        <item name="android:statusBarColor">@color/profile_bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/profile_surface</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="colorError">@color/profile_error</item>
+    </style>
+    <style name="Theme.PixelFlow.Profile" parent="Theme.PixelFlow.ProfileBase"/>
+    <style name="ProfileTitle">
+        <item name="android:textColor">@color/profile_ink</item>
+        <item name="android:textSize">28sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="ProfileBody">
+        <item name="android:textColor">@color/profile_muted</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:lineSpacingExtra">4dp</item>
+    </style>
+    <style name="ProfileButton" parent="Widget.MaterialComponents.Button">
+        <item name="cornerRadius">16dp</item>
+        <item name="android:minHeight">52dp</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="backgroundTint">@color/profile_accent</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+    <style name="ProfileInput" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="boxCornerRadiusTopStart">16dp</item>
+        <item name="boxCornerRadiusTopEnd">16dp</item>
+        <item name="boxCornerRadiusBottomStart">16dp</item>
+        <item name="boxCornerRadiusBottomEnd">16dp</item>
+        <item name="boxBackgroundColor">@color/profile_surface</item>
+    </style>
+    <string name="profile_title">我的</string>
+    <string name="profile_subtitle">记录生活，也认识自己。</string>
+    <string name="profile_edit">编辑个人资料</string>
+    <string name="profile_guest">还没有登录</string>
+    <string name="profile_guest_bio">登录后，让每一次记录都有归属。</string>
+    <string name="profile_sign_in">登录 / 注册</string>
+    <string name="profile_bio_empty">还没有简介，写一句话介绍自己吧。</string>
+    <string name="profile_loading">正在读取个人资料…</string>
+    <string name="profile_retry">重新加载</string>
+    <string name="profile_stats_retry">重新加载统计</string>
+    <string name="profile_space">个人空间</string>
+    <string name="profile_insights">兴趣画像</string>
+    <string name="profile_insights_desc">看看你的内容偏好</string>
+    <string name="profile_account">账号与登录</string>
+    <string name="profile_account_desc">管理当前登录状态</string>
+    <string name="profile_refresh_hint">下拉刷新资料与统计</string>
+    <string name="profile_avatar">个人头像</string>
+    <string name="profile_posts">作品</string>
+    <string name="profile_followers">粉丝</string>
+    <string name="profile_following">关注</string>
+    <string name="profile_dash">—</string>
+    <string name="profile_back">返回</string>
+    <string name="profile_editor_title">编辑资料</string>
+    <string name="profile_editor_desc">用你的方式，介绍你自己。</string>
+    <string name="profile_avatar_readonly">当前头像</string>
+    <string name="profile_nickname">昵称</string>
+    <string name="profile_bio">个人简介</string>
+    <string name="profile_save">保存修改</string>
+    <string name="profile_saving">正在保存…</string>
+    <string name="profile_editor_hint">昵称和简介会展示在你的公开主页。</string>
+    <string name="profile_verify_save">重新读取并核对</string>
+    <string name="profile_discard_title">放弃这次修改？</string>
+    <string name="profile_discard_message">尚未保存的内容将不会保留。</string>
+    <string name="profile_keep_editing">继续编辑</string>
+    <string name="profile_discard">放弃修改</string>
+    <string name="account_title">欢迎回来</string>
+    <string name="account_subtitle">登录 PixelFlow，继续你的记录。</string>
+    <string name="account_register_title">创建你的账号</string>
+    <string name="account_register_subtitle">从一个昵称开始，让大家认识你。</string>
+    <string name="account_username">用户名</string>
+    <string name="account_password">密码</string>
+    <string name="account_login">登录</string>
+    <string name="account_register">注册账号</string>
+    <string name="account_switch_register">还没有账号？去注册</string>
+    <string name="account_switch_login">已有账号？去登录</string>
+    <string name="account_logout">退出当前账号</string>
+    <string name="account_signed_in">已登录</string>
+    <string name="account_memory_hint">应用重新启动后，需要再次登录。</string>
+    <string name="account_return">返回我的主页</string>
+    <string name="insights_description">从日常浏览中，发现你的兴趣。</string>
+    <string name="insights_empty">你的兴趣画像还在积累中</string>
+    <string name="insights_empty_desc">多看看喜欢的内容，之后再来看看。</string>
+    <string name="insights_note">基于历史行为的规则分析，非实时更新。</string>
+</resources>
