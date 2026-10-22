@@ -28,7 +28,6 @@
             </LinearLayout>
             <ProgressBar android:id="@+id/account_loading" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:indeterminate="true" android:layout_marginTop="20dp" android:visibility="gone"/>
             <TextView android:id="@+id/account_status" style="@style/ProfileBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:accessibilityLiveRegion="polite" android:visibility="gone"/>
-            <com.google.android.material.button.MaterialButton android:id="@+id/account_retry" style="@style/Widget.MaterialComponents.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/profile_retry" android:visibility="gone"/>
             <TextView style="@style/ProfileBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="28dp" android:text="@string/account_memory_hint" android:textSize="12sp" android:gravity="center"/>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
