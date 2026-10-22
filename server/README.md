@@ -83,6 +83,22 @@ curl -X PUT -H "Authorization: Bearer <access-token>" -H "Content-Type: applicat
 
 验收与复测见 [issue 06](../docs/issues/06-java-用户主页公开资料.md)。
 
+### 用户主页公开作品分页
+
+`GET /api/users/{id}/posts?count=20` 需要 Bearer 登录身份，返回 `status_code`、`post_list`、数值型 `has_more`（0/1）和字符串或 null 的 `next_cursor`，响应 `Cache-Control: no-store`。作品卡片复用详情字段，`is_liked` 表示当前访问者是否点赞，不包含收藏字段或作者简介。
+
+仅返回目标启用用户的 PUBLISHED 作品，包含图片和视频；作者本人、管理员也不能在此看到草稿等私有状态，不应用推荐屏蔽、不感兴趣和推荐偏好。真实 ID 可查本人，`me` 按普通 ID 查询。每页重新检查作者状态，不存在或停用返回 404 `USER_NOT_FOUND`。
+
+按数字作品 ID 降序分页，首页省略 cursor，下一页传 `cursor=<next_cursor>`。count 省略为 20，范围 1–50；cursor 为 1–Long.MAX_VALUE 的十进制数字字符串，允许前导零。空值、裸参数、非整数或越界均为 400 `INVALID_ARGUMENT`。末页/空页 `has_more=0`、`next_cursor=null`。无跨页快照，新增、撤回或账号状态变化后从首页刷新。
+
+```bash
+curl -H "Authorization: Bearer <access-token>" 'http://127.0.0.1:8080/api/users/<user-id>/posts?count=2'
+curl -H "Authorization: Bearer <access-token>" 'http://127.0.0.1:8080/api/users/<user-id>/posts?count=2&cursor=<next_cursor>'
+mvn -B -ntp -f server/pom.xml -Dtest=UserPostsApiTest,UserPostsHttpTest,OpenApiContractTest test
+```
+
+独立 MySQL 8.4 复测使用 `MYSQL_TEST_USER_POSTS_URL`（数据库名必须以 `_test` 结尾）及已有 `MYSQL_TEST_USER`、`MYSQL_TEST_PASSWORD`，执行 `-Dtest=MySqlUserPostsApiTest test`。未配置时跳过，不算 MySQL 验收通过；套件会检查实际版本为 8.4。真实 HTTP 示例和验收状态见 [用户主页作品分页](../docs/issues/java-用户主页作品分页.md)。
+
 ### 设备连接
 
 模拟器访问宿主机使用 `http://10.0.2.2:8080`；首次生成种子数据前将 `PIXELFLOW_PUBLIC_BASE_URL` 设为这个地址。真机使用电脑局域网 IP，并显式配置监听地址和防火墙，不要公开暴露开发服务。
