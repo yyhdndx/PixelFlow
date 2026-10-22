@@ -8,6 +8,27 @@ servers:
 security:
   - bearerAuth: []
 paths:
+  /api/users/me/favorites:
+    get:
+      summary: 分页查询本人收藏的公开作品卡片
+      description: 仅查询认证本人；在分页前过滤不存在作品、非 PUBLISHED 状态及不存在或停用作者，作者本人和管理员也不豁免。按作品数字 ID 倒序，不按收藏时间；重新收藏不改变排序。不提供跨请求快照，关系或可见性变化后请从第一页刷新。响应 Cache-Control 为 no-store。
+      parameters:
+        - name: count
+          in: query
+          description: 省略默认 20；仅接受规范十进制正整数，空值、符号、空白、小数及越界返回 400 INVALID_ARGUMENT。
+          schema: {type: integer, minimum: 1, maximum: 50, default: 20}
+        - name: cursor
+          in: query
+          description: 上页 next_cursor；第一页省略，不能传空值。仅接受无前导零的正十进制 int64，最大 9223372036854775807；返回作品 ID 严格小于 cursor。非法或溢出返回 400 INVALID_ARGUMENT。
+          schema: {type: integer, format: int64, minimum: 1, maximum: 9223372036854775807}
+      responses:
+        '200':
+          description: 本人收藏的公开图文或视频作品，is_liked 取当前登录身份，is_favorited 恒为 true
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/FavoritesPage'}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
   /api/users/{id}/profile:
     get:
       summary: 查看用户主页公开资料、统计及本人关注状态（需登录）
@@ -642,6 +663,22 @@ components:
     Posts: {description: 作品列表，续页取末项 post_id；空数组表示结束, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Post'}}}}}
     PostStatus: {description: 作品状态, content: {application/json: {schema: {type: object, properties: {postId: {type: string}, status: {type: string}}}}}}
   schemas:
+    FavoritesPage:
+      type: object
+      additionalProperties: false
+      required: [status_code, post_list, has_more, next_cursor]
+      properties:
+        status_code: {type: integer, enum: [0]}
+        post_list: {type: array, maxItems: 50, items: {$ref: '#/components/schemas/FavoritePost'}}
+        has_more: {type: integer, enum: [0, 1]}
+        next_cursor: {type: string, nullable: true, description: 仅有下一页时为本页最后一个 post_id 的字符串，否则为 null}
+    FavoritePost:
+      allOf:
+        - {$ref: '#/components/schemas/Post'}
+        - type: object
+          required: [post_id, title, content, create_time, status, media_ids, author, clips, hashtag, music, like_count, is_liked, is_favorited]
+          properties:
+            is_favorited: {type: boolean, enum: [true]}
     PreferenceSnapshot:
       type: object
       required: [user_id, personalized, version, excluded_post_ids, blocked_author_ids, suppressed_topics]
