@@ -85,8 +85,17 @@ public class AuthService {
 
     @Transactional
     public Tokens refresh(String token) {
-        var rows = db.queryForList("SELECT s.* FROM sessions s JOIN users u ON s.user_id=u.id "
-                + "WHERE s.refresh_hash=? AND s.expires_at>? AND u.enabled=TRUE FOR UPDATE",hash(token),Instant.now().getEpochSecond());
+        String tokenHash=hash(token);
+        var candidates=db.queryForList("SELECT id,user_id FROM sessions WHERE refresh_hash=?",tokenHash);
+        if (candidates.isEmpty()) throw unauthorized();
+        var candidate=candidates.get(0);
+        // Serialize refreshes on the stable owner row before locking a session. Waiting on
+        // a refresh_hash entry that another transaction deletes can deadlock its next insert.
+        var owners=db.queryForList("SELECT id FROM users WHERE id=? AND enabled=TRUE FOR UPDATE",candidate.get("user_id"));
+        if (owners.isEmpty()) throw unauthorized();
+        // A locking read sees consumption/expiry after waiting, even under REPEATABLE READ.
+        var rows=db.queryForList("SELECT * FROM sessions WHERE id=? AND refresh_hash=? AND expires_at>? FOR UPDATE",
+                candidate.get("id"),tokenHash,Instant.now().getEpochSecond());
         if (rows.isEmpty()) throw unauthorized();
         var session = rows.get(0);
         db.update("DELETE FROM sessions WHERE id=?",session.get("id"));

@@ -331,18 +331,23 @@ class BusinessApiTest {
                 .content(encode(Map.of("status","PUBLISHED","reason"," ")))).andExpect(status().isBadRequest());
     }
 
-    @Test void simultaneousRefreshConsumesTokenOnce() throws Exception {
+    @RepeatedTest(5) void simultaneousRefreshConsumesTokenOnce() throws Exception {
         var tokens=account("alice");
         String request=encode(Map.of("refreshToken",tokens.get("refreshToken").asText()));
-        var executor=java.util.concurrent.Executors.newFixedThreadPool(2);
+        var executor=java.util.concurrent.Executors.newFixedThreadPool(6);
         try {
             var start=new java.util.concurrent.CountDownLatch(1);
             java.util.concurrent.Callable<Integer> action=() -> {
                 assertTrue(start.await(5,java.util.concurrent.TimeUnit.SECONDS));
                 return mvc.perform(post("/api/auth/refresh").contentType("application/json").content(request)).andReturn().getResponse().getStatus();
             };
-            var first=executor.submit(action); var second=executor.submit(action); start.countDown();
-            assertEquals(java.util.Set.of(200,401),java.util.Set.of(first.get(10,java.util.concurrent.TimeUnit.SECONDS),second.get(10,java.util.concurrent.TimeUnit.SECONDS)));
+            var requests=new java.util.ArrayList<java.util.concurrent.Future<Integer>>();
+            for (int i=0;i<6;i++) requests.add(executor.submit(action));
+            start.countDown();
+            var statuses=new java.util.ArrayList<Integer>();
+            for (var result:requests) statuses.add(result.get(10,java.util.concurrent.TimeUnit.SECONDS));
+            java.util.Collections.sort(statuses);
+            assertEquals(java.util.List.of(200,401,401,401,401,401),statuses);
         } finally { executor.shutdownNow(); }
     }
 
