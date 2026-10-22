@@ -91,6 +91,22 @@ items 是版本降序的已保存摘要：version、rule_version、generated_at�
 
 验收与独立 MySQL 测试方式见 [issue 05](../docs/issues/05-java-本人粉丝与关注分页.md)。
 
+### 本人收藏作品分页
+
+登录后调用 `GET /api/users/me/favorites`，返回 `status_code`、`post_list`、数值型 `has_more`（0/1）和 `next_cursor`，响应 `Cache-Control: no-store`。卡片复用 Feed 字段，包含图文与视频、当前用户 `is_liked` 以及恒为 true 的 `is_favorited`。
+
+```bash
+curl -H "Authorization: Bearer <access-token>" 'http://127.0.0.1:8080/api/users/me/favorites?count=20'
+curl -H "Authorization: Bearer <access-token>" 'http://127.0.0.1:8080/api/users/me/favorites?count=20&cursor=<next_cursor>'
+# 400 INVALID_ARGUMENT：显式空游标
+curl -H "Authorization: Bearer <access-token>" 'http://127.0.0.1:8080/api/users/me/favorites?cursor='
+mvn -B -ntp -f server/pom.xml -Dtest=FavoritePostsApiTest,FavoritePostsHttpTest,OpenApiContractTest,BusinessApiTest test
+# 配置独立 MYSQL_TEST_FAVORITES_URL、MYSQL_TEST_USER、MYSQL_TEST_PASSWORD 后验证 MySQL 8.4
+mvn -B -ntp -f server/pom.xml -Dtest=MySqlFavoritePostsApiTest test
+```
+
+上述 Maven 命令在仓库根目录执行。count 省略默认 20、范围 1–50；count 与 cursor 均允许前导零；cursor 为正十进制 long（最大 9223372036854775807），第一页省略，空值、重复分页参数、符号、空白、小数、溢出均返回 400 `INVALID_ARGUMENT`。仅有下一页时游标为本页末项作品 ID 字符串，否则为 null。按作品数字 ID 倒序，重新收藏不改变位置；无跨请求快照，收藏或状态变化后从第一页刷新。分页前过滤非公开、作者停用或不存在的作品，作者本人和管理员也不豁免；隐藏不会自动清除收藏，恢复后重新出现。取消/重新收藏仍用 `PUT /api/interactions/favorites`，原 GET ID 列表保持不变。
+
 ### 查看作者或其他用户主页
 
 `GET /api/users/{id}/profile` 需要 Bearer 登录身份，返回 `user_id`、`nickname`、`bio`、`avatar`、`post_count`、`follower_count`、`following_count` 和 `is_following`。最后一个字段表示访问者是否关注此用户，不是反向关系。仅返回启用账号；不存在和停用均为 404。只提供公开资料，不含用户名、角色、草稿或收藏；作品列表不在本接口内。资料统计口径与本人统计一致，响应禁止缓存；本人资料编辑仍使用 `/api/users/me`。

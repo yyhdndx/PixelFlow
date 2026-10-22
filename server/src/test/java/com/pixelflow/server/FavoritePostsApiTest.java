@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.test.web.servlet.*;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -178,4 +179,72 @@ class FavoritePostsApiTest {
             mvc.perform(get(PATH).header("Authorization",alice).param(name,"1","2")).andExpect(status().isBadRequest());
         assertTrue(ids(page(alice,"0001","0".repeat(200)+"1")).isEmpty());
     }
+
+    @Test void identityAndLikesAreScopedToTheActorAndCardsPreserveFeedFields() throws Exception {
+        postRow(9,bobId,"PUBLISHED",false); postRow(10,bobId,"PUBLISHED",false); favorite(aliceId,9); favorite(aliceId,10);
+        relation(bobId,"favorites","9"); relation(aliceId,"likes","10"); relation(bobId,"likes","9");
+        db.update("UPDATE users SET nickname=?,avatar=? WHERE id=?","中文作者","https://example.com/avatar.png",bobId);
+        var clips=List.of(Map.of("type",0,"width",600,"height",800,"url","https://example.com/中文.png"),
+                Map.of("type",1,"width",1920,"height",1080,"url","https://example.com/movie.mp4"));
+        db.update("UPDATE posts SET clips_json=?,has_video=TRUE WHERE id=10",json.writeValueAsString(clips));
+        for (int i=0;i<2;i++) {
+            db.update("INSERT INTO media(id,owner_id,width,height,content_bytes,created_at) VALUES(?,?,600,800,?,0)","media-"+i,bobId,new byte[]{1});
+            db.update("INSERT INTO post_media(post_id,media_id,position) VALUES(10,?,?)","media-"+i,1-i);
+        }
+        var result=page(alice,null,null);
+        assertEquals(List.of("10","9"),ids(result)); assertEquals(List.of("9"),ids(page(bob,null,null)));
+        var spoofed=body(mvc.perform(get(PATH).header("Authorization",alice).param("userId",bobId).param("user_id",bobId))
+                .andExpect(status().isOk()).andReturn());
+        assertEquals(result,spoofed);
+        var card=result.get("post_list").get(0);
+        assertEquals(Set.of("post_id","title","content","create_time","status","media_ids","author","clips","hashtag","music",
+                "like_count","is_liked","is_favorited"),json.convertValue(card,Map.class).keySet());
+        assertEquals("中文作品",card.get("title").asText()); assertEquals("图文正文",card.get("content").asText());
+        assertTrue(card.get("create_time").isIntegralNumber()); assertEquals(1791000000L,card.get("create_time").asLong());
+        assertEquals("PUBLISHED",card.get("status").asText());
+        assertEquals(json.valueToTree(Map.of("user_id",bobId,"nickname","中文作者","avatar","https://example.com/avatar.png")),card.get("author"));
+        assertEquals(json.valueToTree(clips),card.get("clips")); assertEquals(json.valueToTree(List.of("media-1","media-0")),card.get("media_ids"));
+        assertTrue(card.get("hashtag").isArray()); assertEquals(0,card.get("hashtag").size()); assertTrue(card.get("music").isNull());
+        assertTrue(card.get("like_count").isIntegralNumber()); assertEquals(1,card.get("like_count").asInt());
+        assertTrue(card.get("is_liked").isBoolean()); assertTrue(card.get("is_liked").asBoolean());
+        assertFalse(result.get("post_list").get(1).get("is_liked").asBoolean());
+        assertTrue(page(bob,null,null).get("post_list").get(0).get("is_liked").asBoolean());
+        for (var entry:result.get("post_list")) { assertTrue(entry.get("is_favorited").isBoolean()); assertTrue(entry.get("is_favorited").asBoolean()); }
+        mvc.perform(get("/feed/").header("Authorization",alice)).andExpect(status().isOk()).andExpect(jsonPath("post_list[0].post_id").value("9"));
+        var detail=body(mvc.perform(get("/api/posts/10").header("Authorization",alice)).andExpect(status().isOk()).andReturn());
+        var expected=card.deepCopy(); ((com.fasterxml.jackson.databind.node.ObjectNode)expected).remove("is_favorited");
+        assertEquals(expected,detail);
+    }
+
+    @Test void visibilityFiltersBeforeLimitWithoutOwnerOrAdminExemptionsAndRestoresRelations() throws Exception {
+        db.update("UPDATE users SET role='ADMIN' WHERE id=?",bobId);
+        postRow(9,aliceId,"PUBLISHED",false); postRow(10,aliceId,"PUBLISHED",false); favorite(aliceId,9); favorite(aliceId,10);
+        long id=100;
+        for (String state:List.of("DRAFT","PENDING","REJECTED","WITHDRAWN")) {
+            postRow(id,aliceId,state,false); favorite(aliceId,id); relation(bobId,"favorites",Long.toString(id)); id++;
+        }
+        db.update("INSERT INTO users(id,username,password_hash,nickname,role,enabled) VALUES('disabled','disabled','unused','停用作者','CREATOR',FALSE)");
+        postRow(200,"disabled","PUBLISHED",false); favorite(aliceId,200); relation(bobId,"favorites","200");
+        postRow(201,bobId,"PUBLISHED",false); favorite(aliceId,201);
+        db.execute((ConnectionCallback<Void>) connection -> {
+            boolean mysql=connection.getMetaData().getDatabaseProductName().equals("MySQL");
+            try (var statement=connection.createStatement()) {
+                statement.execute(mysql ? "SET FOREIGN_KEY_CHECKS=0" : "SET REFERENTIAL_INTEGRITY FALSE");
+                try { statement.executeUpdate("UPDATE posts SET author_id='missing-author' WHERE id=201"); }
+                finally { statement.execute(mysql ? "SET FOREIGN_KEY_CHECKS=1" : "SET REFERENTIAL_INTEGRITY TRUE"); }
+            }
+            return null;
+        });
+        var first=page(alice,"1",null); assertEquals(List.of("10"),ids(first)); assertEquals(1,first.get("has_more").asInt());
+        assertEquals("10",first.get("next_cursor").asText());
+        var last=page(alice,"1","10"); assertEquals(List.of("9"),ids(last)); assertEquals(0,last.get("has_more").asInt());
+        assertEquals(List.of("10","9"),ids(page(alice,"2",null))); assertTrue(ids(page(bob,null,null)).isEmpty());
+        assertEquals(0,page(alice,"2",null).get("has_more").asInt());
+        db.update("UPDATE posts SET status='PUBLISHED' WHERE id BETWEEN 100 AND 103");
+        db.update("UPDATE users SET enabled=TRUE WHERE id='disabled'");
+        assertEquals(List.of("200","103","102","101","100","10","9"),ids(page(alice,null,null)));
+        assertEquals(List.of("200","103","102","101","100"),ids(page(bob,null,null)));
+        assertEquals(13,db.queryForObject("SELECT COUNT(*) FROM interactions WHERE kind='favorites'",Integer.class));
+    }
+
 }

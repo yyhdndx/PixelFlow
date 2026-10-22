@@ -2,6 +2,7 @@ package com.pixelflow.server;
 
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.LoaderOptions;
 import java.nio.file.*;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -11,7 +12,9 @@ class OpenApiContractTest {
     @Test void contractIsParseableAndAllLocalReferencesResolve() throws Exception {
         Map<String,Object> document;
         try (var reader=Files.newBufferedReader(Path.of("../contracts/http/java-api.yaml"))) {
-            document=new Yaml().load(reader);
+            var options=new LoaderOptions();
+            options.setAllowDuplicateKeys(false);
+            document=new Yaml(options).load(reader);
         }
         assertEquals("3.0.3",document.get("openapi"));
         assertTrue(((Map<?,?>)document.get("paths")).containsKey("/feed/"));
@@ -65,6 +68,36 @@ class OpenApiContractTest {
         assertEquals(true,((Map<?,?>)postProperties.get("next_cursor")).get("nullable"));
         assertEquals("#/components/schemas/Post",((Map<?,?>)((Map<?,?>)postProperties.get("post_list")).get("items")).get("$ref"));
         assertEquals(List.of(Map.of("bearerAuth",List.of())),document.get("security"));
+        var favorites=(Map<?,?>)((Map<?,?>)paths.get("/api/users/me/favorites")).get("get");
+        var favoriteParameters=(List<?>)favorites.get("parameters");
+        assertEquals(2,favoriteParameters.size());
+        assertEquals(Map.of("$ref","#/components/parameters/NumericPageCount"),favoriteParameters.get(0));
+        var cursor=(Map<?,?>)((Map<?,?>)favoriteParameters.get(1)).get("schema");
+        assertEquals("string",cursor.get("type")); assertEquals("^[0-9]+$",cursor.get("pattern"));
+        var favoriteResponses=(Map<?,?>)favorites.get("responses");
+        assertTrue(favoriteResponses.keySet().containsAll(List.of("200","400","401")));
+        var favoriteOk=(Map<?,?>)favoriteResponses.get("200");
+        var cache=(Map<?,?>)((Map<?,?>)((Map<?,?>)favoriteOk.get("headers")).get("Cache-Control")).get("schema");
+        assertEquals(List.of("no-store"),cache.get("enum"));
+        var favoriteContent=(Map<?,?>)((Map<?,?>)favoriteOk.get("content")).get("application/json");
+        assertEquals(Map.of("$ref","#/components/schemas/FavoritesPage"),favoriteContent.get("schema"));
+        var favoritesPage=(Map<?,?>)schemas.get("FavoritesPage");
+        assertEquals(false,favoritesPage.get("additionalProperties"));
+        assertEquals(List.of("status_code","post_list","has_more","next_cursor"),favoritesPage.get("required"));
+        var favoriteProperties=(Map<?,?>)favoritesPage.get("properties");
+        assertEquals(List.of(0),((Map<?,?>)favoriteProperties.get("status_code")).get("enum"));
+        assertEquals(List.of(0,1),((Map<?,?>)favoriteProperties.get("has_more")).get("enum"));
+        assertEquals(true,((Map<?,?>)favoriteProperties.get("next_cursor")).get("nullable"));
+        assertEquals("string",((Map<?,?>)favoriteProperties.get("next_cursor")).get("type"));
+        assertEquals(Map.of("$ref","#/components/schemas/FavoritePost"),((Map<?,?>)favoriteProperties.get("post_list")).get("items"));
+        var favoriteAllOf=(List<?>)((Map<?,?>)schemas.get("FavoritePost")).get("allOf");
+        assertEquals(Map.of("$ref","#/components/schemas/Post"),favoriteAllOf.get(0));
+        var favoriteCard=(Map<?,?>)favoriteAllOf.get(1);
+        assertEquals(Set.of("post_id","title","content","create_time","status","media_ids","author","clips","hashtag","music","like_count","is_liked","is_favorited"),new HashSet<>((List<?>)favoriteCard.get("required")));
+        assertEquals(Map.of("type","boolean","enum",List.of(true)),((Map<?,?>)favoriteCard.get("properties")).get("is_favorited"));
+        assertFalse(((Map<?,?>)((Map<?,?>)schemas.get("Post")).get("properties")).containsKey("is_favorited"));
+        assertTrue(paths.containsKey("/api/users/me/profile/history"));
+        assertTrue(schemas.containsKey("ProfileHistoryPage"));
         references(document,document);
     }
     private void references(Object node,Map<String,Object> root) {
