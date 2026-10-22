@@ -33,6 +33,7 @@ jobs:
       MYSQL_TEST_CONNECTIONS_URL: jdbc:mysql://127.0.0.1:3306/pf_connections_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_FAVORITES_URL: jdbc:mysql://127.0.0.1:3306/pf_favorites_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_PUBLIC_PROFILE_URL: jdbc:mysql://127.0.0.1:3306/pf_public_profile_test?useSSL=false&allowPublicKeyRetrieval=true
+      MYSQL_TEST_USER_POSTS_URL: jdbc:mysql://127.0.0.1:3306/pf_user_posts_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_MIGRATION_URL: jdbc:mysql://127.0.0.1:3306/pf_migration_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_MIGRATION_V7_URL: jdbc:mysql://127.0.0.1:3306/pf_migration_v7_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_ANALYTICS_DB: mysql://root:ci-only-password@127.0.0.1:3306/pf_analytics_test
@@ -59,7 +60,7 @@ jobs:
           import pymysql
           with pymysql.connect(host='127.0.0.1', user='root', password='ci-only-password') as db:
               with db.cursor() as cursor:
-                  for name in ('business', 'preferences', 'stats', 'connections', 'favorites', 'public_profile', 'migration', 'migration_v7', 'analytics'):
+                  for name in ('business', 'preferences', 'stats', 'connections', 'favorites', 'public_profile', 'user_posts', 'migration', 'migration_v7', 'analytics'):
                       cursor.execute(f'CREATE DATABASE pf_{name}_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin')
           PY
       - name: Java tests and package (including all MySQL suites)

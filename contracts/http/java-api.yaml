@@ -8,6 +8,29 @@ servers:
 security:
   - bearerAuth: []
 paths:
+  /api/users/{id}/posts:
+    get:
+      summary: 分页查询启用用户的公开作品（需登录）
+      description: 每页检查目标用户启用状态，不存在或停用返回 404 USER_NOT_FOUND。真实 ID 可查本人，me 按普通 ID 查询。仅 PUBLISHED，含图文和视频；本人及管理员也不能查看其他状态。不应用推荐偏好、屏蔽或不感兴趣过滤。is_liked 来自登录访问者，不接受查询参数改变身份；不返回收藏字段。按数字作品 ID 降序，不按创建时间；无跨页快照，新增、撤回或账号状态变化后应从首页刷新。
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9_-]{1,36}$'}}
+        - name: count
+          in: query
+          description: 省略为 20，仅十进制数字，解析值 1–50；允许前导零。显式空值、裸参数、非整数或溢出为 400 INVALID_ARGUMENT。
+          schema: {type: integer, minimum: 1, maximum: 50, default: 20}
+        - name: cursor
+          in: query
+          description: 首页省略；后续传上页 next_cursor，按 p.id 小于游标查询。仅十进制数字字符串，解析值 1–9223372036854775807，允许前导零；显式空值、裸参数、非法值及溢出为 400 INVALID_ARGUMENT。
+          schema: {type: string, pattern: '^[0-9]+$', example: '100'}
+      responses:
+        '200':
+          description: 公开作品页；末页或空页 has_more=0 且 next_cursor=null
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/UserPostsPage'}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
   /api/users/{id}/profile:
     get:
       summary: 查看用户主页公开资料、统计及本人关注状态（需登录）
@@ -690,6 +713,15 @@ components:
     Posts: {description: 作品列表，续页取末项 post_id；空数组表示结束, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Post'}}}}}
     PostStatus: {description: 作品状态, content: {application/json: {schema: {type: object, properties: {postId: {type: string}, status: {type: string}}}}}}
   schemas:
+    UserPostsPage:
+      type: object
+      additionalProperties: false
+      required: [status_code, post_list, has_more, next_cursor]
+      properties:
+        status_code: {type: integer, enum: [0]}
+        post_list: {type: array, maxItems: 50, items: {$ref: '#/components/schemas/Post'}}
+        has_more: {type: integer, enum: [0, 1], description: SQL 查询 count+1 条，仅存在额外记录时为 1}
+        next_cursor: {type: string, nullable: true, description: 有下一页时为本页最后一个数字作品 ID，否则为 null}
     FavoritePost:
       allOf:
         - {$ref: '#/components/schemas/Post'}

@@ -49,6 +49,22 @@ class OpenApiContractTest {
         var publicProfile=(Map<?,?>)schemas.get("PublicUserProfile");
         assertEquals(false,publicProfile.get("additionalProperties"));
         assertEquals(List.of("user_id","nickname","bio","avatar","post_count","follower_count","following_count","is_following"),publicProfile.get("required"));
+        var userPosts=(Map<?,?>)((Map<?,?>)paths.get("/api/users/{id}/posts")).get("get");
+        var postResponses=(Map<?,?>)userPosts.get("responses");
+        assertEquals(Set.of("200","400","401","404"),postResponses.keySet());
+        var success=(Map<?,?>)postResponses.get("200");
+        assertTrue(((Map<?,?>)success.get("headers")).containsKey("Cache-Control"));
+        var successSchema=(Map<?,?>)((Map<?,?>)((Map<?,?>)success.get("content")).get("application/json")).get("schema");
+        assertEquals("#/components/schemas/UserPostsPage",successSchema.get("$ref"));
+        var postsPage=(Map<?,?>)schemas.get("UserPostsPage");
+        assertEquals(false,postsPage.get("additionalProperties"));
+        assertEquals(List.of("status_code","post_list","has_more","next_cursor"),postsPage.get("required"));
+        var postProperties=(Map<?,?>)postsPage.get("properties");
+        assertEquals("integer",((Map<?,?>)postProperties.get("has_more")).get("type"));
+        assertEquals("string",((Map<?,?>)postProperties.get("next_cursor")).get("type"));
+        assertEquals(true,((Map<?,?>)postProperties.get("next_cursor")).get("nullable"));
+        assertEquals("#/components/schemas/Post",((Map<?,?>)((Map<?,?>)postProperties.get("post_list")).get("items")).get("$ref"));
+        assertEquals(List.of(Map.of("bearerAuth",List.of())),document.get("security"));
         references(document,document);
     }
     private void references(Object node,Map<String,Object> root) {
