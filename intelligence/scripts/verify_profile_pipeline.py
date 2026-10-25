@@ -39,6 +39,7 @@ import sys
 import time
 import traceback
 from contextlib import closing
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -53,6 +54,36 @@ LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 DB_PATTERN = r"^pf_issue12_(java|analytics)_[0-9a-f]{8}_test$"
 ITEM_FIELDS = {"version", "rule_version", "generated_at", "window_days", "timezone",
                "cold_start", "topics", "media", "event_counts", "explanation"}
+ACCOUNT_ID = re.compile(r"\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b", re.IGNORECASE)
+
+
+class ReportRedactor:
+    """Sanitize the whole report, including serialized responses and log/traceback text."""
+
+    def __init__(self, *secrets):
+        self.secrets = {value for value in secrets if value}
+
+    def add(self, *values):
+        self.secrets.update(value for value in values if value)
+
+    def text(self, value):
+        for secret in sorted(self.secrets, key=len, reverse=True):
+            value = value.replace(secret, "[REDACTED]")
+        return ACCOUNT_ID.sub(lambda match: match.group()[:8] + "…", value)
+
+    def report(self, value):
+        if isinstance(value, dict):
+            return {self.text(str(key)): self.report(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [self.report(item) for item in value]
+        return self.text(value) if isinstance(value, str) else value
+
+
+def write_report(runtime, report, redactor):
+    report = redactor.report(report)
+    serialized = json.dumps(report, ensure_ascii=False, indent=2)
+    (runtime / "summary.json").write_text(serialized, encoding="utf-8")
+    print(serialized)
 
 
 class VerificationError(RuntimeError):
@@ -62,16 +93,21 @@ class VerificationError(RuntimeError):
 class Evidence:
     """按步骤记录断言，供最终摘要与文档引用。"""
 
-    def __init__(self):
+    def __init__(self, redactor=None):
         self.rows = []
+        self.redactor = redactor or ReportRedactor()
 
     def check(self, step, name, ok, detail=""):
+        detail = self.redactor.text(detail)
         self.rows.append({"step": step, "check": name, "ok": bool(ok), "detail": detail})
         if not ok:
             raise VerificationError(f"[{step}] {name} 未通过; {detail}")
 
     def equality(self, step, name, actual, expected):
-        self.check(step, name, actual == expected, f"期望 {expected!r}，实际 {actual!r}")
+        # Full profile/history payloads are unnecessary for a successful comparison.
+        equal = actual == expected
+        detail = "一致" if equal else f"期望 {expected!r}，实际 {actual!r}"
+        self.check(step, name, equal, detail)
 
     def step_count(self):
         return len({row["step"] for row in self.rows})
@@ -143,14 +179,18 @@ def guarded_database(name):
     return f"`{name}`"
 
 
-def create_databases(args, databases):
+def create_databases(args, databases, created):
     with mysql_connect(args) as db, db.cursor() as cursor:
         for name in databases:
-            cursor.execute(f"CREATE DATABASE IF NOT EXISTS {guarded_database(name)} "
+            # A name collision must fail; never claim an existing database as ours.
+            cursor.execute(f"CREATE DATABASE {guarded_database(name)} "
                            "CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin")
+            created.append(name)
 
 
 def drop_databases(args, databases):
+    if not databases:
+        return
     with mysql_connect(args) as db, db.cursor() as cursor:
         for name in databases:
             cursor.execute(f"DROP DATABASE IF EXISTS {guarded_database(name)}")
@@ -277,16 +317,19 @@ def parse_args(argv=None):
     parser.add_argument("--jar", default=str(DEFAULT_JAR))
     parser.add_argument("--artifacts-dir", default="")
     parser.add_argument("--keep-databases", action="store_true",
-                        help="保留本次创建的两个 _test 库，便于事后排查")
+                        help="跳过最终清理；故障验证阶段仍会删除本次分析库")
     parser.add_argument("--timeout", type=float, default=180.0, help="单个服务启动超时秒数")
     return parser.parse_args(argv)
 
 
-def register(api, name):
+def register(api, name, redactor):
     password = secrets.token_hex(12)
+    redactor.add(password)
     api.post("/api/auth/register", expected=201,
              json={"username": name, "password": password, "nickname": name})
-    return api.post("/api/auth/login", json={"username": name, "password": password}).json()
+    result = api.post("/api/auth/login", json={"username": name, "password": password}).json()
+    redactor.add(result["accessToken"], result["refreshToken"])
+    return result
 
 
 def event_body(post_id, kind, duration=None):
@@ -322,12 +365,14 @@ def main(argv=None):
     runtime = Path(args.artifacts_dir).resolve() if args.artifacts_dir else \
         SERVER / "target" / f"issue12-verify-{run_id}"
     runtime.mkdir(parents=True, exist_ok=True)
-    evidence = Evidence()
-    created = [java_db, analytics_db]
+    redactor = ReportRedactor(args.mysql_password)
+    evidence = Evidence(redactor)
+    created = []
     services = None
     started = time.monotonic()
+    started_at = datetime.now().astimezone().isoformat(timespec="seconds")
     try:
-        create_databases(args, created)
+        create_databases(args, [java_db, analytics_db], created)
         evidence.check("env", "只创建本次命名的 _test 库", True, f"{java_db}, {analytics_db}")
 
         java_port, python_port = free_port(), free_port()
@@ -351,6 +396,7 @@ def main(argv=None):
             "PIXELFLOW_INTELLIGENCE_BASE_URL": python_url,
             "PIXELFLOW_MAINTENANCE_URL": python_url,
         })
+        redactor.add(export_token, sync_token, environment["PIXELFLOW_JWT_SECRET"])
         services = Services(runtime, environment, jar)
         java = services.start_java(java_port)
         with httpx.Client(trust_env=False) as probe:
@@ -373,9 +419,9 @@ def main(argv=None):
                        f"{len(feed)} 条公开作品，样例 {posts['food']['post_id']}/{posts['pet']['post_id']}")
 
         # ---- 1. 冷启动、身份隔离与会话边界 ----------------------------------------
-        token_a = register(public, f"verify_{run_id}_a")["accessToken"]
-        token_b = register(public, f"verify_{run_id}_b")["accessToken"]
-        second_a = register(public, f"verify_{run_id}_a2")
+        token_a = register(public, f"verify_{run_id}_a", redactor)["accessToken"]
+        token_b = register(public, f"verify_{run_id}_b", redactor)["accessToken"]
+        second_a = register(public, f"verify_{run_id}_a2", redactor)
         token_a2 = second_a["accessToken"]
         a, b = user_api(python_url, token_a), user_api(python_url, token_b)
         ja, jb = user_api(java_url, token_a), user_api(java_url, token_b)
@@ -624,6 +670,7 @@ def main(argv=None):
         # ---- 6. 会话失效与三种失败状态可区分 --------------------------------------
         refreshed = public.post("/api/auth/refresh",
                                 json={"refreshToken": second_a["refreshToken"]}).json()
+        redactor.add(refreshed["accessToken"], refreshed["refreshToken"])
         stale_java = httpx.get(java_url + "/api/users/me",
                                headers={"Authorization": "Bearer " + token_a2},
                                trust_env=False).status_code
@@ -674,7 +721,7 @@ def main(argv=None):
         summary = {
             "run_id": run_id,
             "ok": True,
-            "started_at": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(started)),
+            "started_at": started_at,
             "duration_seconds": round(time.monotonic() - started, 2),
             "environment": {
                 "mysql": mysql_version,
@@ -691,10 +738,7 @@ def main(argv=None):
             "artifacts": str(runtime),
         }
         summary_path = runtime / "summary.json"
-        summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(json.dumps({key: summary[key] for key in
-                          ("run_id", "ok", "duration_seconds", "checks", "artifacts")},
-                         ensure_ascii=False, indent=2))
+        write_report(runtime, summary, redactor)
         print(f"PASS: {len(evidence.rows)} 项断言通过，覆盖 {evidence.step_count()} 个阶段；"
               f"摘要 {summary_path}")
         return 0
@@ -702,15 +746,15 @@ def main(argv=None):
         failure = {
             "run_id": run_id,
             "ok": False,
+            "started_at": started_at,
+            "duration_seconds": round(time.monotonic() - started, 2),
             "error": f"{type(error).__name__}: {error}",
             "checks": evidence.rows,
             "logs": {name: services.logs_tail(name) for name, _process, _path in services.processes}
             if services else {},
         }
-        (runtime / "summary.json").write_text(json.dumps(failure, ensure_ascii=False, indent=2),
-                                              encoding="utf-8")
-        print(json.dumps(failure, ensure_ascii=False, indent=2))
-        print(traceback.format_exc())
+        write_report(runtime, failure, redactor)
+        print(redactor.text(traceback.format_exc()))
         return 1
     finally:
         if services is not None:
@@ -719,7 +763,7 @@ def main(argv=None):
             try:
                 drop_databases(args, created)
             except Exception as error:  # noqa: BLE001 - 清理失败不应掩盖主结果
-                print(f"WARN: 清理测试库失败：{error}", file=sys.stderr)
+                print(redactor.text(f"WARN: 清理测试库失败：{error}"), file=sys.stderr)
 
 
 if __name__ == "__main__":
