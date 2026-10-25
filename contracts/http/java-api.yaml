@@ -286,9 +286,37 @@ paths:
         default: {$ref: '#/components/responses/Error'}
     post:
       summary: 创建草稿，作者来自 JWT
+      description: |
+        无键沿用每次创建并返回201。有效键按认证用户隔离，首次201，同键同规范Draft重放200并返回作品当前内容和状态，不重新校验媒体、不重置状态。
+        title/content保留空白；clips/mediaIds省略、null、空数组等价；媒体及clip顺序有意义，JSON属性顺序无关。
+        键不自动过期；作品不存在返回404 POST_NOT_FOUND，绝不补建。同键不同请求返回409 IDEMPOTENCY_CONFLICT。
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: 单个严格8-4-4-4-12十六进制UUID，允许大写并规范为小写；空、空白、重复头及逗号合并多值均返回400 INVALID_ARGUMENT。
+          schema: {type: string, pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'}
+          example: 123e4567-e89b-12d3-a456-426614174000
       requestBody: {$ref: '#/components/requestBodies/Draft'}
       responses:
         '201': {$ref: '#/components/responses/Post'}
+        '200': {$ref: '#/components/responses/Post'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409':
+          description: 同用户同键不同规范请求，IDEMPOTENCY_CONFLICT
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, code, message, requestId]
+                properties:
+                  status_code: {type: integer}
+                  code: {type: string, enum: [IDEMPOTENCY_CONFLICT]}
+                  message: {type: string}
+                  requestId: {type: string}
+              example: {status_code: 409, code: IDEMPOTENCY_CONFLICT, message: 同一键不能用于不同的创建请求, requestId: example-request}
         default: {$ref: '#/components/responses/Error'}
   /api/posts/{id}:
     parameters:
