@@ -11,6 +11,10 @@
 | [05：本人粉丝与关注分页](05-java-本人粉丝与关注分页.md) | 用户卡片、关注状态及游标分页 | 独立 UserConnectionsController / QueryService、测试和 schema | 使用现有用户与互动表，不新增迁移；不占用 03 |
 | [06：用户主页公开资料](06-java-用户主页公开资料.md) | 主页公开资料、统计及访问者关注状态 | 独立 PublicUserProfileController、测试和 schema | 当前分支基于 05；功能不调用 05，不新增迁移 |
 | [10：Java 历史画像代理](10-java-历史画像代理.md) | 本人历史摘要与版本游标分页 | 独立 ProfileHistoryController、网关测试及 schema | Python 历史画像已合入；无数据库迁移 |
+| [12：画像历史偏好真实链路验收](https://gitee.com/yyhSEU/pixel-flow/issues/IKQ8GD) | 两账号可复现联调脚本、失败模式回归测试与验收记录 | 新增 `intelligence/scripts/verify_profile_pipeline.py`、`tests/test_profile_failures.py`、`docs/testing/画像历史偏好真实链路验收.md` | 复用既有接口与调度包装器，不新增迁移 |
+
+2026-10-25 issue 12 完成本地真实验证并附失败模式回归测试，脚本、结果与限制见
+[画像历史偏好真实链路验收](../testing/画像历史偏好真实链路验收.md)；云端定时器与 Android 真机仍未核对。
 
 2026-10-21 接口补全：03 和10已实现并通过本地验证，详见 [后端接口补全验收](../testing/后端接口补全验收.md)。任务07作者作品分页继续由 Java 同学负责；09头像功能保留原分支。代码交付不代表线上已部署。
 
