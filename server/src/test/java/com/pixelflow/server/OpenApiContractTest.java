@@ -38,6 +38,16 @@ class OpenApiContractTest {
         assertEquals(60,userBio.get("x-utf16-maxLength"));
         assertFalse(userBio.containsKey("maxLength"));
         var paths=(Map<?,?>)document.get("paths");
+        var createPost=(Map<?,?>)((Map<?,?>)paths.get("/api/posts")).get("post");
+        var idempotency=(Map<?,?>)((List<?>)createPost.get("parameters")).get(0);
+        assertEquals("Idempotency-Key",idempotency.get("name"));
+        assertEquals("header",idempotency.get("in")); assertEquals(false,idempotency.get("required"));
+        assertEquals("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",((Map<?,?>)idempotency.get("schema")).get("pattern"));
+        var createResponses=(Map<?,?>)createPost.get("responses");
+        assertTrue(createResponses.keySet().containsAll(List.of("201","200","400","401","404","409")));
+        for (String code:List.of("200","201")) assertEquals(Map.of("$ref","#/components/responses/Post"),createResponses.get(code));
+        var conflictExample=(Map<?,?>)((Map<?,?>)((Map<?,?>)((Map<?,?>)createResponses.get("409")).get("content")).get("application/json")).get("example");
+        assertEquals("IDEMPOTENCY_CONFLICT",conflictExample.get("code"));
         for (String kind:List.of("followers","following")) {
             var operation=(Map<?,?>)((Map<?,?>)paths.get("/api/users/me/"+kind)).get("get");
             var responses=(Map<?,?>)operation.get("responses");
