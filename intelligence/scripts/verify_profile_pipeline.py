@@ -7,7 +7,8 @@
 2. 真实的 ``scheduled_maintenance`` 包装器运行，以及一次有界中断后的续跑；
 3. 当前画像/历史画像经 Java 代理读取，并与 Python 本人接口对照；
 4. 通过 Java 修改偏好（个性化开关、主题抑制、作者屏蔽、作品排除）后的推荐预览；
-5. 服务不可用、分析库错误与“无数据”三种状态可区分。
+5. 服务不可用、分析库错误与“无数据”三种状态可区分；
+6. 构建产物（JAR）内的迁移集合、数据库成功执行的版本与源码清单一致，含合法版本空洞。
 
 隔离与安全约束：
 
@@ -38,6 +39,7 @@ import subprocess
 import sys
 import time
 import traceback
+import zipfile
 from contextlib import closing
 from datetime import datetime
 from pathlib import Path
@@ -55,6 +57,11 @@ DB_PATTERN = r"^pf_issue12_(java|analytics)_[0-9a-f]{8}_test$"
 ITEM_FIELDS = {"version", "rule_version", "generated_at", "window_days", "timezone",
                "cold_start", "topics", "media", "event_counts", "explanation"}
 ACCOUNT_ID = re.compile(r"\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b", re.IGNORECASE)
+# Flyway 允许版本号有空洞（例如当前 V1–V7、V9），因此只比对版本集合，
+# 不比对最大版本、也不拿“迁移数量”当版本号。
+JAR_MIGRATION_DIR = "BOOT-INF/classes/db/mysql"
+SOURCE_MIGRATION_DIR = SERVER / "src/main/resources/db/mysql"
+MIGRATION_FILE = re.compile(r"^V(\d+)__[A-Za-z0-9_.-]+\.sql$")
 
 
 class ReportRedactor:
@@ -203,6 +210,99 @@ def mysql_scalar(args, database, sql, parameters=()):
         return row[0] if row else None
 
 
+def mysql_rows(args, database, sql, parameters=()):
+    with mysql_connect(args, database) as db, db.cursor() as cursor:
+        cursor.execute(sql, parameters)
+        return list(cursor.fetchall())
+
+
+def _migrations(names, origin):
+    """把迁移文件名折算成 {版本号: 文件名}；版本号统一成十进制字符串。"""
+    result = {}
+    for name in names:
+        match = MIGRATION_FILE.match(name)
+        if match:
+            result[str(int(match.group(1)))] = name
+    if not result:
+        raise VerificationError(f"{origin} 内没有可识别的 MySQL 迁移文件")
+    return result
+
+
+def jar_migrations(jar_path):
+    """本次构建产物（JAR）里真正打包的 MySQL 迁移。"""
+    path = Path(jar_path)
+    try:
+        with zipfile.ZipFile(path) as archive:
+            names = [entry.rsplit("/", 1)[-1] for entry in archive.namelist()
+                     if entry.startswith(JAR_MIGRATION_DIR + "/")]
+    except (OSError, zipfile.BadZipFile) as error:
+        raise VerificationError(f"无法读取构建产物 {path.name}：{error}") from None
+    return _migrations(names, f"JAR {path.name}")
+
+
+def source_migrations(directory=None):
+    """当前检出的迁移清单；目录不存在时返回 None，表示无从比对。"""
+    path = Path(directory or SOURCE_MIGRATION_DIR)
+    if not path.is_dir():
+        return None
+    return _migrations([item.name for item in path.iterdir() if item.is_file()],
+                       f"源码目录 {path.name}")
+
+
+def verify_migrations(expected, applied, source=None):
+    """比对 JAR 内的迁移集合、数据库成功执行的版本以及源码清单。
+
+    ``expected`` 为 JAR 的 {版本: 文件名}，``applied`` 为 flyway_schema_history 的
+    (version, success) 行。返回可脱敏的诊断摘要：版本集合与计数，而不是单一阈值。
+    """
+    expected_versions = set(expected)
+    applied_versions = set()
+    failed = []
+    for version, success in applied:
+        key = str(int(str(version)))
+        if success:
+            applied_versions.add(key)
+        else:
+            failed.append(key)
+    missing = sorted(expected_versions - applied_versions, key=int)
+    unexpected = sorted(applied_versions - expected_versions, key=int)
+    stale_jar = sorted(set(source) - expected_versions, key=int) if source is not None else []
+    source_mismatch = sorted(expected_versions - set(source), key=int) if source is not None else []
+    problems = []
+    if failed:
+        problems.append(f"数据库存在失败的迁移记录 {failed}")
+    if missing:
+        problems.append(f"数据库缺少构建产物中的迁移 {missing}")
+    if unexpected:
+        problems.append(f"数据库存在构建产物之外的迁移 {unexpected}，可能连到了别的库或旧 JAR")
+    if stale_jar:
+        problems.append(f"构建产物缺少源码中的迁移 {stale_jar}，请重新打包后再验证")
+    if source_mismatch:
+        problems.append(f"构建产物含源码中不存在的迁移 {source_mismatch}，JAR 与当前检出不一致")
+    return {
+        "ok": not problems,
+        "reason": "; ".join(problems),
+        "expected_count": len(expected),
+        "applied_count": len(applied_versions),
+        "expected_versions": sorted(expected, key=int),
+        "applied_versions": sorted(applied_versions, key=int),
+        "missing": missing,
+        "unexpected": unexpected,
+        "failed": failed,
+        "source_not_in_jar": stale_jar,
+        "jar_not_in_source": source_mismatch,
+        "source_checked": source is not None,
+    }
+
+
+def check_migrations(args, database, jar_path):
+    """读取本次 JAR 与数据库的迁移记录，返回诊断摘要。"""
+    expected = jar_migrations(jar_path)
+    applied = mysql_rows(args, database,
+                         "SELECT version, success FROM flyway_schema_history ORDER BY installed_rank")
+    return verify_migrations(expected, applied, source_migrations())
+
+
 class Services:
     """管理本次运行的 Java/Python 子进程与日志。"""
 
@@ -349,8 +449,8 @@ def unsuppressed(profile):
     return {key: value for key, value in profile.items() if key != "suppressed_topics"}
 
 
-def main(argv=None):
-    args = parse_args(argv)
+def preflight(args):
+    """运行前检查；放在 try 内，任何失败也要留下可分享的失败摘要。"""
     if args.mysql_host not in LOOPBACK:
         raise VerificationError("只允许本机 MySQL；拒绝在共享或云端实例上运行")
     if not args.mysql_user:
@@ -358,6 +458,12 @@ def main(argv=None):
     jar = Path(args.jar)
     if not jar.is_file():
         raise VerificationError(f"缺少 Java 产物：{jar}；先执行 mvn -DskipTests package")
+    jar_migrations(jar)  # 构建产物不可读或没有迁移时立即失败
+    return jar
+
+
+def main(argv=None):
+    args = parse_args(argv)
 
     run_id = secrets.token_hex(4)
     java_db = f"pf_issue12_java_{run_id}_test"
@@ -372,6 +478,7 @@ def main(argv=None):
     started = time.monotonic()
     started_at = datetime.now().astimezone().isoformat(timespec="seconds")
     try:
+        jar = preflight(args)
         create_databases(args, [java_db, analytics_db], created)
         evidence.check("env", "只创建本次命名的 _test 库", True, f"{java_db}, {analytics_db}")
 
@@ -406,11 +513,17 @@ def main(argv=None):
             wait_http(probe, python_url, python, args.timeout)
 
         mysql_version = str(mysql_scalar(args, java_db, "SELECT VERSION()"))
-        migrations = mysql_scalar(args, java_db,
-                                  "SELECT COUNT(*) FROM flyway_schema_history WHERE success=1")
-        evidence.check("env", "真实 MySQL 8.4 + Flyway 迁移完成",
-                       mysql_version.startswith("8.4") and migrations == 7,
-                       f"MySQL {mysql_version}, 迁移 {migrations} 条, 运行目录 {runtime}")
+        evidence.check("env", "真实 MySQL 8.4",
+                       mysql_version.startswith("8.4"),
+                       f"MySQL {mysql_version}, 运行目录 {runtime}")
+        migration_check = check_migrations(args, java_db, jar)
+        evidence.check(
+            "env", "Flyway 迁移集合与构建产物一致",
+            migration_check["ok"],
+            f"预期 {migration_check['expected_count']} 份 {migration_check['expected_versions']}，"
+            f"实际 {migration_check['applied_count']} 份 {migration_check['applied_versions']}，"
+            f"源码清单核对={migration_check['source_checked']}"
+            + ("" if migration_check["ok"] else f"，问题：{migration_check['reason']}"))
 
         public = Api(java_url)
         feed = wait_public_feed(public)
@@ -725,7 +838,7 @@ def main(argv=None):
             "duration_seconds": round(time.monotonic() - started, 2),
             "environment": {
                 "mysql": mysql_version,
-                "migrations": migrations,
+                "migrations": migration_check,
                 "java": subprocess.run(["java", "-version"], capture_output=True,
                                        text=True).stderr.splitlines()[0],
                 "python": sys.version.split()[0],
