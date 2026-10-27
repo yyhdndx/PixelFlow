@@ -53,7 +53,11 @@ java -jar target/pixelflow-server-0.1.0.jar
 
 应用不自动读取 `.env`；变量由终端、IDE 或部署平台注入。未固定 JWT 密钥时重启会使旧 access token 失效，但数据库中未过期的 refresh token 仍可换新令牌。`runtime-data/` 已忽略，请单独备份，不要当构建产物删除。
 
-Flyway 自动选择 `src/main/resources/db/mysql/` 或 `db/h2/`。H2 历史脚本仅移动路径，内容及校验和保留；MySQL 独立维护 V1–V7；V7 为旧账号补充默认空简介，头像沿用 V4。新增结构修改必须追加版本，不能改已执行的脚本。H2 的 PostgreSQL 模式只是测试兼容选项，不代表部署 PostgreSQL。
+Flyway 自动选择 `src/main/resources/db/mysql/` 或 `db/h2/`。H2 历史脚本内容及校验和保留；双库维护 V1–V7 和 V9（作品创建幂等记录）。V8 已由头像分支占用，须先合入/部署真实 V8 再部署 V9；本分支不制造 V8 占位，也不启用 out-of-order 或 repair。V7 为旧账号补充默认空简介。新增结构修改必须追加版本，不能改已执行的脚本。H2 的 PostgreSQL 模式只是测试兼容选项，不代表部署 PostgreSQL。
+
+`POST /api/posts` 可选 `Idempotency-Key`：单个标准 UUID，大小写等价；无键仍每次201，新键201，同用户同键同 Draft 重试200并返回当前作品，同键不同请求409 `IDEMPOTENCY_CONFLICT`。空/重复/非法头400，认证失败401，原作品不存在404且不补建。记录不自动过期；文本不trim，媒体顺序保留，null/省略列表按空列表处理。客户端须持久保存一次逻辑创作的键及原 Draft，取得 ID 后改用编辑/提交接口。调用示例、Kotlin示意及验收见 [创建幂等验收](../docs/issues/java-作品创建幂等.md)。
+
+专项执行：在 server 目录配置独立的 `MYSQL_TEST_POST_IDEMPOTENCY_URL` 和 `MYSQL_TEST_POST_IDEMPOTENCY_RESTART_URL`（均为本机、库名以 `_test` 结尾）及 `MYSQL_TEST_USER` / `MYSQL_TEST_PASSWORD` 后运行 `mvn -B -ntp -Dtest=PostIdempotencyApiTest,MySqlPostIdempotencyApiTest,PostIdempotencyRestartTest,MySqlPostIdempotencyRestartTest,OpenApiContractTest test`。重启迁移套件会清理其专属测试库；两套件不可共库。未配置 MySQL 时跳过不算验收通过。
 
 ## 本人资料
 
