@@ -37,16 +37,14 @@ import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
 
 import com.PixelFlow.app.AudioPlayer;
-import com.PixelFlow.app.DAO.DataType;
-import com.PixelFlow.app.DAO.PersistState.FollowStatus;
 import com.PixelFlow.app.DAO.PersistState.LikeStatus;
 import com.PixelFlow.app.API.ApiClient;
 import com.PixelFlow.app.API.CommunityClient;
 import com.PixelFlow.app.API.PostItem;
-import com.PixelFlow.app.DAO.StorageManager;
-import com.PixelFlow.app.DAO.impl.GenericStorageRepository;
+import com.PixelFlow.app.API.UserProfile;
 import com.PixelFlow.app.Hashtag.HashtagActivity;
 import com.PixelFlow.app.MainActivity;
+import com.PixelFlow.app.UserProfileActivity;
 import com.PixelFlow.app.R;
 import com.PixelFlow.app.Streams.WorkItem;
 import com.PixelFlow.app.util.DateUtils;
@@ -56,8 +54,6 @@ import com.nex3z.flowlayout.FlowLayout;
 
 import java.util.ArrayList;
 import java.util.List;
-import com.PixelFlow.app.DAO.impl.GenericStorageRepository.ResultCallback;
-import com.PixelFlow.app.util.AuthorIdentity;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -96,22 +92,30 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
     // 数据
     private WorkItem workItem;
-    private GenericStorageRepository<FollowStatus> followRepository;
     private ImagePagerAdapter imageAdapter;
 
     // 记录点赞状态是否发生改变，用于返回
     private boolean isChanged;
 
     private LikeStatus loadedLike;
-    private FollowStatus loadedFollow;
-    private String followKey;
     private boolean likeSaving;
     private CommunityClient.Job likeJob;
+    private CommunityClient.Job followJob;
+    private boolean following;
+    private boolean followLoaded;
+    private boolean followSaving;
+    // Only reads are cancellable by the view. Writes stay in ApiClient's serial queue.
+    private CommunityClient.Job favoriteReadJob;
+    private int favoriteVersion;
+    private long favoriteSession;
+    private boolean favoriteActive;
+    private boolean favorited;
+    private boolean favoriteLoaded;
+    private boolean favoriteSaving;
     private long viewingStarted;
     private long viewingSession;
     private String viewingUser;
     private boolean clickTracked;
-    private boolean followSaving;
 
     // 动画相关
     private View contentLayout;
@@ -182,8 +186,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
         isChanged=false;
 
-        initRepositories();
-        followKey = AuthorIdentity.followKey(workItem.getAuthor());
         setupData();
         setupListeners();
         loadInteractionState();
@@ -400,17 +402,15 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         AnimatorSet fallbackSet = new AnimatorSet();
 
         View fallbackBackground = new View(this);
-        fallbackBackground.setLayoutParams(new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
         fallbackBackground.setBackgroundColor(Color.WHITE);
         fallbackBackground.setAlpha(0f);
 
         // 添加到布局中
-        FrameLayout rootLayout = findViewById(R.id.root_layout);
+        ViewGroup rootLayout = findViewById(R.id.root_layout);
         if (rootLayout != null) {
-            rootLayout.addView(fallbackBackground, 0);
+            rootLayout.addView(fallbackBackground, 0, new ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT));
         }
 
         ObjectAnimator alphaAnim = ObjectAnimator.ofFloat(fallbackBackground, "alpha", 0f, 1f);
@@ -802,27 +802,10 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
     private void loadInteractionState() {
         refreshServerLike();
-        if (followKey != null) {
-            followRepository.getAsync(followKey, new ResultCallback<FollowStatus>() {
-                public void onSuccess(FollowStatus value) {
-                    if (!canUpdateInteraction()) return;
-                    loadedFollow = value == null
-                            ? new FollowStatus(workItem.getAuthor().getUserId(), false, 0) : value;
-                    updateFollowButton();
-                }
-                public void onError(Throwable error) { showStorageError(); }
-            });
-        }
+        refreshServerFollow();
     }
 
     private boolean canUpdateInteraction() { return !isFinishing() && !isDestroyed(); }
-
-    private void showStorageError() {
-        if (canUpdateInteraction()) {
-            Toast.makeText(this, "本地状态读取或保存失败，请重新进入页面后重试",
-                    Toast.LENGTH_LONG).show();
-        }
-    }
 
     private void initViews() {
         // 顶部作者区（修改：初始化backButton）
@@ -885,11 +868,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
     }
 
-    private void initRepositories() {
-        followRepository = StorageManager.getInstance(this)
-                .getRepository(DataType.FOLLOW_STATUS,FollowStatus.class);
-    }
-
     private void setupData() {
         backButton.setOnClickListener(v -> {
             if (!isAnimating) {
@@ -911,6 +889,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
         // 设置点赞状态
         updateLikeButton();
+        // A card may belong to a previous session; confirm state before displaying it.
+        favorited = false;
+        updateFavoriteButton();
 
         // 音乐
         setupMusicButton();
@@ -926,6 +907,15 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
         // 作者昵称
         authorName.setText(workItem.getAuthorName());
+
+        // 点击作者进入主页（作者 ID 缺失时不响应）
+        View authorContainer = findViewById(R.id.author_container);
+        if (authorContainer != null && workItem.getAuthor() != null
+                && workItem.getAuthor().getUserId() != null
+                && !workItem.getAuthor().getUserId().isEmpty()) {
+            authorContainer.setOnClickListener(v -> startActivity(new Intent(this, UserProfileActivity.class)
+                    .putExtra(UserProfileActivity.EXTRA_USER_ID, workItem.getAuthor().getUserId())));
+        }
 
         // 关注状态
         updateFollowButton();
@@ -1159,47 +1149,83 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         // 点赞按钮
         likeButton.setOnClickListener(v -> toggleLikeStatus());
 
+        // 收藏按钮
+        collectButton.setOnClickListener(v -> toggleFavoriteStatus());
+
         // 分享按钮
         shareButton.setOnClickListener(v -> shareWork());
 
-        // 音乐按钮
-
-
-        // 这里可以添加其他按钮的监听器，如评论按钮、收藏按钮等
-        // commentButton.setOnClickListener(v -> { ... });
-        // collectButton.setOnClickListener(v -> { ... });
-        // commentInput.setOnEditorActionListener(...);
+        // 评论为后续能力，本轮不做；评论框/按钮暂为占位。
     }
 
     private void updateFollowButton() {
-        boolean following = loadedFollow != null && loadedFollow.isFollowing();
-        followButton.setEnabled(followKey != null && loadedFollow != null && !followSaving);
-        followButton.setText(followKey == null ? "作者信息缺失" : following ? "已关注" : "关注");
+        boolean hasAuthor = workItem.getAuthor() != null && workItem.getAuthor().getUserId() != null
+                && !workItem.getAuthor().getUserId().isEmpty();
+        boolean followingNow = followLoaded && following;
+        followButton.setEnabled(hasAuthor && followLoaded && !followSaving);
+        followButton.setText(!hasAuthor ? "作者信息缺失" : followingNow ? "已关注" : "关注");
         followButton.setBackgroundColor(getResources().getColor(
-                following ? R.color.gray_200 : android.R.color.transparent));
+                followingNow ? R.color.gray_200 : android.R.color.transparent));
         followButton.setTextColor(getResources().getColor(
-                following ? R.color.gray_600 : R.color.primary_color));
-        followButton.setStrokeWidth(following ? 0 : 2);
+                followingNow ? R.color.gray_600 : R.color.primary_color));
+        followButton.setStrokeWidth(followingNow ? 0 : 2);
+    }
+
+    private void refreshServerFollow() {
+        String userId = workItem.getAuthor() == null ? null : workItem.getAuthor().getUserId();
+        if (userId == null || userId.isEmpty()) { updateFollowButton(); return; }
+        if (followJob != null) followJob.cancel();
+        followLoaded = false;
+        followSaving = true;
+        updateFollowButton();
+        followJob = ApiClient.getInstance(this).getUserProfile(userId, serverFollowCallback());
+    }
+
+    private CommunityClient.Callback<UserProfile> serverFollowCallback() {
+        return new CommunityClient.Callback<UserProfile>() {
+            public void onSuccess(UserProfile profile) {
+                if (!canUpdateInteraction()) return;
+                followJob = null; followSaving = false;
+                following = profile.isFollowing;
+                followLoaded = true;
+                updateFollowButton();
+            }
+            public void onFailure(String message) {
+                if (!canUpdateInteraction()) return;
+                followJob = null; followSaving = false;
+                followLoaded = false;
+                updateFollowButton();
+                Toast.makeText(WorkDetailActivity.this, message + "；点击关注按钮可重新读取状态", Toast.LENGTH_LONG).show();
+            }
+        };
     }
 
     private void toggleFollowStatus() {
-        if (loadedFollow == null || followKey == null || followSaving) return;
-        FollowStatus next = new FollowStatus(workItem.getAuthor().getUserId(),
-                !loadedFollow.isFollowing(), System.currentTimeMillis());
+        if (followSaving) return;
+        String userId = workItem.getAuthor() == null ? null : workItem.getAuthor().getUserId();
+        if (userId == null || userId.isEmpty()) return;
+        if (!followLoaded) { refreshServerFollow(); return; }
+        if (!ApiClient.getInstance(this).isLoggedIn()) {
+            startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
+            return;
+        }
+        boolean target = !following;
+        following = target;
         followSaving = true;
         updateFollowButton();
-        followRepository.saveAsync(followKey, next, new ResultCallback<Void>() {
+        followJob = ApiClient.getInstance(this).setFollow(userId, target, new CommunityClient.Callback<Void>() {
             public void onSuccess(Void ignored) {
                 if (!canUpdateInteraction()) return;
-                loadedFollow = next;
-                followSaving = false;
+                followJob = null; followSaving = false;
+                followLoaded = true;
                 updateFollowButton();
             }
-            public void onError(Throwable error) {
+            public void onFailure(String message) {
                 if (!canUpdateInteraction()) return;
-                followSaving = false;
+                followJob = null; followSaving = false;
+                following = !target;
                 updateFollowButton();
-                showStorageError();
+                Toast.makeText(WorkDetailActivity.this, message, Toast.LENGTH_LONG).show();
             }
         });
     }
@@ -1210,6 +1236,102 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         likeButton.setImageResource(liked ? R.drawable.ic_thumb_up : R.drawable.ic_thumb_up_outline);
         likeButton.setColorFilter(getResources().getColor(
                 liked ? android.R.color.holo_red_dark : R.color.gray_600));
+    }
+
+    private void updateFavoriteButton() {
+        collectButton.setEnabled(favoriteActive && !favoriteSaving);
+        collectButton.setContentDescription(getString(favoriteSaving ? R.string.favorite_state_loading
+                : !favoriteLoaded ? R.string.favorite_state_retry
+                : favorited ? R.string.favorite_action_remove : R.string.favorite_action_add));
+        collectButton.setColorFilter(getResources().getColor(
+                favorited ? R.color.profile_accent : R.color.gray_600));
+    }
+
+    private void toggleFavoriteStatus() {
+        if (!canUpdateFavorite(favoriteVersion) || favoriteSaving) return;
+        if (!ApiClient.getInstance(this).isLoggedIn()) {
+            startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
+            return;
+        }
+        if (!favoriteLoaded) { refreshServerFavorite(); return; }
+        boolean target = !favorited;
+        final int version = ++favoriteVersion;
+        favoriteSaving = true;
+        updateFavoriteButton();
+        ApiClient.getInstance(this).setFavorite(workItem.getId(), target, new CommunityClient.Callback<PostItem>() {
+            public void onSuccess(PostItem post) {
+                if (!canUpdateFavorite(version)) return;
+                applyFavorite(post);
+                Toast.makeText(WorkDetailActivity.this, favorited ? R.string.favorite_added
+                        : R.string.favorite_removed, Toast.LENGTH_SHORT).show();
+            }
+            public void onFailure(String message) {
+                if (!canUpdateFavorite(version)) return;
+                // 网络失败不证明已回滚，重新读取服务器状态核对。
+                refreshServerFavorite();
+                Toast.makeText(WorkDetailActivity.this, message + "；正在核对服务器结果", Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void refreshServerFavorite() {
+        if (!favoriteActive) return;
+        if (favoriteReadJob != null) favoriteReadJob.cancel();
+        final int version = ++favoriteVersion;
+        favoriteLoaded = false;
+        favoriteSaving = true;
+        updateFavoriteButton();
+        favoriteReadJob = ApiClient.getInstance(this).getPost(workItem.getId(), new CommunityClient.Callback<PostItem>() {
+            public void onSuccess(PostItem post) {
+                if (!canUpdateFavorite(version)) return;
+                favoriteReadJob = null;
+                applyFavorite(post);
+            }
+            public void onFailure(String message) {
+                if (!canUpdateFavorite(version)) return;
+                favoriteReadJob = null; favoriteSaving = false;
+                favoriteLoaded = false;
+                favorited = false;
+                workItem.setFavorited(false);
+                updateFavoriteButton();
+                Toast.makeText(WorkDetailActivity.this, message + "；点击收藏按钮可重新读取状态", Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void applyFavorite(PostItem post) {
+        favoriteSaving = false;
+        favoriteLoaded = true;
+        favorited = post.isFavorited();
+        workItem.setFavorited(favorited);
+        updateFavoriteButton();
+    }
+
+    private boolean canUpdateFavorite(int version) {
+        if (!favoriteActive || !canUpdateInteraction() || version != favoriteVersion) return false;
+        if (favoriteSession != ApiClient.getInstance(this).sessionVersion()) {
+            resumeFavorite();
+            return false;
+        }
+        return true;
+    }
+
+    private void clearFavorite() {
+        ++favoriteVersion;
+        if (favoriteReadJob != null) favoriteReadJob.cancel();
+        favoriteReadJob = null;
+        favoriteLoaded = false;
+        favoriteSaving = false;
+        favorited = false;
+        if (workItem != null) workItem.setFavorited(false);
+        if (collectButton != null) updateFavoriteButton();
+    }
+
+    private void resumeFavorite() {
+        clearFavorite();
+        favoriteSession = ApiClient.getInstance(this).sessionVersion();
+        // This read is queued after any write submitted before leaving/recreating the page.
+        refreshServerFavorite();
     }
 
     private void refreshServerLike() {
@@ -1304,6 +1426,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     @Override
     protected void onDestroy() {
         if (likeJob != null) likeJob.cancel();
+        if (followJob != null) followJob.cancel();
+        favoriteActive = false;
+        clearFavorite();
         super.onDestroy();
         if (imagePager != null) {
             imagePager.setAdapter(null);
@@ -1347,6 +1472,11 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             }
         }
         if (workItem != null && likeButton != null && !likeSaving) refreshServerLike();
+        if (workItem != null && followButton != null && !followSaving) refreshServerFollow();
+        if (workItem != null && collectButton != null) {
+            favoriteActive = true;
+            resumeFavorite();
+        }
         if (imageAdapter != null) {
             imageAdapter.pauseCurrentVideo();
         }
@@ -1359,6 +1489,13 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
         // 更新音乐按钮状态
         updateMusicButtonState();
+    }
+
+    @Override
+    protected void onStop() {
+        favoriteActive = false;
+        clearFavorite();
+        super.onStop();
     }
 
     @Override

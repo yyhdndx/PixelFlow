@@ -61,6 +61,12 @@
         <activity android:name=".AccountActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".EditProfileActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".InterestProfileActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" />
+        <activity android:name=".HistoryProfileActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" />
+        <activity android:name=".PreferencesActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" />
+        <activity android:name=".ConnectionsActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" />
+        <activity android:name=".UserProfileActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" />
+        <activity android:name=".MyWorksActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" />
+        <activity android:name=".FavoritesActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" />
         <activity
             android:name=".MainActivity"
             android:exported="false"

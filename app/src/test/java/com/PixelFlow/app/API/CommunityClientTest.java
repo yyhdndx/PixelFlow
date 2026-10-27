@@ -51,6 +51,79 @@ public class CommunityClientTest {
         reply(200, TOKENS);
         Result<Void> result = new Result<>(); client.login("alice", "test-password", result); result.get();
     }
+    private String ownPost(String id, String status) {
+        return "{\"post_id\":\"" + id + "\",\"status\":\"" + status + "\",\"title\":\"作品\",\"clips\":[],\"media_ids\":[]}";
+    }
+    private MyPostsPage myPosts(int count, String cursor) throws Exception {
+        Result<MyPostsPage> result = new Result<>();
+        client.getMyPosts(count, cursor, result);
+        return result.get();
+    }
+    @Test public void myPostsEmptyArrayIsSuccessfulEnd() throws Exception {
+        login(); reply(200, "[]");
+        MyPostsPage page = myPosts(20, null);
+        assertTrue(page.getPosts().isEmpty());
+        assertFalse(page.canLoadMore()); assertNull(page.getNextCursor());
+        assertTrue(requests.get(1).startsWith("GET /api/posts?count=20 Bearer first"));
+    }
+    @Test public void myPostsMapsAllStatusesAndUsesLastIdCursor() throws Exception {
+        login();
+        String[] statuses = {"DRAFT", "PENDING", "PUBLISHED", "REJECTED", "WITHDRAWN"};
+        List<String> rows = new ArrayList<>();
+        for (int i = 0; i < statuses.length; i++) rows.add(ownPost(Integer.toString(9 - i), statuses[i]));
+        reply(200, "[" + String.join(",", rows) + "]");
+        MyPostsPage page = myPosts(20, null);
+        assertEquals(5, page.getPosts().size()); assertEquals("5", page.getNextCursor());
+        assertTrue(page.canLoadMore());
+        for (int i = 0; i < statuses.length; i++) assertEquals(statuses[i], page.getPosts().get(i).getStatus());
+    }
+    @Test public void myPostsContinuesAfterShortPageUntilEmptyResponse() throws Exception {
+        login(); reply(200, "[" + ownPost("30", "DRAFT") + "]");
+        MyPostsPage first = myPosts(20, null);
+        reply(200, "[" + ownPost("17", "PUBLISHED") + "]");
+        MyPostsPage second = myPosts(20, first.getNextCursor());
+        assertTrue(second.canLoadMore()); assertEquals("17", second.getNextCursor());
+        reply(200, "[]"); assertFalse(myPosts(20, second.getNextCursor()).canLoadMore());
+        assertTrue(requests.get(2).contains("count=20&cursor=30"));
+        assertTrue(requests.get(3).contains("count=20&cursor=17"));
+    }
+    @Test public void myPostsRejectsDuplicateBoundariesAndUnorderedRows() throws Exception {
+        login();
+        for (String body : Arrays.asList("[" + ownPost("20", "DRAFT") + "]",
+                "[" + ownPost("19", "DRAFT") + "," + ownPost("19", "DRAFT") + "]",
+                "[" + ownPost("18", "DRAFT") + "," + ownPost("19", "DRAFT") + "]")) {
+            reply(200, body);
+            Result<MyPostsPage> result = new Result<>(); client.getMyPosts(20, "20", result); result.fails();
+        }
+    }
+    @Test public void myPostsRejectsMalformedOrIncompleteRows() throws Exception {
+        login();
+        for (String body : Arrays.asList("null", "{}", "not json", "[null]", "[{}]",
+                "[{\"post_id\":\"1\"}]", "[" + ownPost("1", "UNKNOWN") + "]",
+                "[" + ownPost("9223372036854775808", "DRAFT") + "]", FEED)) {
+            reply(200, body);
+            Result<MyPostsPage> result = new Result<>(); client.getMyPosts(20, null, result); result.fails();
+        }
+    }
+    @Test public void myPostsValidatesPagingBeforeSendingRequest() throws Exception {
+        login();
+        for (String cursor : Arrays.asList("0", "-1", "1&admin=true", "9223372036854775808")) {
+            Result<MyPostsPage> result = new Result<>(); client.getMyPosts(20, cursor, result); result.fails();
+        }
+        for (int count : new int[]{0, 51}) {
+            Result<MyPostsPage> result = new Result<>(); client.getMyPosts(count, null, result); result.fails();
+        }
+        assertEquals(1, requests.size());
+    }
+    @Test public void myPostsAuthRefreshAndServerFailuresUseNormalSessionPolicy() throws Exception {
+        Result<MyPostsPage> guest = new Result<>(); client.getMyPosts(20, null, guest); guest.fails();
+        assertTrue(requests.isEmpty());
+        login(); reply(401, "{}"); reply(200, "{\"accessToken\":\"second\",\"refreshToken\":\"next\"}");
+        reply(200, "[]"); assertTrue(myPosts(20, null).getPosts().isEmpty());
+        assertTrue(requests.get(3).contains("Bearer second"));
+        reply(503, "{}");
+        Result<MyPostsPage> failed = new Result<>(); client.getMyPosts(20, null, failed); failed.fails();
+    }
     @Test public void sendsCursorAndMapsRealLikeCount() throws Exception {
         reply(200, "{\"status_code\":0,\"has_more\":1,\"next_cursor\":\"7\",\"post_list\":[{\"post_id\":\"8\",\"like_count\":0,\"is_liked\":true}]}");
         Result<ApiResponse> result = new Result<>(); client.getFeed(12, "20", result);
@@ -99,6 +172,30 @@ public class CommunityClientTest {
         reply(200, FEED);
         Result<ApiResponse> feed = new Result<>(); client.getFeed(12, null, feed); feed.get();
         assertTrue(requests.get(4).contains(" null "));
+    }
+    @Test public void postDetailCarriesFavoriteState() throws Exception {
+        reply(200, "{\"post_id\":\"1\",\"is_liked\":true,\"like_count\":3,\"is_favorited\":true}");
+        Result<PostItem> detail = new Result<>(); client.getPost("1", detail);
+        PostItem post = detail.get();
+        assertTrue(post.isFavorited()); assertTrue(post.isLiked()); assertEquals(3, post.getLikeCount());
+        WorkItem item = new WorkItem(post);
+        assertTrue(item.isFavorited());
+        assertTrue(requests.get(0).startsWith("GET /api/posts/1 null"));
+    }
+    @Test public void favoriteWriteReadsAuthoritativeState() throws Exception {
+        login(); reply(200, "{\"active\":true}");
+        reply(200, "{\"post_id\":\"1\",\"is_favorited\":true,\"is_liked\":false}");
+        Result<PostItem> fav = new Result<>(); client.setFavorite("1", true, fav);
+        assertTrue(fav.get().isFavorited());
+        assertTrue(requests.get(1).contains("PUT /api/interactions/favorites Bearer first"));
+        assertTrue(requests.get(2).contains("GET /api/posts/1 Bearer first"));
+    }
+    @Test public void guestCannotFavoriteAndFailureDoesNotInventSuccess() throws Exception {
+        Result<PostItem> guest = new Result<>(); client.setFavorite("1", true, guest); guest.fails();
+        assertEquals(0, requests.size());
+        login(); reply(500, "{}");
+        Result<PostItem> failed = new Result<>(); client.setFavorite("1", true, failed); failed.fails();
+        assertEquals(2, requests.size());
     }
     @Test public void malformedResponseAndInvalidCursorFail() throws Exception {
         reply(200, "not json");
@@ -202,5 +299,113 @@ public class CommunityClientTest {
         reply(503, "{\"message\":\"暂时不可用\"}");
         Result<CurrentUser> update = new Result<>(); client.updateCurrentUser("user-a", "Alice", "bio", update); update.fails();
         assertTrue(client.isLoggedIn()); assertEquals(5, requests.size());
+    }
+    @Test public void profileHistoryPaginatesByVersionCursor() throws Exception {
+        login();
+        reply(200, "{\"user_id\":\"user-a\",\"has_more\":true,\"next_cursor\":\"5\",\"items\":[{\"version\":10,\"explanation\":\"旧画像\"}]}");
+        Result<ProfileHistoryPage> first = new Result<>(); client.getProfileHistory(20, null, first);
+        ProfileHistoryPage page = first.get();
+        assertEquals("user-a", page.getUserId());
+        assertEquals(1, page.getItems().size());
+        assertEquals(10L, page.getItems().get(0).getVersion());
+        assertTrue(page.isHasMore());
+        assertEquals("5", page.getNextCursor());
+        assertTrue(requests.get(1).startsWith("GET /api/users/me/profile/history?count=20 Bearer first"));
+
+        reply(200, "{\"user_id\":\"user-a\",\"has_more\":false,\"next_cursor\":null,\"items\":[]}");
+        Result<ProfileHistoryPage> second = new Result<>(); client.getProfileHistory(20, "5", second);
+        assertFalse(second.get().isHasMore()); assertNull(second.get().getNextCursor());
+        assertTrue(requests.get(2).contains("before_version=5"));
+    }
+    @Test public void profileHistoryValidatesPagingAndRejectsIncomplete() throws Exception {
+        login();
+        for (String cursor : Arrays.asList("0", "-1", "1&x=2", "abc")) {
+            Result<ProfileHistoryPage> r = new Result<>(); client.getProfileHistory(20, cursor, r); r.fails();
+        }
+        for (int count : new int[]{0, 51}) {
+            Result<ProfileHistoryPage> r = new Result<>(); client.getProfileHistory(count, null, r); r.fails();
+        }
+        assertEquals(1, requests.size());
+        reply(200, "{\"user_id\":\"user-a\"}");
+        Result<ProfileHistoryPage> r = new Result<>(); client.getProfileHistory(20, null, r); r.fails();
+    }
+    @Test public void recommendationFeedParsesStrategyAndCardMetadata() throws Exception {
+        login();
+        reply(200, "{\"strategy\":\"personalized\",\"reason\":\"基于你的美食偏好\",\"profile_version\":42,"
+                + "\"preferences_changed\":false,\"post_list\":[{\"post_id\":\"8\",\"title\":\"作品\","
+                + "\"clips\":[],\"media_ids\":[],\"rec_reason\":\"喜欢美食\",\"rec_score\":0.812345}]}");
+        Result<RecommendationFeed> result = new Result<>(); client.getRecommendationFeed(result);
+        RecommendationFeed feed = result.get();
+        assertEquals("personalized", feed.getStrategy());
+        assertEquals("基于你的美食偏好", feed.getReason());
+        assertEquals(42L, feed.getProfileVersion());
+        assertFalse(feed.isPreferencesChanged());
+        assertEquals(1, feed.getPostList().size());
+        PostItem post = feed.getPostList().get(0);
+        assertEquals("8", post.getPostId());
+        assertEquals("喜欢美食", post.getRecReason());
+        assertEquals(0.812345, post.getRecScore(), 1e-9);
+        assertTrue(requests.get(1).startsWith("GET /api/recommendations/me/feed Bearer first"));
+    }
+    @Test public void recommendationFeedEmptyListAndPreferencesChangedAreValid() throws Exception {
+        login();
+        reply(200, "{\"strategy\":\"popular\",\"reason\":null,\"profile_version\":7,"
+                + "\"preferences_changed\":true,\"post_list\":[]}");
+        Result<RecommendationFeed> result = new Result<>(); client.getRecommendationFeed(result);
+        RecommendationFeed feed = result.get();
+        assertEquals("popular", feed.getStrategy());
+        assertTrue(feed.isPreferencesChanged());
+        assertTrue(feed.getPostList().isEmpty());
+    }
+    @Test public void recommendationFeedRequiresLoginAndRejectsIncomplete() throws Exception {
+        Result<RecommendationFeed> guest = new Result<>(); client.getRecommendationFeed(guest); guest.fails();
+        assertEquals(0, requests.size());
+        login();
+        for (String body : Arrays.asList("null", "{}", "not json", "{\"strategy\":\"popular\"}")) {
+            reply(200, body);
+            Result<RecommendationFeed> result = new Result<>(); client.getRecommendationFeed(result); result.fails();
+        }
+        reply(503, "{}");
+        Result<RecommendationFeed> failed = new Result<>(); client.getRecommendationFeed(failed); failed.fails();
+        assertTrue(client.isLoggedIn());
+    }
+    private static final String AVATAR_ID = "01234567-89ab-4cde-8f01-23456789abcd";
+    @Test public void setAvatarSendsMediaIdAndReadsAuthoritativeAvatar() throws Exception {
+        login();
+        reply(200, "{\"user_id\":\"user-a\",\"avatar\":\"/api/media/" + AVATAR_ID + "/content\"}");
+        Result<AvatarResult> result = new Result<>(); client.setAvatar(AVATAR_ID, result);
+        assertEquals("/api/media/" + AVATAR_ID + "/content", result.get().avatar);
+        assertEquals("user-a", result.get().userId);
+        String sent = requests.get(1);
+        assertTrue(sent.startsWith("PUT /api/users/me/avatar Bearer first"));
+        assertTrue(sent.contains("\"mediaId\":\"" + AVATAR_ID + "\""));
+    }
+    @Test public void setAvatarRejectsInvalidMediaIdAndRequiresLogin() throws Exception {
+        Result<AvatarResult> guest = new Result<>(); client.setAvatar(AVATAR_ID, guest); guest.fails();
+        assertEquals(0, requests.size());
+        login();
+        for (String mediaId : Arrays.asList(null, "", "abc", AVATAR_ID.toUpperCase(java.util.Locale.ROOT),
+                "01234567-89ab-4cde-8f01-23456789abcdx", "01234567-89AB-4CDE-8F01-23456789ABCD")) {
+            Result<AvatarResult> result = new Result<>(); client.setAvatar(mediaId, result); result.fails();
+        }
+        assertEquals(1, requests.size()); // 仅 login，非法 mediaId 不发请求
+    }
+    @Test public void clearAvatarIsIdempotentAndReturnsEmptyAvatar() throws Exception {
+        login();
+        reply(200, "{\"user_id\":\"user-a\",\"avatar\":\"\"}");
+        Result<AvatarResult> result = new Result<>(); client.clearAvatar(result);
+        assertEquals("", result.get().avatar);
+        assertTrue(requests.get(1).startsWith("DELETE /api/users/me/avatar Bearer first"));
+    }
+    @Test public void avatarResponsesRejectIncompleteOrMalformed() throws Exception {
+        login();
+        for (String body : Arrays.asList("null", "{}", "not json", "{\"user_id\":\"user-a\"}",
+                "{\"user_id\":\"\",\"avatar\":\"\"}", "{\"user_id\":\"user-a\",\"avatar\":null}")) {
+            reply(200, body);
+            Result<AvatarResult> result = new Result<>(); client.setAvatar(AVATAR_ID, result); result.fails();
+        }
+        reply(503, "{}");
+        Result<AvatarResult> failed = new Result<>(); client.clearAvatar(failed); failed.fails();
+        assertTrue(client.isLoggedIn());
     }
 }

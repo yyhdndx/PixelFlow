@@ -170,10 +170,8 @@ public class ProfileFlowTest {
         onView(withId(R.id.tv_posts_count)).check(matches(withText("—")));
         failStats = false; onView(withId(R.id.profile_retry)).perform(scrollTo(), click());
         await(() -> onView(withId(R.id.tv_followers_count)).check(matches(withText("12"))));
-        onView(withId(R.id.btn_account)).perform(scrollTo(), click());
-        onView(withId(R.id.account_logout)).perform(scrollTo(), click()); onView(withText("退出登录")).perform(click());
-        await(() -> onView(withId(R.id.account_heading)).check(matches(withText(R.string.account_title))));
-        onView(withId(R.id.account_back)).perform(click());
+        onView(withId(R.id.btn_logout)).perform(scrollTo(), click());
+        onView(withId(android.R.id.button1)).perform(click());
         await(() -> onView(withId(R.id.tv_user_name)).check(matches(withText(R.string.profile_guest))));
         onView(withId(R.id.tv_posts_count)).check(matches(withText("—"))); login("bob");
         onView(withId(R.id.tv_user_bio)).check(matches(withText("Bob's bio")));

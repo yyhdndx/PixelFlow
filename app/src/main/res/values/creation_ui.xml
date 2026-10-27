@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="account_media_binding" type="id" />
+    <string name="creation_check_my_works">查看我的作品</string>
+    <string name="creation_retry_read">重新核对作品状态</string>
+</resources>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@color/profile_bg">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="64dp" android:gravity="center_vertical" android:orientation="horizontal" android:paddingHorizontal="12dp">
+        <ImageButton android:id="@+id/pref_back" android:layout_width="48dp" android:layout_height="48dp" android:background="?attr/selectableItemBackgroundBorderless" android:src="@drawable/profile_back" android:contentDescription="@string/profile_back"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/preferences_title" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/profile_ink"/>
+    </LinearLayout>
+    <androidx.core.widget.NestedScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="24dp" android:paddingTop="16dp" android:paddingBottom="32dp">
+            <ProgressBar android:id="@+id/pref_loading" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:indeterminate="true" android:layout_marginTop="8dp" android:visibility="gone"/>
+            <TextView android:id="@+id/pref_status" style="@style/ProfileBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:accessibilityLiveRegion="polite" android:visibility="gone"/>
+            <com.google.android.material.button.MaterialButton android:id="@+id/pref_retry" style="@style/Widget.MaterialComponents.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/profile_retry" android:visibility="gone"/>
+
+            <LinearLayout android:id="@+id/pref_content" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="20dp" android:background="@drawable/profile_card" android:orientation="horizontal" android:gravity="center_vertical">
+                    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/preferences_personalized" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/profile_ink"/>
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="@string/preferences_personalized_desc" android:textSize="12sp" android:textColor="@color/profile_muted"/>
+                    </LinearLayout>
+                    <com.google.android.material.switchmaterial.SwitchMaterial android:id="@+id/pref_switch" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:padding="20dp" android:background="@drawable/profile_card" android:orientation="vertical">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/preferences_topics" android:textSize="14sp" android:textStyle="bold" android:textColor="@color/profile_ink"/>
+                    <LinearLayout android:id="@+id/pref_topics" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="vertical"/>
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:padding="20dp" android:background="@drawable/profile_card" android:orientation="vertical">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/preferences_authors" android:textSize="14sp" android:textStyle="bold" android:textColor="@color/profile_ink"/>
+                    <LinearLayout android:id="@+id/pref_authors" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="vertical"/>
+                </LinearLayout>
+
+                <TextView style="@style/ProfileBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="@string/preferences_note" android:textSize="12sp"/>
+            </LinearLayout>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</LinearLayout>

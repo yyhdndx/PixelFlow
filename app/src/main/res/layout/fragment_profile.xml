@@ -2,14 +2,12 @@
 <androidx.swiperefreshlayout.widget.SwipeRefreshLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:id="@+id/profile_refresh" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/profile_bg">
     <androidx.core.widget.NestedScrollView android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="PIXELFLOW" android:textSize="11sp" android:letterSpacing="0.2" android:textColor="@color/profile_accent" android:textStyle="bold" android:importantForAccessibility="no"/>
-            <TextView style="@style/ProfileTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/profile_title" android:textSize="32sp"/>
-            <TextView style="@style/ProfileBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="@string/profile_subtitle"/>
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:background="@drawable/profile_card" android:padding="20dp" android:orientation="vertical">
+            <TextView style="@style/ProfileTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/profile_title" android:textSize="32sp"/>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:background="@drawable/profile_card" android:padding="24dp" android:elevation="6dp" android:orientation="vertical">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
-                    <ImageView android:id="@+id/iv_avatar" android:layout_width="72dp" android:layout_height="72dp" android:src="@drawable/profile_avatar" android:contentDescription="@string/profile_avatar"/>
+                    <ImageView android:id="@+id/iv_avatar" android:layout_width="84dp" android:layout_height="84dp" android:src="@drawable/profile_avatar" android:contentDescription="@string/profile_avatar" android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackgroundBorderless"/>
                     <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="16dp" android:orientation="vertical">
-                        <TextView android:id="@+id/tv_user_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="21sp" android:textColor="@color/profile_ink" android:textStyle="bold" android:text="@string/profile_guest"/>
+                        <TextView android:id="@+id/tv_user_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="24sp" android:textColor="@color/profile_ink" android:textStyle="bold" android:text="@string/profile_guest"/>
                         <TextView android:id="@+id/profile_username" style="@style/ProfileBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp"/>
                     </LinearLayout>
                 </LinearLayout>
@@ -17,15 +15,15 @@
                 <com.google.android.material.button.MaterialButton android:id="@+id/btn_edit_profile" style="@style/ProfileButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="@string/profile_sign_in"/>
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="22dp" android:layout_marginBottom="18dp" android:background="@color/profile_border"/>
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-                    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center">
+                    <LinearLayout android:id="@+id/stats_posts" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true">
                         <TextView android:id="@+id/tv_posts_count" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/profile_dash" android:textSize="23sp" android:textStyle="bold" android:textColor="@color/profile_ink"/>
                         <TextView style="@style/ProfileBody" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/profile_posts" android:textSize="12sp" android:layout_marginTop="4dp"/>
                     </LinearLayout>
-                    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center">
+                    <LinearLayout android:id="@+id/stats_followers" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true">
                         <TextView android:id="@+id/tv_followers_count" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/profile_dash" android:textSize="23sp" android:textStyle="bold" android:textColor="@color/profile_ink"/>
                         <TextView style="@style/ProfileBody" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/profile_followers" android:textSize="12sp" android:layout_marginTop="4dp"/>
                     </LinearLayout>
-                    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center">
+                    <LinearLayout android:id="@+id/stats_following" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true">
                         <TextView android:id="@+id/tv_following_count" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/profile_dash" android:textSize="23sp" android:textStyle="bold" android:textColor="@color/profile_ink"/>
                         <TextView style="@style/ProfileBody" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/profile_following" android:textSize="12sp" android:layout_marginTop="4dp"/>
                     </LinearLayout>
@@ -43,11 +41,19 @@
                 </LinearLayout>
                 <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/profile_back" android:rotation="180" app:tint="@color/profile_muted" android:importantForAccessibility="no"/>
             </LinearLayout>
-            <LinearLayout android:id="@+id/btn_account" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="88dp" android:layout_marginBottom="12dp" android:padding="16dp" android:background="@drawable/profile_card" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:orientation="horizontal" android:gravity="center_vertical">
-                <ImageView android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/profile_badge" android:padding="11dp" android:src="@drawable/profiles" app:tint="@color/profile_accent" android:importantForAccessibility="no"/>
+            <LinearLayout android:id="@+id/btn_favorites" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="88dp" android:layout_marginBottom="12dp" android:padding="16dp" android:background="@drawable/profile_card" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:orientation="horizontal" android:gravity="center_vertical">
+                <ImageView android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/profile_badge" android:padding="11dp" android:src="@drawable/ic_star_outline" app:tint="@color/profile_accent" android:importantForAccessibility="no"/>
                 <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="14dp" android:orientation="vertical">
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/profile_account" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/profile_ink"/>
-                    <TextView style="@style/ProfileBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/profile_account_desc" android:textSize="12sp" android:layout_marginTop="4dp"/>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/favorites_title" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/profile_ink"/>
+                    <TextView style="@style/ProfileBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/favorites_desc" android:textSize="12sp" android:layout_marginTop="4dp"/>
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/profile_back" android:rotation="180" app:tint="@color/profile_muted" android:importantForAccessibility="no"/>
+            </LinearLayout>
+            <LinearLayout android:id="@+id/btn_logout" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="88dp" android:layout_marginBottom="12dp" android:padding="16dp" android:background="@drawable/profile_card" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:orientation="horizontal" android:gravity="center_vertical">
+                <ImageView android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/profile_badge" android:padding="11dp" android:src="@drawable/logout" app:tint="@color/profile_error" android:importantForAccessibility="no"/>
+                <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="14dp" android:orientation="vertical">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/profile_logout" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/profile_error"/>
+                    <TextView style="@style/ProfileBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/profile_logout_desc" android:textSize="12sp" android:layout_marginTop="4dp"/>
                 </LinearLayout>
                 <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/profile_back" android:rotation="180" app:tint="@color/profile_muted" android:importantForAccessibility="no"/>
             </LinearLayout>

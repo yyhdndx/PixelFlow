@@ -27,6 +27,7 @@
             app:tint="@color/black" />
 
         <TextView
+            android:id="@+id/create_title"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -116,6 +117,27 @@
                 android:textColor="@color/gray_600"
                 android:gravity="end"
                 android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:id="@+id/creation_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="12dp"
+                android:accessibilityLiveRegion="polite"
+                android:textColor="@color/profile_muted"
+                android:visibility="gone" />
+            <Button
+                android:id="@+id/creation_retry"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/creation_retry_read"
+                android:visibility="gone" />
+            <Button
+                android:id="@+id/creation_my_works"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/creation_check_my_works"
+                android:visibility="gone" />
 
             <!-- 话题标签 -->
             <TextView
@@ -224,10 +246,21 @@
             android:layout_width="0dp"
             android:layout_height="48dp"
             android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:text="发布作品"
+            android:layout_marginHorizontal="4dp"
+            android:text="保存草稿"
             android:textColor="@android:color/white"
-            android:background="@color/red_500"
+            android:background="@color/gray_400"
+            android:enabled="false" />
+
+        <Button
+            android:id="@+id/btn_publish"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="提交审核"
+            android:textColor="@android:color/white"
+            android:background="@color/gray_400"
             android:enabled="false" />
     </LinearLayout>
 </LinearLayout>

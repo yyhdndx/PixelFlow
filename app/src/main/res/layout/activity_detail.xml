@@ -69,12 +69,16 @@
 
                     <!-- 作者信息区域 -->
                     <LinearLayout
+                        android:id="@+id/author_container"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:orientation="horizontal"
                         android:paddingStart="12dp"
-                        android:gravity="center_vertical">
+                        android:gravity="center_vertical"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground">
 
                         <!-- 作者头像 -->
                         <ImageView

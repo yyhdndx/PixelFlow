@@ -16,6 +16,7 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -31,6 +32,7 @@ import com.PixelFlow.app.Streams.PreloadManager;
 import com.PixelFlow.app.API.ApiClient;
 import com.PixelFlow.app.API.ApiResponse;
 import com.PixelFlow.app.API.PostItem;
+import com.PixelFlow.app.API.RecommendationFeed;
 import com.PixelFlow.app.Streams.WaterfallAdapter;
 import com.PixelFlow.app.Streams.WorkItem;
 import com.google.android.material.tabs.TabLayout;
@@ -48,10 +50,13 @@ public class HomeFragment extends Fragment {
         void onScrollToTop();   // 滚动到顶部
     }
 
+    private static final int RECOMMENDATION_TAB = 4;
     private TabLayout tabLayout;
     private SwipeRefreshLayout swipeRefreshLayout;
     private RecyclerView recyclerView;
     private View emptyStateLayout;
+    private TextView recommendationBanner;
+    private boolean recommendationMode;
 
     private WaterfallAdapter adapter;
     private boolean isRefreshing = false;
@@ -127,6 +132,7 @@ public class HomeFragment extends Fragment {
         swipeRefreshLayout = view.findViewById(R.id.swipe_refresh_layout);
         recyclerView = view.findViewById(R.id.recycler_view);
         emptyStateLayout = view.findViewById(R.id.empty_state_layout);
+        recommendationBanner = view.findViewById(R.id.rec_banner);
         Button retryButton = view.findViewById(R.id.retry_button);
 
         retryButton.setOnClickListener(v -> loadData(true));
@@ -310,8 +316,14 @@ public class HomeFragment extends Fragment {
             @Override
             public void onTabSelected(TabLayout.Tab tab) {
                 // 切换Tab时重新加载数据
+                recommendationMode = tab.getPosition() == RECOMMENDATION_TAB;
                 currentPage = 0;
-                hasMoreData = true;
+                nextCursor = null;
+                hasMoreData = !recommendationMode;
+                adapter.setLoading(false);
+                adapter.setData(Collections.emptyList());
+                hideRecommendationBanner();
+                hideEmptyState();
                 loadData(true);
             }
 
@@ -327,6 +339,7 @@ public class HomeFragment extends Fragment {
     }
 
     private void loadData(boolean isRefresh) {
+        if (recommendationMode) { loadRecommendations(isRefresh); return; }
         if (adapter == null || recyclerView == null) return;
         if (!isRefresh && (requestInFlight || !hasMoreData)) return;
         if (activeFeedCall != null) activeFeedCall.cancel();
@@ -335,6 +348,7 @@ public class HomeFragment extends Fragment {
         isRefreshing = isRefresh;
         adapter.setLoading(false);
         syncAccount();
+        hideEmptyState();
         if (isRefresh) swipeRefreshLayout.setRefreshing(true);
         else adapter.setLoading(true);
 
@@ -380,13 +394,73 @@ public class HomeFragment extends Fragment {
                     finishFeedRequest();
                     Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_SHORT).show();
                     syncAccount();
-                    if (adapter.getData().isEmpty()) showEmptyState();
+                    if (adapter.getData().isEmpty()) showFeedError(errorMessage);
                     else {
                         hideEmptyState();
                     }
                 });
             }
         });
+    }
+
+    private void loadRecommendations(boolean isRefresh) {
+        if (adapter == null || recyclerView == null) return;
+        if (!isRefresh) return; // Single page; retries are explicit refreshes.
+        if (activeFeedCall != null) activeFeedCall.cancel();
+        final int generation = ++feedGeneration;
+        requestInFlight = true;
+        isRefreshing = isRefresh;
+        adapter.setLoading(false);
+        syncAccount();
+        hasMoreData = false;
+        hideEmptyState();
+        hideRecommendationBanner();
+        if (isRefresh) swipeRefreshLayout.setRefreshing(true);
+        activeFeedCall = ApiClient.getInstance(requireContext()).getRecommendationFeed(
+                new CommunityClient.Callback<RecommendationFeed>() {
+                    @Override public void onSuccess(RecommendationFeed feed) {
+                        handler.post(() -> {
+                            if (!canApplyFeed(generation)) return;
+                            List<WorkItem> incoming = new ArrayList<>();
+                            for (PostItem post : feed.getPostList()) {
+                                if (post == null || post.getPostId() == null) continue;
+                                incoming.add(new WorkItem(post));
+                            }
+                            finishFeedRequest();
+                            nextCursor = null;
+                            hasMoreData = false; // 推荐单页，无分页
+                            adapter.setData(incoming);
+                            showRecommendationBanner(feed);
+                            if (adapter.getData().isEmpty()) showEmptyState();
+                            else hideEmptyState();
+                        });
+                    }
+                    @Override public void onFailure(String errorMessage) {
+                        handler.post(() -> {
+                            if (!canApplyFeed(generation)) return;
+                            finishFeedRequest();
+                            Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_SHORT).show();
+                            syncAccount();
+                            adapter.setData(Collections.emptyList());
+                            nextCursor = null;
+                            hasMoreData = false;
+                            hideRecommendationBanner();
+                            showFeedError(errorMessage);
+                        });
+                    }
+                });
+    }
+
+    private void showRecommendationBanner(RecommendationFeed feed) {
+        if (recommendationBanner == null) return;
+        String label = "popular".equals(feed.getStrategy())
+                ? getString(R.string.rec_popular) : getString(R.string.rec_personalized);
+        String reason = feed.getReason();
+        recommendationBanner.setText(reason == null || reason.isEmpty() ? label : label + " · " + reason);
+        recommendationBanner.setVisibility(View.VISIBLE);
+    }
+    private void hideRecommendationBanner() {
+        if (recommendationBanner != null) recommendationBanner.setVisibility(View.GONE);
     }
 
     private boolean canApplyFeed(int generation) {
@@ -399,6 +473,7 @@ public class HomeFragment extends Fragment {
         String account = api.username() + "@" + api.sessionVersion();
         if (!account.equals(displayedAccount)) {
             adapter.setData(Collections.emptyList());
+            hideRecommendationBanner();
             nextCursor = null;
             hasMoreData = true;
             displayedAccount = account;
@@ -518,12 +593,24 @@ public class HomeFragment extends Fragment {
     }
 
     private void showEmptyState() {
+        ((TextView) emptyStateLayout.findViewById(R.id.feed_state_message)).setText(R.string.nullContent);
+        showStatePanel();
+    }
+
+    private void showFeedError(String message) {
+        ((TextView) emptyStateLayout.findViewById(R.id.feed_state_message)).setText(message);
+        showStatePanel();
+    }
+
+    private void showStatePanel() {
         emptyStateLayout.setVisibility(View.VISIBLE);
+        swipeRefreshLayout.setVisibility(View.GONE);
         recyclerView.setVisibility(View.GONE);
     }
 
     private void hideEmptyState() {
         emptyStateLayout.setVisibility(View.GONE);
+        swipeRefreshLayout.setVisibility(View.VISIBLE);
         recyclerView.setVisibility(View.VISIBLE);
     }
 
@@ -577,6 +664,8 @@ public class HomeFragment extends Fragment {
         swipeRefreshLayout = null;
         tabLayout = null;
         emptyStateLayout = null;
+        recommendationBanner = null;
+        recommendationMode = false;
         super.onDestroyView();
     }
 

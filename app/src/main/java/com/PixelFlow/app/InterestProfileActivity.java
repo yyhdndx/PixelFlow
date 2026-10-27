@@ -1,5 +1,6 @@
 package com.PixelFlow.app;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.*;
@@ -18,6 +19,8 @@ public class InterestProfileActivity extends AppCompatActivity {
         api = ApiClient.getInstance(this); topics = findViewById(R.id.insights_topics); status = findViewById(R.id.insights_status);
         loading = findViewById(R.id.insights_loading); retry = findViewById(R.id.insights_retry);
         findViewById(R.id.insights_back).setOnClickListener(v -> finish()); retry.setOnClickListener(v -> load());
+        findViewById(R.id.insights_history).setOnClickListener(v -> startActivity(new Intent(this, HistoryProfileActivity.class)));
+        findViewById(R.id.insights_preferences).setOnClickListener(v -> startActivity(new Intent(this, PreferencesActivity.class)));
     }
     @Override protected void onResume() { super.onResume(); load(); }
     private void load() {

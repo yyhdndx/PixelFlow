@@ -18,7 +18,12 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.PixelFlow.app.R;
+import com.PixelFlow.app.API.ApiClient;
+import com.PixelFlow.app.API.AccountMedia;
+import com.PixelFlow.app.creation.DraftEditorModel;
+import com.PixelFlow.app.creation.DraftEditorModel.MediaEntry;
+import androidx.lifecycle.ViewModelProvider;
+import com.google.gson.Gson;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
@@ -26,7 +31,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CreateWorkActivity extends AppCompatActivity {
+    public static final String EXTRA_POST_ID = "extra_post_id";
+    public static final String EXTRA_TITLE = "extra_title";
+    public static final String EXTRA_CONTENT = "extra_content";
+    public static final String EXTRA_MEDIA_IDS = "extra_media_ids";
+    public static final String EXTRA_MEDIA_URLS = "extra_media_urls";
 
+    private ApiClient api;
     private EditText etTitle;
     private EditText etDescription;
     private EditText etHashtags;
@@ -34,16 +45,24 @@ public class CreateWorkActivity extends AppCompatActivity {
     private MaterialButton btnAddVideo;
     private LinearLayout mediaPreviewContainer;
     private Button btnSave;
+    private Button btnPublish;
     private Button btnCancel;
     private TextView tvMediaCount;
     private TextView tvCharCount;
+    private TextView tvTitle;
 
-    private List<Uri> selectedMediaUris = new ArrayList<>();
+    private List<MediaEntry> media = new ArrayList<>();
+    private DraftEditorModel model;
+    private TextView operationStatus;
+    private Button checkState, myWorks;
+    private boolean binding;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_create_work);
+        api = ApiClient.getInstance(this);
+        model = new ViewModelProvider(this).get(DraftEditorModel.class);
 
         getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -56,10 +75,11 @@ public class CreateWorkActivity extends AppCompatActivity {
 
         initView();
         setupListeners();
+        loadEditingState(savedInstanceState);
+        model.changes.observe(this, ignored -> render());
     }
 
     private void initView() {
-        // 标题栏
         etTitle = findViewById(R.id.et_title);
         etDescription = findViewById(R.id.et_description);
         etHashtags = findViewById(R.id.et_hashtags);
@@ -68,57 +88,109 @@ public class CreateWorkActivity extends AppCompatActivity {
         mediaPreviewContainer = findViewById(R.id.media_preview_container);
         tvMediaCount = findViewById(R.id.tv_media_count);
         tvCharCount = findViewById(R.id.tv_char_count);
+        tvTitle = findViewById(R.id.create_title);
         btnSave = findViewById(R.id.btn_save);
+        btnPublish = findViewById(R.id.btn_publish);
         btnCancel = findViewById(R.id.btn_cancel);
 
-        // 设置返回按钮
-        findViewById(R.id.btn_back).setOnClickListener(v -> finish());
+        findViewById(R.id.btn_back).setOnClickListener(v -> onBackPressed());
+        operationStatus = findViewById(R.id.creation_status);
+        checkState = findViewById(R.id.creation_retry);
+        myWorks = findViewById(R.id.creation_my_works);
+        checkState.setOnClickListener(v -> { if (!model.busy) model.reconcile(); });
+        myWorks.setOnClickListener(v -> {
+            if (model.busy) return;
+            startActivity(new Intent(this, MyWorksActivity.class));
+        });
 
-        // 初始化字符计数
         updateCharCount(0);
         updateMediaCount();
+        updateSaveButtonState();
+    }
+
+    private void loadEditingState(Bundle saved) {
+        if (model.state == null) {
+            DraftEditorModel.State initial;
+            boolean restored = saved != null && saved.containsKey("draft_editor");
+            if (restored) initial = new Gson().fromJson(saved.getString("draft_editor"), DraftEditorModel.State.class);
+            else {
+                initial = new DraftEditorModel.State();
+                initial.postId = getIntent().getStringExtra(EXTRA_POST_ID);
+                initial.title = textExtra(EXTRA_TITLE);
+                initial.content = textExtra(EXTRA_CONTENT);
+                ArrayList<String> ids = getIntent().getStringArrayListExtra(EXTRA_MEDIA_IDS);
+                ArrayList<String> urls = getIntent().getStringArrayListExtra(EXTRA_MEDIA_URLS);
+                if (ids != null) for (int i = 0; i < ids.size(); i++)
+                    initial.media.add(new MediaEntry(null, urls != null && i < urls.size() ? urls.get(i) : null, ids.get(i)));
+                initial.needsReconcile = initial.postId != null;
+            }
+            model.initialize(initial, restored);
+        }
+        media = model.state.media;
+        binding = true;
+        etTitle.setText(model.state.title);
+        etDescription.setText(model.state.content);
+        etHashtags.setText(model.state.tags);
+        binding = false;
+        render();
+    }
+    private String textExtra(String key) {
+        String value = getIntent().getStringExtra(key);
+        return value == null ? "" : value;
+    }
+    private void captureText() {
+        if (binding || model.state == null) return;
+        model.state.title = etTitle.getText().toString();
+        model.state.content = etDescription.getText().toString();
+        model.state.tags = etHashtags.getText().toString();
+    }
+    private void render() {
+        if (model.state == null || isFinishing()) return;
+        if (!model.ownsSession()) {
+            clearMediaPreviews();
+            finish();
+            return;
+        }
+        if (model.state.done && model.ownsSession()) {
+            Toast.makeText(this, model.state.message, Toast.LENGTH_LONG).show();
+            finish(); return;
+        }
+        tvTitle.setText(model.state.postId == null ? "创作作品" : "编辑作品");
+        operationStatus.setText(model.state.message);
+        operationStatus.setVisibility(model.state.message.isEmpty() ? View.GONE : View.VISIBLE);
+        checkState.setVisibility(model.state.needsReconcile && !model.busy ? View.VISIBLE : View.GONE);
+        myWorks.setVisibility(model.state.creationUnknown || (!model.editable() && !model.busy) ? View.VISIBLE : View.GONE);
+        myWorks.setEnabled(!model.busy);
+        etTitle.setEnabled(model.editable());
+        etDescription.setEnabled(model.editable());
+        etHashtags.setEnabled(model.editable());
+        btnAddImage.setEnabled(model.editable());
+        btnCancel.setEnabled(!model.busy);
+        updateMediaPreviews();
+        updateMediaCount();
+        updateSaveButtonState();
     }
 
     private void setupListeners() {
-        // 标题输入监听
         etTitle.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {}
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                updateSaveButtonState();
-            }
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) { captureText(); updateSaveButtonState(); }
         });
 
-        // 描述输入监听
         etDescription.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
                 updateCharCount(s.length());
             }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                updateSaveButtonState();
-            }
+            @Override public void afterTextChanged(Editable s) { captureText(); updateSaveButtonState(); }
         });
 
-        // 话题输入监听
+        // 话题标签：后端尚未实现标签提取，这里保留输入但不参与提交。
         etHashtags.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (s.length() > 0 && s.charAt(s.length() - 1) == ' ') {
-                    // 自动添加#号
                     String current = s.toString();
                     if (!current.endsWith(" #") && !current.endsWith("  ")) {
                         etHashtags.setText(current + "#");
@@ -126,76 +198,50 @@ public class CreateWorkActivity extends AppCompatActivity {
                     }
                 }
             }
-
-            @Override
-            public void afterTextChanged(Editable s) {}
+            @Override public void afterTextChanged(Editable s) {}
         });
 
-        // 添加图片按钮
         btnAddImage.setOnClickListener(v -> openImagePicker());
+        btnAddVideo.setOnClickListener(v -> Toast.makeText(this, "暂不支持视频上传，仅支持图片", Toast.LENGTH_SHORT).show());
 
-        // 添加视频按钮
-        btnAddVideo.setOnClickListener(v -> openVideoPicker());
-
-        // 保存按钮
-        btnSave.setOnClickListener(v -> saveWork());
-
-        // 取消按钮
-        btnCancel.setOnClickListener(v -> finish());
+        btnSave.setOnClickListener(v -> submitWork(false));
+        btnPublish.setOnClickListener(v -> submitWork(true));
+        btnCancel.setOnClickListener(v -> onBackPressed());
     }
 
     private void updateCharCount(int count) {
-        tvCharCount.setText(count + "/500");
-
-        if (count > 500) {
-            tvCharCount.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-        } else if (count > 450) {
-            tvCharCount.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
-        } else {
-            tvCharCount.setTextColor(getResources().getColor(R.color.gray_600));
-        }
+        tvCharCount.setText(count + "/5000");
+        if (count > 5000) tvCharCount.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        else if (count > 4500) tvCharCount.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
+        else tvCharCount.setTextColor(getResources().getColor(R.color.gray_600));
     }
 
     private void updateMediaCount() {
-        int count = selectedMediaUris.size();
-        tvMediaCount.setText(count + "个文件");
-
-        if (count > 0) {
-            tvMediaCount.setTextColor(getResources().getColor(R.color.green_500));
-        } else {
-            tvMediaCount.setTextColor(getResources().getColor(R.color.gray_600));
-        }
+        tvMediaCount.setText(media.size() + " 张图片");
+        tvMediaCount.setTextColor(getResources().getColor(media.size() > 0 ? R.color.green_500 : R.color.gray_600));
     }
 
     private void updateSaveButtonState() {
         boolean hasTitle = !etTitle.getText().toString().trim().isEmpty();
-        boolean hasDescription = !etDescription.getText().toString().trim().isEmpty();
-        boolean hasMedia = !selectedMediaUris.isEmpty();
-
-        // 简化：只要有标题就可以保存，或者有媒体文件也可以
-        btnSave.setEnabled(hasTitle || hasMedia);
-
-        if (btnSave.isEnabled()) {
-            btnSave.setBackgroundColor(getResources().getColor(R.color.red_500));
-        } else {
-            btnSave.setBackgroundColor(getResources().getColor(R.color.gray_400));
-        }
+        boolean hasContent = !etDescription.getText().toString().trim().isEmpty();
+        boolean hasMedia = !media.isEmpty();
+        boolean retry = model.state != null && model.retryable();
+        boolean canSave = (hasTitle || hasContent || hasMedia) && model.state != null && (model.editable() || retry);
+        boolean canPublish = hasTitle && hasMedia && model.state != null && (model.editable() || retry);
+        btnSave.setEnabled(canSave);
+        btnPublish.setEnabled(canPublish);
+        btnSave.setBackgroundColor(getResources().getColor(canSave ? R.color.primary_color : R.color.gray_400));
+        btnPublish.setBackgroundColor(getResources().getColor(canPublish ? R.color.red_500 : R.color.gray_400));
     }
 
     private void openImagePicker() {
-        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        if (!model.editable()) return;
         intent.setType("image/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         imagePickerLauncher.launch(intent);
-    }
-
-    private void openVideoPicker() {
-        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        intent.setType("video/*");
-        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        videoPickerLauncher.launch(intent);
     }
 
     private final ActivityResultLauncher<Intent> imagePickerLauncher = registerForActivityResult(
@@ -206,56 +252,54 @@ public class CreateWorkActivity extends AppCompatActivity {
                 }
             });
 
-    private final ActivityResultLauncher<Intent> videoPickerLauncher = registerForActivityResult(
-            new ActivityResultContracts.StartActivityForResult(),
-            result -> {
-                if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-                    handleSelectedMedia(result.getData());
-                }
-            });
-
     private void handleSelectedMedia(Intent data) {
+        if (!model.editable()) return;
         if (data.getClipData() != null) {
-            // 多选
             int count = data.getClipData().getItemCount();
             for (int i = 0; i < count; i++) {
-                Uri mediaUri = data.getClipData().getItemAt(i).getUri();
-                if (!selectedMediaUris.contains(mediaUri)) {
-                    selectedMediaUris.add(mediaUri);
-                }
+                Uri uri = data.getClipData().getItemAt(i).getUri();
+                if (!containsUri(uri) && media.size() < 9) { persistUri(uri); media.add(new MediaEntry(uri.toString(), null, null)); }
             }
         } else if (data.getData() != null) {
-            // 单选
-            Uri mediaUri = data.getData();
-            if (!selectedMediaUris.contains(mediaUri)) {
-                selectedMediaUris.add(mediaUri);
-            }
+            Uri uri = data.getData();
+            if (!containsUri(uri) && media.size() < 9) { persistUri(uri); media.add(new MediaEntry(uri.toString(), null, null)); }
         }
-
+        if (media.size() > 9) {
+            media.subList(9, media.size()).clear();
+            Toast.makeText(this, "最多 9 张图片", Toast.LENGTH_SHORT).show();
+        }
         updateMediaPreviews();
         updateMediaCount();
         updateSaveButtonState();
     }
 
-    private void updateMediaPreviews() {
-        mediaPreviewContainer.removeAllViews();
+    private void persistUri(Uri uri) {
+        try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
+        catch (SecurityException ignored) { /* Read errors are surfaced if the provider later revokes access. */ }
+    }
 
-        int maxPreviews = Math.min(selectedMediaUris.size(), 3); // 最多显示3个预览
-
-        for (int i = 0; i < maxPreviews; i++) {
-            Uri mediaUri = selectedMediaUris.get(i);
-            addMediaPreview(mediaUri, i);
+    private boolean containsUri(Uri uri) {
+        for (MediaEntry entry : media) {
+            if (entry.uri != null && entry.uri.equals(uri.toString())) return true;
         }
+        return false;
+    }
 
-        if (selectedMediaUris.size() > 3) {
-            addMoreIndicator(selectedMediaUris.size() - 3);
+    private void updateMediaPreviews() {
+        clearMediaPreviews();
+        mediaPreviewContainer.removeAllViews();
+        int maxPreviews = Math.min(media.size(), 3);
+        for (int i = 0; i < maxPreviews; i++) {
+            addMediaPreview(media.get(i), i);
+        }
+        if (media.size() > 3) {
+            addMoreIndicator(media.size() - 3);
         }
     }
 
-    private void addMediaPreview(Uri mediaUri, int index) {
+    private void addMediaPreview(MediaEntry entry, int index) {
         MaterialCardView cardView = new MaterialCardView(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                dpToPx(80), dpToPx(80));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dpToPx(80), dpToPx(80));
         params.setMargins(dpToPx(4), 0, dpToPx(4), 0);
         cardView.setLayoutParams(params);
         cardView.setRadius(dpToPx(8));
@@ -263,23 +307,24 @@ public class CreateWorkActivity extends AppCompatActivity {
 
         ImageView imageView = new ImageView(this);
         imageView.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT));
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
         imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        if (entry.mediaId != null) {
+            AccountMedia.load(imageView, entry.url);
+        } else {
+            com.bumptech.glide.Glide.with(this).load(Uri.parse(entry.uri))
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .error(R.drawable.ic_image_error).centerCrop().into(imageView);
+        }
 
-        // 按每个 URI 加载缩略图，混选图片和视频时不依赖最后一次选择模式。
-        com.bumptech.glide.Glide.with(this).load(mediaUri)
-                .placeholder(R.drawable.ic_image_placeholder)
-                .error(R.drawable.ic_image_error).centerCrop().into(imageView);
-
-        // 删除按钮
         View deleteButton = new View(this);
         LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(dpToPx(20), dpToPx(20));
         deleteParams.setMargins(dpToPx(60), dpToPx(4), 0, 0);
         deleteButton.setLayoutParams(deleteParams);
         deleteButton.setBackgroundResource(R.drawable.ic_delete_circle);
         deleteButton.setOnClickListener(v -> {
-            selectedMediaUris.remove(index);
+            if (!model.editable()) return;
+            media.remove(index);
             updateMediaPreviews();
             updateMediaCount();
             updateSaveButtonState();
@@ -292,8 +337,7 @@ public class CreateWorkActivity extends AppCompatActivity {
 
     private void addMoreIndicator(int moreCount) {
         MaterialCardView cardView = new MaterialCardView(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                dpToPx(80), dpToPx(80));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dpToPx(80), dpToPx(80));
         params.setMargins(dpToPx(4), 0, dpToPx(4), 0);
         cardView.setLayoutParams(params);
         cardView.setRadius(dpToPx(8));
@@ -302,8 +346,7 @@ public class CreateWorkActivity extends AppCompatActivity {
 
         TextView textView = new TextView(this);
         textView.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT));
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
         textView.setText("+" + moreCount);
         textView.setTextSize(16);
         textView.setTextColor(getResources().getColor(R.color.gray_600));
@@ -317,37 +360,72 @@ public class CreateWorkActivity extends AppCompatActivity {
         return (int) (dp * getResources().getDisplayMetrics().density);
     }
 
-    private void saveWork() {
+    private void submitWork(boolean publishMode) {
+        if (model.busy || (!model.editable() && !model.retryable())) return;
         String title = etTitle.getText().toString().trim();
-        String description = etDescription.getText().toString().trim();
-        String hashtags = etHashtags.getText().toString().trim();
-
-        // 这里应该将作品保存到服务器或本地数据库
-        // 现在只是象征性的展示
-
-        // 验证输入
-        if (title.isEmpty() && description.isEmpty() && selectedMediaUris.isEmpty()) {
-            Toast.makeText(this, "请至少填写标题、描述或添加媒体文件", Toast.LENGTH_SHORT).show();
+        String content = etDescription.getText().toString().trim();
+        if (title.length() > 120) { Toast.makeText(this, "标题最多 120 字", Toast.LENGTH_SHORT).show(); return; }
+        if (content.length() > 5000) { Toast.makeText(this, "正文最多 5000 字", Toast.LENGTH_SHORT).show(); return; }
+        if (publishMode && title.isEmpty()) { Toast.makeText(this, "提交审核需要标题", Toast.LENGTH_SHORT).show(); return; }
+        if (publishMode && media.isEmpty()) { Toast.makeText(this, "提交审核需要至少一张图片", Toast.LENGTH_SHORT).show(); return; }
+        if (media.isEmpty() && title.isEmpty() && content.isEmpty()) {
+            Toast.makeText(this, "请填写标题或内容，或添加图片", Toast.LENGTH_SHORT).show();
             return;
         }
+        if (!api.isLoggedIn()) {
+            startActivity(new Intent(this, AccountActivity.class));
+            return;
+        }
+        captureText();
+        model.submit(publishMode);
+    }
 
-        // No persistence service is connected yet. Do not discard the user's input.
-        Toast.makeText(this, "发布服务尚未接入，内容尚未保存，请勿退出编辑页",
-                Toast.LENGTH_LONG).show();
+    private void clearMediaPreviews() {
+        for (int i = 0; i < mediaPreviewContainer.getChildCount(); i++) {
+            View card = mediaPreviewContainer.getChildAt(i);
+            if (card instanceof android.view.ViewGroup) {
+                android.view.ViewGroup group = (android.view.ViewGroup) card;
+                for (int j = 0; j < group.getChildCount(); j++)
+                    if (group.getChildAt(j) instanceof ImageView) AccountMedia.clear((ImageView) group.getChildAt(j));
+            }
+        }
+    }
+    @Override protected void onSaveInstanceState(Bundle out) {
+        captureText();
+        model.checkpoint();
+        out.putString("draft_editor", new Gson().toJson(model.state));
+        super.onSaveInstanceState(out);
+    }
+    @Override protected void onResume() {
+        super.onResume();
+        if (!model.ownsSession()) {
+            clearMediaPreviews();
+            Toast.makeText(this, "账号已变化，请重新打开创作页", Toast.LENGTH_LONG).show();
+            finish(); return;
+        }
+        model.resume();
+        render();
+    }
+    @Override protected void onStop() {
+        captureText();
+        model.checkpoint();
+        clearMediaPreviews();
+        super.onStop();
     }
 
     @Override
     public void onBackPressed() {
-        // 检查是否有未保存的内容
+        if (model.busy) {
+            Toast.makeText(this, "正在上传，请稍候", Toast.LENGTH_SHORT).show();
+            return;
+        }
         String title = etTitle.getText().toString().trim();
         String description = etDescription.getText().toString().trim();
-
-        if (!title.isEmpty() || !description.isEmpty() || !selectedMediaUris.isEmpty()) {
-            // 显示确认对话框
+        if (!title.isEmpty() || !description.isEmpty() || !media.isEmpty()) {
             new androidx.appcompat.app.AlertDialog.Builder(this)
                     .setTitle("放弃编辑")
                     .setMessage("您有未保存的内容，确定要退出吗？")
-                    .setPositiveButton("确定", (dialog, which) -> finish())
+                    .setPositiveButton("确定", (dialog, which) -> { model.discard(); finish(); })
                     .setNegativeButton("取消", null)
                     .show();
         } else {
@@ -357,8 +435,7 @@ public class CreateWorkActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        clearMediaPreviews();
         super.onDestroy();
-        // 清理资源
-        selectedMediaUris.clear();
     }
 }

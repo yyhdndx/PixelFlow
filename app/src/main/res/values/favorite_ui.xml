@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="favorite_state_loading">正在核对收藏状态</string>
+    <string name="favorite_state_retry">重新读取收藏状态</string>
+    <string name="favorite_action_add">收藏</string>
+    <string name="favorite_action_remove">取消收藏</string>
+    <string name="favorite_added">已收藏</string>
+    <string name="favorite_removed">已取消收藏</string>
+</resources>

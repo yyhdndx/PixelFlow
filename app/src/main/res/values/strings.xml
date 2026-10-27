@@ -8,6 +8,13 @@
     <string name="authorAvatar">作者头像</string>
     <string name="praise">点赞</string>
     <string name="loadingMore">加载更多...</string>
+    <string name="rec_personalized">个性化推荐</string>
+    <string name="rec_popular">热门推荐</string>
+    <string name="restore_default_avatar">恢复默认头像</string>
+    <string name="uploading_avatar">正在上传头像…</string>
+    <string name="avatar_updated">头像已更新</string>
+    <string name="avatar_cleared">已恢复默认头像</string>
+    <string name="avatar_upload_failed">头像更新失败，请重试</string>
 
     <string name="close">关闭</string>
     <string name="image_desc">图片</string>

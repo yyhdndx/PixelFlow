@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_margin="5dp"
+    android:clickable="true" android:focusable="true" app:cardCornerRadius="18dp" app:cardElevation="0dp"
+    app:strokeColor="@color/profile_border" app:strokeWidth="1dp" app:cardBackgroundColor="@color/profile_surface">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <FrameLayout android:layout_width="match_parent" android:layout_height="152dp" android:background="@color/profile_soft">
+            <ImageView android:id="@+id/author_work_cover" android:layout_width="match_parent" android:layout_height="match_parent"
+                android:scaleType="centerCrop" android:src="@drawable/ic_image_placeholder" android:importantForAccessibility="no"/>
+            <TextView android:id="@+id/author_work_kind" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_gravity="top|end" android:layout_margin="10dp" android:paddingHorizontal="8dp" android:paddingVertical="4dp"
+                android:background="@drawable/profile_card" android:textColor="@color/profile_ink" android:textSize="11sp"/>
+        </FrameLayout>
+        <TextView android:id="@+id/author_work_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginHorizontal="12dp" android:layout_marginTop="12dp" android:textSize="15sp" android:textStyle="bold"
+            android:textColor="@color/profile_ink" android:minLines="2" android:maxLines="2" android:ellipsize="end"/>
+        <TextView android:id="@+id/author_work_likes" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_margin="12dp" android:textColor="@color/profile_ink" android:textSize="12sp"/>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

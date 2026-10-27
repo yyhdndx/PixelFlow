@@ -11,11 +11,24 @@ public class PostItem {
     private String content;
     @SerializedName("like_count") private int likeCount;
     @SerializedName("is_liked") private boolean liked;
+    @SerializedName("is_favorited") private boolean favorited;
+    @SerializedName("rec_reason") private String recReason;
+    @SerializedName("rec_score") private Double recScore;
     public int getLikeCount() { return Math.max(0, likeCount); }
     public boolean isLiked() { return liked; }
+    public boolean isFavorited() { return favorited; }
+    public void setFavorited(boolean favorited) { this.favorited = favorited; }
+    public String getRecReason() { return recReason; }
+    public Double getRecScore() { return recScore; }
 
     @SerializedName("create_time")
     private long createTime;
+
+    @SerializedName("status")
+    private String status;
+
+    @SerializedName("media_ids")
+    private List<String> mediaIds;
 
     private Author author;
     private List<Clip> clips;
@@ -37,6 +50,12 @@ public class PostItem {
 
     public long getCreateTime() { return createTime; }
     public void setCreateTime(long createTime) { this.createTime = createTime; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public List<String> getMediaIds() { return mediaIds; }
+    public void setMediaIds(List<String> mediaIds) { this.mediaIds = mediaIds; }
 
     public Author getAuthor() { return author; }
     public void setAuthor(Author author) { this.author = author; }

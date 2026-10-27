@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="author_refresh">刷新</string>
+    <string name="author_works_title">公开作品</string>
+    <string name="author_works_note">用作品，分享生活的片刻。</string>
+    <string name="author_works_empty">还没有公开作品</string>
+    <string name="author_works_more">加载更多作品</string>
+    <string name="author_works_retry">重试加载作品</string>
+    <string name="author_works_end">已经看完所有作品</string>
+    <string name="author_unavailable">该用户不存在或暂不可见</string>
+    <string name="author_missing">用户信息缺失</string>
+    <string name="author_work_untitled">未命名作品</string>
+    <string name="author_work_video">视频</string>
+    <string name="author_work_images">图文</string>
+    <string name="author_work_likes">%1$d 人点赞</string>
+    <string name="author_work_liked">已点赞 · %1$d</string>
+</resources>

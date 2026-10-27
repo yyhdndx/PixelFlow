@@ -18,6 +18,7 @@ public class WorkItem implements Serializable {
     private String authorAvatarUrl;
     private int likeCount;
     private boolean isLiked;
+    private boolean isFavorited;
     private int imageWidth;
     private int imageHeight;
 
@@ -184,6 +185,7 @@ public class WorkItem implements Serializable {
 
         this.likeCount = postItem.getLikeCount();
         this.isLiked = postItem.isLiked();
+        this.isFavorited = postItem.isFavorited();
 
         // 设置clips信息
         if (postItem.getClips() != null && !postItem.getClips().isEmpty()) {
@@ -296,6 +298,9 @@ public class WorkItem implements Serializable {
 
     public boolean isLiked() { return isLiked; }
     public void setLiked(boolean liked) { isLiked = liked; }
+
+    public boolean isFavorited() { return isFavorited; }
+    public void setFavorited(boolean favorited) { isFavorited = favorited; }
 
     public int getImageWidth() { return imageWidth; }
     public void setImageWidth(int imageWidth) { this.imageWidth = imageWidth; }
