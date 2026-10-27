@@ -1,0 +1,17 @@
+{
+  "checks": [
+    {
+      "health": "UP",
+      "http_status": 200,
+      "path": "/health",
+      "post_count": null
+    },
+    {
+      "health": null,
+      "http_status": 200,
+      "path": "/feed/?count=1",
+      "post_count": 1
+    }
+  ],
+  "observed_at_utc": "2026-10-27T02:32:59.1161249Z"
+}

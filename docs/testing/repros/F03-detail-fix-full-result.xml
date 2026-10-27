@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.PixelFlow.app.API.AccountPagesFlowTest" tests="20" failures="0" errors="0" skipped="0" time="130.766" timestamp="2026-10-25T04:53:19" hostname="localhost">
+  <properties>
+    <property name="device" value="Pixel_2_API_36(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="failedReconciliationKeepsFollowDisabledUntilRetryConfirmsState" classname="com.PixelFlow.app.API.AccountPagesFlowTest" time="3.358" />
+  <testcase name="committedWritesWithErrorResponsesAreReadBackWithoutRetrying" classname="com.PixelFlow.app.API.AccountPagesFlowTest" time="9.685" />
+  <testcase name="allFiveWritesSurviveRecreationAndReconcileBeforeEnabling" classname="com.PixelFlow.app.API.AccountPagesFlowTest" time="9.17" />
+  <testcase name="allSixScreensRefreshAfterReturningFromAnotherPage" classname="com.PixelFlow.app.API.AccountPagesFlowTest" time="12.775" />
+  <testcase name="allSixScreensRecoverWhenStoppedDuringRead" classname="com.PixelFlow.app.API.AccountPagesFlowTest" time="16.98" />
+  <testcase name="allSixScreensDiscardOldAccountRowsAndLateResponses" classname="com.PixelFlow.app.API.AccountPagesFlowTest" time="28.23" />
+  <testcase name="failedReconciliationOnlyAllowsReadRetryBeforeAnotherWrite" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="1.845" />
+  <testcase name="writeResponseFailureReconcilesCommittedStateWithoutResubmitting" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="1.621" />
+  <testcase name="leavingDetailMustNotDiscardQueuedFavoriteWrite" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="1.628" />
+  <testcase name="backgroundReturnWaitsForInflightWriteAndDoesNotDuplicateIt" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="2.468" />
+  <testcase name="switchingAccountsDiscardsTheOldWriteCallback" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="2.364" />
+  <testcase name="favoritesListDetailRemoveAndImmediateReturnReadsUpdatedList" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="5.548" />
+  <testcase name="stoppedReadRestartsWithoutShowingTheOldFavoriteState" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="3.21" />
+  <testcase name="ordinaryFavoriteWriteReadsServerState" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="1.52" />
+  <testcase name="recreationPreservesTheQueuedWriteAndReadsItsResult" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="2.188" />
+  <testcase name="statisticsFailureKeepsUnknownAndLogoutDoesNotLeakPreviousProfile" classname="com.PixelFlow.app.API.ProfileFlowTest" time="7.232" />
+  <testcase name="loginEditRotateSaveAndReenterReadsServer" classname="com.PixelFlow.app.API.ProfileFlowTest" time="8.325" />
+  <testcase name="lostWriteResponseIsConfirmedWithoutDuplicatePut" classname="com.PixelFlow.app.API.ProfileFlowTest" time="4.91" />
+  <testcase name="failedSaveKeepsDraftAndVerifiesBeforeRetry" classname="com.PixelFlow.app.API.ProfileFlowTest" time="6.428" />
+  <testcase name="useAppContext" classname="com.PixelFlow.app.ExampleInstrumentedTest" time="0.004" />
+</testsuite>

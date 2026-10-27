@@ -1,0 +1,67 @@
+{
+  "audited_at_utc": "2026-10-27T02:29:01.243249+00:00",
+  "release_path": "/opt/pixelflow/releases/07bf56ab159a95e3733c526c9bce57e223771eb7-40193670053-1",
+  "release_commit": "07bf56ab159a95e3733c526c9bce57e223771eb7",
+  "jar_sha256": "69b3ccaf530023c2ebceaa6bc7bdc568a2180105a2f59f62845af4d419580f48",
+  "services": {
+    "pixelflow-java": {
+      "exit_code": 0,
+      "output": "MainPID=315317\nActiveState=active\nSubState=running\nUnitFileState=enabled\nActiveEnterTimestamp=Sun 2026-10-25 20:50:36 CST"
+    },
+    "pixelflow-python": {
+      "exit_code": 0,
+      "output": "MainPID=315322\nActiveState=active\nSubState=running\nUnitFileState=enabled\nActiveEnterTimestamp=Sun 2026-10-25 20:50:36 CST"
+    },
+    "nginx": {
+      "exit_code": 0,
+      "output": "MainPID=223117\nActiveState=active\nSubState=running\nUnitFileState=enabled\nActiveEnterTimestamp=Sun 2026-10-18 18:22:04 CST"
+    },
+    "mysqld": {
+      "exit_code": 0,
+      "output": "MainPID=225826\nActiveState=active\nSubState=running\nUnitFileState=enabled\nActiveEnterTimestamp=Sun 2026-10-18 20:13:38 CST"
+    }
+  },
+  "timers": [],
+  "timer_schedule": [],
+  "migration_files": [
+    "V1__business_schema.sql",
+    "V2__user_status_audit.sql",
+    "V3__uploaded_images.sql",
+    "V4__demo_avatars_and_seed_batches.sql",
+    "V5__analytics_events.sql",
+    "V6__recommendation_preferences.sql",
+    "V7__user_bio.sql"
+  ],
+  "database_migrations": {
+    "exit_code": 0,
+    "output": "1\tbusiness schema\t1\n2\tuser status audit\t1\n3\tuploaded images\t1\n4\tdemo avatars and seed batches\t1\n5\tanalytics events\t1\n6\trecommendation preferences\t1\n7\tuser bio\t1"
+  },
+  "http": {
+    "java_health": {
+      "status": 200,
+      "health": "UP",
+      "post_count": null
+    },
+    "python_health": {
+      "status": 200,
+      "health": "UP",
+      "post_count": null
+    },
+    "proxy_health": {
+      "status": 200,
+      "health": "UP",
+      "post_count": null
+    },
+    "proxy_feed": {
+      "status": 200,
+      "health": null,
+      "post_count": 1
+    },
+    "admin_block": {
+      "status": 404
+    },
+    "internal_block": {
+      "status": 404
+    }
+  }
+}

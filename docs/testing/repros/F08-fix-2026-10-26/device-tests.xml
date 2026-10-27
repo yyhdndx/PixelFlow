@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.PixelFlow.app.API.AvatarRecommendationFlowTest" tests="15" failures="0" errors="0" skipped="0" time="108.584" timestamp="2026-10-26T09:33:16" hostname="localhost">
+  <properties>
+    <property name="device" value="Pixel_2_API_36(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="accountChangeAfterUploadDoesNotSetAvatarOrAcceptOldPicker" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="4.462" />
+  <testcase name="failedRecommendationMustNotDisplayCommunityItems" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="2.785" />
+  <testcase name="uploadFinishesAfterTabNavigationAndReturningProfileReadsIt" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="2.681" />
+  <testcase name="pickerResultBeforeOnResumeMustStillUpload" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="2.902" />
+  <testcase name="confirmedClearMustSurviveLeavingPage" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="47.406" />
+  <testcase name="uploadSurvivesRotationAndReconcilesNewView" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="2.747" />
+  <testcase name="accountChangeDuringCompressionDoesNotStartUpload" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="1.617" />
+  <testcase name="committedWriteErrorReReadsAvatarAndAllowsNextOperation" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="2.484" />
+  <testcase name="emptyRecommendationShowsEmptyStateWithoutRepeatedAutoLoads" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="2.494" />
+  <testcase name="recommendationRetryShowsResultsAndCommunityFailureDoesNotKeepThem" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="2.785" />
+  <testcase name="avatarWorksWhileProfileRemainsResumed_control" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="2.669" />
+  <testcase name="statisticsFailureKeepsUnknownAndLogoutDoesNotLeakPreviousProfile" classname="com.PixelFlow.app.API.ProfileFlowTest" time="8.172" />
+  <testcase name="loginEditRotateSaveAndReenterReadsServer" classname="com.PixelFlow.app.API.ProfileFlowTest" time="9.041" />
+  <testcase name="lostWriteResponseIsConfirmedWithoutDuplicatePut" classname="com.PixelFlow.app.API.ProfileFlowTest" time="6.904" />
+  <testcase name="failedSaveKeepsDraftAndVerifiesBeforeRetry" classname="com.PixelFlow.app.API.ProfileFlowTest" time="7.847" />
+</testsuite>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="4" time="0.404" timestamp="2026-10-25T20:16:26.962788+08:00" hostname="LAPTOP-HJ5J5ODH"><testcase classname="review_tests.test_issue12_database_ownership" name="test_script_does_not_delete_a_preexisting_same_name_database" time="0.080"><failure message="AssertionError: Script cleanup deleted a database that existed before this run&#10;assert 0 == 1">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x000001BA779D38D0&gt;
+tmp_path = WindowsPath('C:/Users/HP/AppData/Local/Temp/pytest-of-HP/pytest-20/test_script_does_not_delete_a_0')
+
+    def test_script_does_not_delete_a_preexisting_same_name_database(monkeypatch, tmp_path):
+        # These two databases are owned exclusively by this reproduction, not by the script under review.
+        port = int(os.environ["ISSUE12_AUDIT_MYSQL_PORT"])
+        assert port == 33083
+        connection = pymysql.connect(host="127.0.0.1", port=port, user="root", password="", autocommit=True)
+        java_db = "pf_issue12_java_c0111de0_test"
+        analytics_db = "pf_issue12_analytics_c0111de0_test"
+        made = []
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(f"CREATE DATABASE `{java_db}`")
+                made.append(java_db)
+                cursor.execute(f"CREATE TABLE `{java_db}`.ownership_sentinel(id INTEGER PRIMARY KEY)")
+                cursor.execute(f"INSERT INTO `{java_db}`.ownership_sentinel VALUES (1)")
+            original = script.secrets.token_hex
+            monkeypatch.setattr(script.secrets, "token_hex", lambda size: "c0111de0" if size == 4 else original(size))
+    
+            def cannot_start(*args, **kwargs):
+                raise RuntimeError("Injected startup failure after database preparation")
+    
+            monkeypatch.setattr(script.Services, "start_java", cannot_start)
+            result = script.main(["--mysql-port", str(port), "--mysql-user", "root",
+                                  "--artifacts-dir", str(tmp_path)])
+            made.append(analytics_db)
+            assert result == 1
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name=%s", (java_db,))
+&gt;               assert cursor.fetchone()[0] == 1, "Script cleanup deleted a database that existed before this run"
+E               AssertionError: Script cleanup deleted a database that existed before this run
+E               assert 0 == 1
+
+review_tests\test_issue12_database_ownership.py:41: AssertionError</failure></testcase><testcase classname="review_tests.test_issue12_evidence" name="test_summary_start_time_is_a_wall_clock_date" time="0.001"><failure message="AssertionError: Audit time must describe this run, not a 1970 monotonic-clock date&#10;assert 1792767323.849084 &lt; 3600&#10; +  where 1792767323.849084 = abs(1792767323.849084)&#10; +    where 1792767323.849084 = &lt;built-in method total_seconds of datetime.timedelta object at 0x000001BA7A3A7F00&gt;()&#10; +      where &lt;built-in method total_seconds of datetime.timedelta object at 0x000001BA7A3A7F00&gt; = (datetime.datetime(2026, 10, 25, 20, 12, 45, 849084) - datetime.datetime(1970, 1, 3, 5, 17, 22)).total_seconds">def test_summary_start_time_is_a_wall_clock_date():
+        summary = json.loads(SUMMARY.read_text(encoding="utf-8"))
+        started = datetime.datetime.fromisoformat(summary["started_at"])
+        written = datetime.datetime.fromtimestamp(SUMMARY.stat().st_mtime)
+&gt;       assert abs((written - started).total_seconds()) &lt; 3600, "Audit time must describe this run, not a 1970 monotonic-clock date"
+E       AssertionError: Audit time must describe this run, not a 1970 monotonic-clock date
+E       assert 1792767323.849084 &lt; 3600
+E        +  where 1792767323.849084 = abs(1792767323.849084)
+E        +    where 1792767323.849084 = &lt;built-in method total_seconds of datetime.timedelta object at 0x000001BA7A3A7F00&gt;()
+E        +      where &lt;built-in method total_seconds of datetime.timedelta object at 0x000001BA7A3A7F00&gt; = (datetime.datetime(2026, 10, 25, 20, 12, 45, 849084) - datetime.datetime(1970, 1, 3, 5, 17, 22)).total_seconds
+
+review_tests\test_issue12_evidence.py:17: AssertionError</failure></testcase><testcase classname="review_tests.test_issue12_evidence" name="test_summary_checks_do_not_reveal_complete_account_ids" time="0.001"><failure message="AssertionError: Account IDs inside checks must follow the documented redaction policy&#10;assert 4 == 0">def test_summary_checks_do_not_reveal_complete_account_ids():
+        summary = json.loads(SUMMARY.read_text(encoding="utf-8"))
+        details = "\n".join(row.get("detail", "") for row in summary["checks"])
+        full_account_ids = re.findall(r"[\"']user_id[\"']:\s*[\"']([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})", details)
+        count = len(full_account_ids)
+&gt;       assert count == 0, "Account IDs inside checks must follow the documented redaction policy"
+E       AssertionError: Account IDs inside checks must follow the documented redaction policy
+E       assert 4 == 0
+
+review_tests\test_issue12_evidence.py:25: AssertionError</failure></testcase><testcase classname="review_tests.test_issue12_evidence" name="test_preference_change_during_ranking_does_not_deliver_old_items" time="0.093" /></testsuite></testsuites>

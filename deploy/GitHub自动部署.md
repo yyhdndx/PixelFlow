@@ -2,7 +2,7 @@
 
 此方案不增加 Web 服务。Gitee 是唯一开发主仓库，GitHub 是单向镜像和流水线执行位置。
 
-交付状态：已提供脚本及 Linux 模拟部署测试；尚未配置 GitHub 仓库、凭据或阿里云部署账号，尚未执行真实云端自动发布。原有服务器不受本次文件修改影响。
+交付状态：已提供脚本及 Linux 模拟部署测试。2026-10-19 已完成阿里云部署账号、公钥和限定 sudo 权限配置，并验证 SSH/SCP；用户已反馈 GitHub CI 通过。GitHub 部署 Secrets 和首次真实云端自动发布尚待完成，当前运行版本未切换。详见 [服务器部署记录](服务器部署记录.md)。
 
 ## 1. 执行链路
 
@@ -82,6 +82,7 @@ chmod 600 /home/pixelflow-deploy/.ssh/authorized_keys
 通过 `visudo -f /etc/sudoers.d/pixelflow-deploy` 写入以下固定命令授权，并执行 `visudo -cf /etc/sudoers.d/pixelflow-deploy` 校验：
 
 ```sudoers
+Defaults:pixelflow-deploy !requiretty
 Cmnd_Alias PIXELFLOW_RELEASE = /usr/bin/systemctl stop pixelflow-python.service pixelflow-java.service, /usr/bin/systemctl start pixelflow-java.service, /usr/bin/systemctl start pixelflow-python.service, /usr/bin/systemctl stop pixelflow-analysis.timer, /usr/bin/systemctl start pixelflow-analysis.timer, /usr/bin/systemctl stop pixelflow-analysis.service
 pixelflow-deploy ALL=(root) NOPASSWD: PIXELFLOW_RELEASE
 ```

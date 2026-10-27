@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.PixelFlow.app.API.FavoriteDetailReviewTest" tests="2" failures="1" errors="0" skipped="0" time="6.775" timestamp="2026-10-24T15:27:47" hostname="localhost">
+  <properties>
+    <property name="device" value="Pixel_2_API_36(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="leavingDetailMustNotDiscardQueuedFavoriteWrite" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="3.967">
+    <failure>java.lang.AssertionError: Leaving detail must keep the queued write expected:&lt;1&gt; but was:&lt;0&gt;
+at org.junit.Assert.fail(Assert.java:89)
+at org.junit.Assert.failNotEquals(Assert.java:835)
+at org.junit.Assert.assertEquals(Assert.java:647)
+at com.PixelFlow.app.API.FavoriteDetailReviewTest.leavingDetailMustNotDiscardQueuedFavoriteWrite(FavoriteDetailReviewTest.java:110)
+</failure>
+  </testcase>
+  <testcase name="ordinaryFavoriteWriteReadsServerState" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="1.905" />
+</testsuite>

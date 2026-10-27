@@ -1,0 +1,10 @@
+{
+  "app/src/main/java/com/PixelFlow/app/API/CommunityClient.java": "d6525eb3ff6fbd121473b57e84b37cc0bb33ddd14c93d45d2810e1842ea186af",
+  "app/src/main/java/com/PixelFlow/app/API/PostItem.java": "9533a9226eea5e3a637e9f45f120101c40bb3ec8b11a66aa5a44d3d563e393f6",
+  "app/src/main/java/com/PixelFlow/app/Streams/WorkItem.java": "24b5b24ee8c6af0a451f7b00ca08b0528fc5278ffcbf96a298822c114872d130",
+  "app/src/main/java/com/PixelFlow/app/DetailPage/WorkDetailActivity.java": "a1c81ff3569ff5975de8cdad355324d0b2e12224dad004c4d08ada6811f49e52",
+  "app/src/test/java/com/PixelFlow/app/API/CommunityClientTest.java": "d84fbd6e1b9792c7b0d243d21c66117b64b23e46e80576a51c4dd401b7fa3bfc",
+  "server/src/main/java/com/pixelflow/server/content/PostService.java": "4213a6b59cb99be7653e04538141d03d290fb5cfe6cfa01a884e9df949762e45",
+  "server/src/main/java/com/pixelflow/server/content/UserPostsQueryService.java": "5d2b69bddec8cbd3750139fedebd7b62bcaee4e34f5c3838eb0e89f2f0db0e57",
+  "contracts/http/java-api.yaml": "0d9fcdfc65f7cc5aa7cffd4ff74c45d59793b5b4274c825763699d52f6c78faf"
+}

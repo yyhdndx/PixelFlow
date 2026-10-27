@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.PixelFlow.app.API.ProfileInsightsFlowTest" tests="20" failures="0" errors="0" skipped="0" time="80.456" timestamp="2026-10-26T09:22:41" hostname="localhost">
+  <properties>
+    <property name="device" value="Pixel_2_API_36(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="historyFailureShowsRetry" classname="com.PixelFlow.app.API.ProfileInsightsFlowTest" time="3.025" />
+  <testcase name="historyEmptyShowsEmptyState" classname="com.PixelFlow.app.API.ProfileInsightsFlowTest" time="1.644" />
+  <testcase name="interestProfileNotLoggedInShowsPrompt" classname="com.PixelFlow.app.API.ProfileInsightsFlowTest" time="1.699" />
+  <testcase name="interestProfileFailureShowsRetry" classname="com.PixelFlow.app.API.ProfileInsightsFlowTest" time="1.621" />
+  <testcase name="interestProfileEmptyShowsEmptyState" classname="com.PixelFlow.app.API.ProfileInsightsFlowTest" time="1.424" />
+  <testcase name="interestProfileShowsTopicsWhenAvailable" classname="com.PixelFlow.app.API.ProfileInsightsFlowTest" time="1.351" />
+  <testcase name="corruptCiphertextLoadsNullWithoutCrash" classname="com.PixelFlow.app.API.TokenStoreTest" time="0.289" />
+  <testcase name="freshApiClientRestoresTokensFromStore" classname="com.PixelFlow.app.API.TokenStoreTest" time="0.086" />
+  <testcase name="clearAfterSaveLoadsNull" classname="com.PixelFlow.app.API.TokenStoreTest" time="0.029" />
+  <testcase name="saveThenLoadRoundTripsTokens" classname="com.PixelFlow.app.API.TokenStoreTest" time="0.032" />
+  <testcase name="absentStoreLoadsNull" classname="com.PixelFlow.app.API.TokenStoreTest" time="0.003" />
+  <testcase name="failedReconciliationOnlyEnablesReadRetry" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="3.002" />
+  <testcase name="reopenSavedDraftLoadsPrivateImageAndEditsSamePost" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="3.547" />
+  <testcase name="recreationDuringCreateKeepsOnePipelineAndBlocksEditing" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="2.399" />
+  <testcase name="accountChangeDuringCreateDoesNotPublishUnderNewAccount" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="47.091" />
+  <testcase name="privateImageIsFetchedAgainAndDisplaysNewAccountBytes" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="3.273" />
+  <testcase name="unknownCreateRetriesSameKeyAndRecoversDraftAcrossRecreation" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="2.406" />
+  <testcase name="committedPublishErrorReadsPendingAndDoesNotResubmit" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="1.878" />
+  <testcase name="publishRetryReusesUploadedMediaAndDraftWithoutRepeatingSave" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="2.188" />
+  <testcase name="laterUploadFailureKeepsEarlierMediaAndEditorText" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="2.33" />
+</testsuite>

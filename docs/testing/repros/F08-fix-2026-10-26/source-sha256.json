@@ -1,0 +1,7 @@
+{
+  "app/src/main/res/layout/fragment_home.xml": "1c6e3061bf78fb7ddcde41ee52c267779735598d6b94238af9f27ddae70077f3",
+  "app/src/main/java/com/PixelFlow/app/AvatarModel.java": "db1227caba2d3e3640f720d9369d1b2f26ce4cb5f130be0f7e820ed749a7d66d",
+  "app/src/androidTest/java/com/PixelFlow/app/API/AvatarRecommendationFlowTest.java": "e6504e903dd65cc8b263b2685bab337cde959131c93350a062c16e6fa1ca4833",
+  "app/src/main/java/com/PixelFlow/app/ButtonFragment/ProfileFragment.java": "d463569c8627709442b9e2bb34404877dfc6a8da70526a333e05936fc09d694f",
+  "app/src/main/java/com/PixelFlow/app/ButtonFragment/HomeFragment.java": "b0d5712be7638e0e61885f12e9c3c0e021e759885b8a48f27e00d1748596bd6e"
+}

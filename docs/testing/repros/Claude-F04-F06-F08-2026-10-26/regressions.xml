@@ -1,0 +1,62 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.PixelFlow.app.API.ClaudeIncrementReviewTest" tests="4" failures="3" errors="0" skipped="0" time="68.991" timestamp="2026-10-26T09:20:26" hostname="localhost">
+  <properties>
+    <property name="device" value="Pixel_2_API_36(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="failedRecommendationMustNotDisplayCommunityItems" classname="com.PixelFlow.app.API.ClaudeIncrementReviewTest" time="6.24">
+    <failure>java.lang.AssertionError: failed recommendation must not reuse another tab's rows expected:&lt;0&gt; but was:&lt;1&gt;
+at org.junit.Assert.fail(Assert.java:89)
+at org.junit.Assert.failNotEquals(Assert.java:835)
+at org.junit.Assert.assertEquals(Assert.java:647)
+at com.PixelFlow.app.API.ClaudeIncrementReviewTest.lambda$failedRecommendationMustNotDisplayCommunityItems$11$com-PixelFlow-app-API-ClaudeIncrementReviewTest(ClaudeIncrementReviewTest.java:155)
+at com.PixelFlow.app.API.ClaudeIncrementReviewTest$$ExternalSyntheticLambda1.perform(D8$$SyntheticClass:0)
+at androidx.test.core.app.ActivityScenario.lambda$onActivity$2$androidx-test-core-app-ActivityScenario(ActivityScenario.java:789)
+at androidx.test.core.app.ActivityScenario$$ExternalSyntheticLambda2.run(Unknown Source:4)
+at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:524)
+at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+at android.app.Instrumentation$SyncRunnable.run(Instrumentation.java:2616)
+at android.os.Handler.handleCallback(Handler.java:995)
+at android.os.Handler.dispatchMessage(Handler.java:103)
+at android.os.Looper.loopOnce(Looper.java:248)
+at android.os.Looper.loop(Looper.java:338)
+at android.app.ActivityThread.main(ActivityThread.java:9067)
+at java.lang.reflect.Method.invoke(Native Method)
+at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+</failure>
+  </testcase>
+  <testcase name="pickerResultBeforeOnResumeMustStillUpload" classname="com.PixelFlow.app.API.ClaudeIncrementReviewTest" time="11.185">
+    <failure>java.lang.AssertionError: picker return must survive onResume profile refresh expected:&lt;1&gt; but was:&lt;0&gt;
+at org.junit.Assert.fail(Assert.java:89)
+at org.junit.Assert.failNotEquals(Assert.java:835)
+at org.junit.Assert.assertEquals(Assert.java:647)
+at com.PixelFlow.app.API.ClaudeIncrementReviewTest.lambda$pickerResultBeforeOnResumeMustStillUpload$6$com-PixelFlow-app-API-ClaudeIncrementReviewTest(ClaudeIncrementReviewTest.java:128)
+at com.PixelFlow.app.API.ClaudeIncrementReviewTest$$ExternalSyntheticLambda4.accept(D8$$SyntheticClass:0)
+at com.PixelFlow.app.API.ClaudeIncrementReviewTest$$ExternalSyntheticLambda2.perform(D8$$SyntheticClass:0)
+at androidx.test.core.app.ActivityScenario.lambda$onActivity$2$androidx-test-core-app-ActivityScenario(ActivityScenario.java:789)
+at androidx.test.core.app.ActivityScenario$$ExternalSyntheticLambda2.run(Unknown Source:4)
+at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:524)
+at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+at android.app.Instrumentation$SyncRunnable.run(Instrumentation.java:2616)
+at android.os.Handler.handleCallback(Handler.java:995)
+at android.os.Handler.dispatchMessage(Handler.java:103)
+at android.os.Looper.loopOnce(Looper.java:248)
+at android.os.Looper.loop(Looper.java:338)
+at android.app.ActivityThread.main(ActivityThread.java:9067)
+at java.lang.reflect.Method.invoke(Native Method)
+at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+</failure>
+  </testcase>
+  <testcase name="confirmedClearMustSurviveLeavingPage" classname="com.PixelFlow.app.API.ClaudeIncrementReviewTest" time="47.845">
+    <failure>java.lang.AssertionError: confirmed avatar clear must reach server after navigation expected:&lt;1&gt; but was:&lt;0&gt;
+at org.junit.Assert.fail(Assert.java:89)
+at org.junit.Assert.failNotEquals(Assert.java:835)
+at org.junit.Assert.assertEquals(Assert.java:647)
+at com.PixelFlow.app.API.ClaudeIncrementReviewTest.confirmedClearMustSurviveLeavingPage(ClaudeIncrementReviewTest.java:144)
+</failure>
+  </testcase>
+  <testcase name="avatarWorksWhileProfileRemainsResumed_control" classname="com.PixelFlow.app.API.ClaudeIncrementReviewTest" time="2.44" />
+</testsuite>

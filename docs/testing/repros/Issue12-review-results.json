@@ -1,0 +1,36 @@
+{
+  "review_commit": "d12f1cc67a5dec64da5b2471b3f66b6b8e7bf0b2",
+  "environment": {
+    "mysql": "8.4.13",
+    "migrations": 7,
+    "java": "openjdk version \"17.0.10\" 2024-01-16",
+    "python": "3.11.17"
+  },
+  "python_suite": {
+    "tests": 184,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "java_targeted": {
+    "tests": 10,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "pipeline": {
+    "passed": 56,
+    "steps": 7,
+    "all_pass": true
+  },
+  "independent_review": {
+    "passed": 1,
+    "failed": 3,
+    "issues": [
+      "preexisting_database_deleted",
+      "incorrect_wall_clock_date",
+      "unredacted_account_ids"
+    ]
+  },
+  "issue11": "No matching remote commit or branch found; waiting for branch/commit information"
+}

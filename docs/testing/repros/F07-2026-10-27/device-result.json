@@ -1,0 +1,106 @@
+{
+  "started_utc": "2026-10-27T02:34:00.634364+00:00",
+  "serial": "emulator-5554",
+  "application_id": "com.PixelFlow.app.acceptance",
+  "apk_sha256": "8a9b3cbdee586bd97a63a81729764eb471b91db73575106372ac68ed804d9a7c",
+  "checks": [
+    {
+      "name": "force_stop_restart_restores_login",
+      "before_pid": "5131",
+      "after_pid": "5488"
+    },
+    {
+      "name": "system_picker_upload_and_set",
+      "uploads": 1,
+      "sets": 1
+    },
+    {
+      "name": "logout_then_restart_stays_guest",
+      "before_pid": "5488",
+      "after_pid": "5873"
+    }
+  ],
+  "passed": true,
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/feed/",
+      "authenticated": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "authenticated": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me",
+      "authenticated": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/stats",
+      "authenticated": true
+    },
+    {
+      "method": "GET",
+      "path": "/feed/",
+      "authenticated": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me",
+      "authenticated": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/stats",
+      "authenticated": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me",
+      "authenticated": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/stats",
+      "authenticated": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/media",
+      "authenticated": true
+    },
+    {
+      "method": "PUT",
+      "path": "/api/users/me/avatar",
+      "authenticated": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me",
+      "authenticated": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/stats",
+      "authenticated": true
+    },
+    {
+      "method": "GET",
+      "path": "/sample-avatar.png",
+      "authenticated": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "authenticated": true
+    },
+    {
+      "method": "GET",
+      "path": "/feed/",
+      "authenticated": false
+    }
+  ]
+}

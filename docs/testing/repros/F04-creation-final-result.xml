@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.PixelFlow.app.API.CreateWorkFlowTest" tests="9" failures="0" errors="0" skipped="0" time="80.224" timestamp="2026-10-25T12:00:35" hostname="localhost">
+  <properties>
+    <property name="device" value="Pixel_2_API_36(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="failedReconciliationOnlyEnablesReadRetry" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="9.113" />
+  <testcase name="reopenSavedDraftLoadsPrivateImageAndEditsSamePost" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="4.875" />
+  <testcase name="recreationDuringCreateKeepsOnePipelineAndBlocksEditing" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="2.51" />
+  <testcase name="accountChangeDuringCreateDoesNotPublishUnderNewAccount" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="47.401" />
+  <testcase name="privateImageIsFetchedAgainAndDisplaysNewAccountBytes" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="4.111" />
+  <testcase name="committedPublishErrorReadsPendingAndDoesNotResubmit" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="2.31" />
+  <testcase name="unknownCreateIsBlockedAcrossRecreationAndFreshModelRestoration" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="2.355" />
+  <testcase name="publishRetryReusesUploadedMediaAndDraftWithoutRepeatingSave" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="2.349" />
+  <testcase name="laterUploadFailureKeepsEarlierMediaAndEditorText" classname="com.PixelFlow.app.API.CreateWorkFlowTest" time="2.73" />
+</testsuite>
