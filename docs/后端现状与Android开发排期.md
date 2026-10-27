@@ -1,5 +1,7 @@
 # 后端现状与 Android 开发排期
 
+2026-10-27 提交整合：根据用户“推送至远程”的要求，已将 Android 功能、收藏状态接口/契约及验收资料分组提交，并以 `eaee80d` 合入远程 master 的任务 11 幂等实现（`787f0d8`）。本轮提交范围和验证见 [推送前整合验证](testing/推送前整合验证-2026-10-27.md)。下文“未提交/未拉取”均为历史快照；Issue 13/14 与头像分支未合入。代码推送不代表云端已部署，云端最后一次只读核对仍为 `07bf56a` / V1–V7。
+
 2026-10-26 F08 增量：Android 侧推荐交付入口与头像更换的客户端/契约已完成并本地验收，均未提交/推送/部署。
 推荐＝HomeFragment「推荐」Tab 接线 + `CommunityClient.getRecommendationFeed` + 契约 `GET /api/recommendations/me/feed`；
 头像＝`setAvatar/clearAvatar` + 契约 `PUT/DELETE /api/users/me/avatar` + ProfileFragment 选图→压缩→上传→设置/清除。
