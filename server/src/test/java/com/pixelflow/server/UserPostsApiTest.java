@@ -166,7 +166,7 @@ class UserPostsApiTest {
         db.update("INSERT INTO interactions(user_id,kind,target_id) VALUES(?,'likes','10')",aliceId);
         db.update("INSERT INTO interactions(user_id,kind,target_id) VALUES(?,'likes','010')",bobId);
         var card=page(alice,bobId,null,null).get("post_list").get(0);
-        assertEquals(Set.of("post_id","title","content","create_time","status","media_ids","author","clips","hashtag","music","like_count","is_liked"),keys(card));
+        assertEquals(Set.of("post_id","title","content","create_time","status","media_ids","author","clips","hashtag","music","like_count","is_liked","is_favorited"),keys(card));
         assertTrue(card.get("post_id").isTextual()); assertTrue(card.get("create_time").isIntegralNumber());
         assertTrue(card.get("like_count").isIntegralNumber()); assertTrue(card.get("is_liked").isBoolean());
         assertEquals(1,card.get("like_count").asInt()); assertTrue(card.get("is_liked").asBoolean());

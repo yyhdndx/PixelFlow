@@ -102,7 +102,7 @@ public class PostService {
         var row=rows.get(0);
         if ((!"PUBLISHED".equals(row.get("status")) || !Boolean.TRUE.equals(row.get("enabled")))
                 && (actor==null || (!actor.id().equals(row.get("author_id")) && !actor.role().equals("ADMIN")))) throw missing();
-        return withLikeState(view(row),actor);
+        return withViewerState(view(row),actor);
     }
 
     public Map<String,Object> feed(int count,Long cursor,boolean video) {
@@ -118,7 +118,7 @@ public class PostService {
         var selected=rows.subList(0,Math.min(count,rows.size()));
         Map<String,Object> result=new LinkedHashMap<>();
         result.put("status_code",0); result.put("has_more",more ? 1 : 0);
-        result.put("post_list",selected.stream().map(row -> withLikeState(view(row),actor)).toList());
+        result.put("post_list",selected.stream().map(row -> withViewerState(view(row),actor)).toList());
         result.put("next_cursor",more ? selected.get(selected.size()-1).get("id").toString() : null);
         return result;
     }
@@ -128,9 +128,12 @@ public class PostService {
         return db.queryForList("SELECT p.*,u.nickname,u.avatar FROM posts p JOIN users u ON p.author_id=u.id WHERE p.author_id=? AND p.id<? ORDER BY p.id DESC LIMIT ?",
                 actor.id(),cursor==null ? Long.MAX_VALUE : cursor,count).stream().map(this::view).toList();
     }
-    private Map<String,Object> withLikeState(Map<String,Object> post,Actor actor) {
+    private Map<String,Object> withViewerState(Map<String,Object> post,Actor actor) {
         post.put("is_liked",actor!=null && db.queryForObject(
                 "SELECT COUNT(*) FROM interactions WHERE user_id=? AND kind='likes' AND target_id=?",
+                Integer.class,actor.id(),post.get("post_id"))>0);
+        post.put("is_favorited",actor!=null && db.queryForObject(
+                "SELECT COUNT(*) FROM interactions WHERE user_id=? AND kind='favorites' AND target_id=?",
                 Integer.class,actor.id(),post.get("post_id"))>0);
         return post;
     }

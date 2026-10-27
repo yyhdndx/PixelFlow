@@ -37,6 +37,9 @@ public class UserPostsQueryService {
             card.put("is_liked",db.queryForObject(
                     "SELECT COUNT(*) FROM interactions WHERE user_id=? AND kind='likes' AND target_id=?",
                     Integer.class,actor.id(),card.get("post_id"))>0);
+            card.put("is_favorited",db.queryForObject(
+                    "SELECT COUNT(*) FROM interactions WHERE user_id=? AND kind='favorites' AND target_id=?",
+                    Integer.class,actor.id(),card.get("post_id"))>0);
             return card;
         }).toList();
         return new Page(0,cards,more ? 1 : 0,more ? selected.get(selected.size()-1).get("id").toString() : null);

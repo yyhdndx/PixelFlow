@@ -246,6 +246,29 @@ paths:
             application/json:
               example: {status_code: 400, code: INVALID_ARGUMENT, message: 请求字段或格式不正确, requestId: request-uuid}
         '401': {$ref: '#/components/responses/Error'}
+  /api/users/me/avatar:
+    put:
+      summary: 将本人已上传图片设置为头像
+      description: 使用 POST /api/media 返回的 mediaId，仅接受本人媒体。启用用户的头像将可由游客读取；替换不删除旧图。成功响应 Cache-Control 为 no-store。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [mediaId]
+              properties:
+                mediaId: {type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'}
+      responses:
+        '200': {description: 当前头像, content: {application/json: {schema: {$ref: '#/components/schemas/UserAvatar'}}}}
+        default: {$ref: '#/components/responses/Error'}
+    delete:
+      summary: 清除本人头像并恢复默认显示
+      description: 幂等，avatar 返回空字符串。只解除头像引用，不删除图片；旧图若无其他公开作品引用则不再允许游客读取。成功响应 Cache-Control 为 no-store。
+      responses:
+        '200': {description: 已清除头像, content: {application/json: {schema: {$ref: '#/components/schemas/UserAvatar'}}}}
+        default: {$ref: '#/components/responses/Error'}
   /api/users/me/stats:
     get:
       summary: 当前用户统计（作品/粉丝/关注），单次读取，计数不含停用账号
@@ -436,6 +459,18 @@ paths:
                         share: {type: number}
                   suppressed_topics: {type: array, items: {type: string}, description: 已抑制主题；topics 已剔除这些主题}
         '502': {description: 上游画像身份不符或响应结构无效}
+        '503': {description: 分析服务未配置、超时或不可用；普通社区业务不受影响}
+        default: {$ref: '#/components/responses/Error'}
+  /api/recommendations/me/feed:
+    get:
+      description: 本人个性化推荐交付。Java 代理 Python 预览流水线，把推荐作品补全为公开卡片；单页最多 10 条，不分页。Cache-Control no-store。
+      responses:
+        '200':
+          description: 推荐卡片列表；无候选或偏好版本变化时 post_list 为空
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RecommendationFeed'}
+        '401': {description: 未登录或令牌失效}
         '503': {description: 分析服务未配置、超时或不可用；普通社区业务不受影响}
         default: {$ref: '#/components/responses/Error'}
   /api/recommendations/me/preferences:
@@ -739,6 +774,23 @@ components:
         post_list: {type: array, maxItems: 50, items: {$ref: '#/components/schemas/FavoritePost'}}
         has_more: {type: integer, enum: [0, 1]}
         next_cursor: {type: string, nullable: true, description: 有下一页时为本页最后一个作品 ID，否则为 null}
+    RecommendationFeed:
+      type: object
+      additionalProperties: false
+      required: [post_list, strategy, reason, profile_version, preferences_changed]
+      properties:
+        post_list: {type: array, maxItems: 10, items: {$ref: '#/components/schemas/RecommendationPost'}}
+        strategy: {type: string, enum: [personalized, popular]}
+        reason: {type: string, description: 画像可用或降级原因；关闭个性化时 personalization_disabled}
+        profile_version: {type: integer, format: int64, description: 本次使用的画像版本；未使用画像时为 0}
+        preferences_changed: {type: boolean, description: 返回前偏好版本变化；为 true 时 post_list 为空，客户端可重新请求}
+    RecommendationPost:
+      allOf:
+        - {$ref: '#/components/schemas/Post'}
+        - type: object
+          properties:
+            rec_reason: {type: string, nullable: true, description: 该作品的推荐理由}
+            rec_score: {type: number, format: double, nullable: true, description: 排序分数，保留 6 位小数}
     ProfileHistoryWeight:
       type: object
       additionalProperties: false
@@ -799,6 +851,13 @@ components:
       properties:
         nickname: {type: string, x-utf16-minLength: 1, x-utf16-maxLength: 40, description: trim 后按 Java UTF-16 String.length() 校验 1–40 个单元}
         bio: {type: string, x-utf16-maxLength: 60, description: 原样保存，按 Java UTF-16 String.length() 校验最多 60 个单元}
+    UserAvatar:
+      type: object
+      additionalProperties: false
+      required: [user_id, avatar]
+      properties:
+        user_id: {type: string}
+        avatar: {type: string, description: 头像 URL；清除后为空字符串，由客户端展示默认头像}
     UserStats:
       type: object
       required: [user_id, post_count, follower_count, following_count]
@@ -879,6 +938,7 @@ components:
         music: {type: object, nullable: true, description: 当前为 null，音乐元数据待实现}
         like_count: {type: integer, format: int64}
         is_liked: {type: boolean, description: 当前认证用户是否点赞；游客为 false。Feed 和详情提供此字段。}
+        is_favorited: {type: boolean, description: 当前认证用户是否收藏；游客为 false。}
     Event:
       type: object
       additionalProperties: false

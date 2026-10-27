@@ -88,8 +88,7 @@ class FavoritePostsApiTest {
         for (JsonNode card:first.get("post_list")) {
             var detail=body(mvc.perform(get("/api/posts/"+card.get("post_id").asText()).header("Authorization",alice))
                     .andExpect(status().isOk()).andReturn());
-            var expected=detail.deepCopy(); ((com.fasterxml.jackson.databind.node.ObjectNode)expected).put("is_favorited",true);
-            assertEquals(expected,card);
+            assertEquals(detail,card);
             assertEquals("中文作品",card.get("title").asText());
             assertEquals("中文作者",card.get("author").get("nickname").asText());
             assertTrue(card.get("is_favorited").asBoolean());
@@ -100,6 +99,14 @@ class FavoritePostsApiTest {
         var spoofed=body(mvc.perform(get(PATH).header("Authorization",alice).param("user_id",bobId).param("userId",bobId))
                 .andExpect(status().isOk()).andReturn());
         assertEquals(first,spoofed);
+    }
+
+    @Test void detailFavoriteStateBelongsToViewer() throws Exception {
+        postRow(9,bobId,"PUBLISHED",false);
+        favorite(aliceId,9);
+        mvc.perform(get("/api/posts/9").header("Authorization",alice)).andExpect(jsonPath("is_favorited").value(true));
+        mvc.perform(get("/api/posts/9").header("Authorization",bob)).andExpect(jsonPath("is_favorited").value(false));
+        mvc.perform(get("/api/posts/9")).andExpect(jsonPath("is_favorited").value(false));
     }
 
     @Test void numericOrderingIncludesMaximumLongOnFirstPage() throws Exception {
@@ -212,8 +219,7 @@ class FavoritePostsApiTest {
         for (var entry:result.get("post_list")) { assertTrue(entry.get("is_favorited").isBoolean()); assertTrue(entry.get("is_favorited").asBoolean()); }
         mvc.perform(get("/feed/").header("Authorization",alice)).andExpect(status().isOk()).andExpect(jsonPath("post_list[0].post_id").value("9"));
         var detail=body(mvc.perform(get("/api/posts/10").header("Authorization",alice)).andExpect(status().isOk()).andReturn());
-        var expected=card.deepCopy(); ((com.fasterxml.jackson.databind.node.ObjectNode)expected).remove("is_favorited");
-        assertEquals(expected,detail);
+        assertEquals(card,detail);
     }
 
     @Test void visibilityFiltersBeforeLimitWithoutOwnerOrAdminExemptionsAndRestoresRelations() throws Exception {

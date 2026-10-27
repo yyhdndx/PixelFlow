@@ -95,7 +95,9 @@ class OpenApiContractTest {
         var favoriteCard=(Map<?,?>)favoriteAllOf.get(1);
         assertEquals(Set.of("post_id","title","content","create_time","status","media_ids","author","clips","hashtag","music","like_count","is_liked","is_favorited"),new HashSet<>((List<?>)favoriteCard.get("required")));
         assertEquals(Map.of("type","boolean","enum",List.of(true)),((Map<?,?>)favoriteCard.get("properties")).get("is_favorited"));
-        assertFalse(((Map<?,?>)((Map<?,?>)schemas.get("Post")).get("properties")).containsKey("is_favorited"));
+        var basePost=(Map<?,?>)((Map<?,?>)schemas.get("Post")).get("properties");
+        assertTrue(basePost.containsKey("is_favorited"));
+        assertEquals("boolean",((Map<?,?>)basePost.get("is_favorited")).get("type"));
         assertTrue(paths.containsKey("/api/users/me/profile/history"));
         assertTrue(schemas.containsKey("ProfileHistoryPage"));
         references(document,document);
