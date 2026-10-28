@@ -30,6 +30,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -216,28 +217,32 @@ def mysql_rows(args, database, sql, parameters=()):
         return list(cursor.fetchall())
 
 
-def _migrations(names, origin):
-    """把迁移文件名折算成 {版本号: 文件名}；版本号统一成十进制字符串。"""
+def _migrations(items, origin):
+    """把迁移的 (文件名, 内容) 折算成 {版本号: {name, sha256}}。"""
     result = {}
-    for name in names:
+    for name, content in items:
         match = MIGRATION_FILE.match(name)
         if match:
-            result[str(int(match.group(1)))] = name
+            result[str(int(match.group(1)))] = {
+                "name": name,
+                "sha256": hashlib.sha256(content).hexdigest(),
+            }
     if not result:
         raise VerificationError(f"{origin} 内没有可识别的 MySQL 迁移文件")
     return result
 
 
 def jar_migrations(jar_path):
-    """本次构建产物（JAR）里真正打包的 MySQL 迁移。"""
+    """本次构建产物（JAR）里真正打包的 MySQL 迁移，含文件名与内容摘要。"""
     path = Path(jar_path)
     try:
         with zipfile.ZipFile(path) as archive:
-            names = [entry.rsplit("/", 1)[-1] for entry in archive.namelist()
-                     if entry.startswith(JAR_MIGRATION_DIR + "/")]
+            items = [(entry.rsplit("/", 1)[-1], archive.read(entry))
+                     for entry in archive.namelist()
+                     if entry.startswith(JAR_MIGRATION_DIR + "/") and not entry.endswith("/")]
     except (OSError, zipfile.BadZipFile) as error:
         raise VerificationError(f"无法读取构建产物 {path.name}：{error}") from None
-    return _migrations(names, f"JAR {path.name}")
+    return _migrations(items, f"JAR {path.name}")
 
 
 def source_migrations(directory=None):
@@ -245,15 +250,16 @@ def source_migrations(directory=None):
     path = Path(directory or SOURCE_MIGRATION_DIR)
     if not path.is_dir():
         return None
-    return _migrations([item.name for item in path.iterdir() if item.is_file()],
-                       f"源码目录 {path.name}")
+    items = [(item.name, item.read_bytes()) for item in path.iterdir() if item.is_file()]
+    return _migrations(items, f"源码目录 {path.name}")
 
 
 def verify_migrations(expected, applied, source=None):
     """比对 JAR 内的迁移集合、数据库成功执行的版本以及源码清单。
 
-    ``expected`` 为 JAR 的 {版本: 文件名}，``applied`` 为 flyway_schema_history 的
-    (version, success) 行。返回可脱敏的诊断摘要：版本集合与计数，而不是单一阈值。
+    ``expected`` 为 JAR 的 {版本: {name, sha256}}，``applied`` 为
+    flyway_schema_history 的 (version, success) 行。返回可脱敏的诊断摘要：
+    版本集合、文件名与内容摘要差异，不输出 SQL 正文。
     """
     expected_versions = set(expected)
     applied_versions = set()
@@ -268,6 +274,18 @@ def verify_migrations(expected, applied, source=None):
     unexpected = sorted(applied_versions - expected_versions, key=int)
     stale_jar = sorted(set(source) - expected_versions, key=int) if source is not None else []
     source_mismatch = sorted(expected_versions - set(source), key=int) if source is not None else []
+    # 同一版本不等于同一迁移：文件名或内容变化都必须失败，否则旧 JAR 会被判成
+    # 与当前源码一致，Flyway 校验也只覆盖旧 JAR 自身。
+    renamed = []
+    changed = []
+    if source is not None:
+        for version in sorted(expected_versions & set(source), key=int):
+            jar_entry, source_entry = expected[version], source[version]
+            if jar_entry["name"] != source_entry["name"]:
+                renamed.append({"version": version,
+                                "jar": jar_entry["name"], "source": source_entry["name"]})
+            elif jar_entry["sha256"] != source_entry["sha256"]:
+                changed.append(version)
     problems = []
     if failed:
         problems.append(f"数据库存在失败的迁移记录 {failed}")
@@ -279,6 +297,12 @@ def verify_migrations(expected, applied, source=None):
         problems.append(f"构建产物缺少源码中的迁移 {stale_jar}，请重新打包后再验证")
     if source_mismatch:
         problems.append(f"构建产物含源码中不存在的迁移 {source_mismatch}，JAR 与当前检出不一致")
+    if renamed:
+        versions = [item["version"] for item in renamed]
+        problems.append(f"同一版本迁移文件名不一致 {versions}（JAR {[i['jar'] for i in renamed]}，"
+                        f"源码 {[i['source'] for i in renamed]}）")
+    if changed:
+        problems.append(f"同一版本迁移内容与源码不一致 {changed}，请重新打包后再验证")
     return {
         "ok": not problems,
         "reason": "; ".join(problems),
@@ -291,6 +315,8 @@ def verify_migrations(expected, applied, source=None):
         "failed": failed,
         "source_not_in_jar": stale_jar,
         "jar_not_in_source": source_mismatch,
+        "renamed": renamed,
+        "changed_content": changed,
         "source_checked": source is not None,
     }
 
@@ -455,7 +481,7 @@ def preflight(args):
         raise VerificationError("只允许本机 MySQL；拒绝在共享或云端实例上运行")
     if not args.mysql_user:
         raise VerificationError("需要 --mysql-user 或 MYSQL_TEST_USER")
-    jar = Path(args.jar)
+    jar = Path(args.jar).expanduser().resolve()
     if not jar.is_file():
         raise VerificationError(f"缺少 Java 产物：{jar}；先执行 mvn -DskipTests package")
     jar_migrations(jar)  # 构建产物不可读或没有迁移时立即失败

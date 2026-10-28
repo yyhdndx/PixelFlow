@@ -135,12 +135,13 @@ def test_successful_equality_does_not_dump_the_profile():
     assert "topics" not in evidence.rows[0]["detail"]
 
 
-def build_jar(tmp_path, names, filename="server.jar"):
+def build_jar(tmp_path, names, filename="server.jar", contents=None):
     """构造只含迁移条目的最小 JAR，避免测试依赖真实构建产物。"""
     jar = tmp_path / filename
     with zipfile.ZipFile(jar, "w") as archive:
         for name in names:
-            archive.writestr(f"{pipeline.JAR_MIGRATION_DIR}/{name}", "-- migration")
+            body = (contents or {}).get(name, "-- migration")
+            archive.writestr(f"{pipeline.JAR_MIGRATION_DIR}/{name}", body)
     return jar
 
 
@@ -157,6 +158,53 @@ def test_jar_migrations_reads_versions_not_counts(tmp_path):
     # 版本 9 是最大版本，不是迁移数量；8 号缺口是合法的。
     assert len(migrations) == 9
     assert "8" not in migrations
+    # 每个版本都带文件名与内容摘要，供“同版本改名/改内容”比对。
+    assert set(migrations["9"]) == {"name", "sha256"}
+    assert migrations["9"]["name"] == "V9__post_creation_idempotency.sql"
+    assert len(migrations["9"]["sha256"]) == 64
+
+
+def test_same_version_renamed_is_not_treated_as_the_same_migration(tmp_path):
+    jar = pipeline.jar_migrations(build_jar(tmp_path, CURRENT, "jar.jar"))
+    renamed = [("V9__different_migration.sql" if name.startswith("V9__") else name)
+               for name in CURRENT]
+    source = pipeline.jar_migrations(build_jar(tmp_path, renamed, "source.jar"))
+    report = pipeline.verify_migrations(jar, [(version, 1) for version in jar], source=source)
+    assert report["ok"] is False
+    # 版本集合本身仍然一致，问题只出在文件名。
+    assert report["expected_versions"] == report["applied_versions"] == [
+        "1", "2", "3", "4", "5", "6", "7", "9"]
+    assert report["renamed"] == [{"version": "9",
+                                  "jar": "V9__post_creation_idempotency.sql",
+                                  "source": "V9__different_migration.sql"}]
+    assert "文件名不一致" in report["reason"]
+
+
+def test_same_name_changed_sql_content_fails(tmp_path):
+    jar = pipeline.jar_migrations(build_jar(tmp_path, CURRENT, "jar.jar"))
+    contents = {"V9__post_creation_idempotency.sql": "-- changed body\nCREATE TABLE x(id INT);"}
+    source = pipeline.jar_migrations(build_jar(tmp_path, CURRENT, "source.jar", contents))
+    report = pipeline.verify_migrations(jar, [(version, 1) for version in jar], source=source)
+    assert report["ok"] is False
+    assert report["changed_content"] == ["9"]
+    assert report["renamed"] == []
+    assert "内容与源码不一致" in report["reason"]
+
+
+def test_migration_report_never_includes_sql_bodies(tmp_path):
+    jar = pipeline.jar_migrations(build_jar(tmp_path, CURRENT, "jar.jar"))
+    contents = {"V9__post_creation_idempotency.sql": "INSERT INTO secret_table VALUES (1);"}
+    source = pipeline.jar_migrations(build_jar(tmp_path, CURRENT, "source.jar", contents))
+    report = pipeline.verify_migrations(jar, [(version, 1) for version in jar], source=source)
+    serialized = json.dumps(report, ensure_ascii=False)
+    assert report["changed_content"] == ["9"]        # 只报版本
+    assert "INSERT INTO" not in serialized and "secret_table" not in serialized
+    assert "sha256" not in serialized
+    # 改名场景才需要文件名，用来定位是哪一份对不上。
+    renamed = [("V9__other_name.sql" if name.startswith("V9__") else name) for name in CURRENT]
+    renamed_source = pipeline.jar_migrations(build_jar(tmp_path, renamed, "renamed.jar"))
+    renamed_report = pipeline.verify_migrations(jar, [(v, 1) for v in jar], source=renamed_source)
+    assert "V9__other_name.sql" in json.dumps(renamed_report, ensure_ascii=False)
 
 
 def test_migration_check_accepts_current_master_v1_to_v7_plus_v9(tmp_path):
