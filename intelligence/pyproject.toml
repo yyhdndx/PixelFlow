@@ -10,6 +10,9 @@ dependencies = ["fastapi==0.142.2", "uvicorn==0.54.0", "httpx==0.28.1", "PyMySQL
 
 [project.optional-dependencies]
 test = ["pytest==9.1.1"]
+# MCP 创作者工具服务；保持可选，不改变分析服务现有依赖集合。
+# 安装：pip install -e ".[mcp]"（或按 requirements-lock.txt 的 MCP 段落安装）
+mcp = ["mcp==2.3.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
