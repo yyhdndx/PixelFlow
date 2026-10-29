@@ -112,7 +112,8 @@ $env:PIXELFLOW_MAINTENANCE_URL='http://127.0.0.1:8001'
 ```
 
 脚本自建两个 `pf_issue12_*_test` 库，跑通两账号真实事件 → 维护同步/续跑 → 当前与历史画像
-→ 偏好链路 → 服务/分析库故障，共 56 项断言，结束后删除本次创建的库。环境、断言与限制见
-[画像历史偏好真实链路验收](../docs/testing/画像历史偏好真实链路验收.md)。
+→ 偏好链路 → 服务/分析库故障，共 57 项断言（含“JAR 内迁移集合与数据库迁移记录、源码清单一致”），
+结束后删除本次创建的库。可在 CI 中复用同一命令（`--artifacts-dir` 指定唯一产物目录）。
+环境、断言与限制见 [画像历史偏好真实链路验收](../docs/testing/画像历史偏好真实链路验收.md)。
 
 实现参考 [FastAPI 安全依赖说明](https://fastapi.tiangolo.com/tutorial/security/first-steps/)和 [Python SQLite 事务文档](https://docs.python.org/3/library/sqlite3.html)。当前为本地课程实现，不是可直接公网部署的生产服务。

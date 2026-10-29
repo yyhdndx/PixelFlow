@@ -38,6 +38,9 @@ jobs:
       MYSQL_TEST_POST_IDEMPOTENCY_RESTART_URL: jdbc:mysql://127.0.0.1:3306/pf_post_idempotency_restart_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_MIGRATION_URL: jdbc:mysql://127.0.0.1:3306/pf_migration_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_MIGRATION_V7_URL: jdbc:mysql://127.0.0.1:3306/pf_migration_v7_test?useSSL=false&allowPublicKeyRetrieval=true
+      # Reserved for task 13 (post lifecycle); the suites are not merged yet, so this
+      # database and variable must not be read as evidence that the flow already passes.
+      MYSQL_TEST_POST_LIFECYCLE_URL: jdbc:mysql://127.0.0.1:3306/pf_post_lifecycle_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_ANALYTICS_DB: mysql://root:ci-only-password@127.0.0.1:3306/pf_analytics_test
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -62,7 +65,7 @@ jobs:
           import pymysql
           with pymysql.connect(host='127.0.0.1', user='root', password='ci-only-password') as db:
               with db.cursor() as cursor:
-                  for name in ('business', 'preferences', 'stats', 'connections', 'favorites', 'public_profile', 'user_posts', 'post_idempotency', 'post_idempotency_restart', 'migration', 'migration_v7', 'analytics'):
+                  for name in ('business', 'preferences', 'stats', 'connections', 'favorites', 'public_profile', 'user_posts', 'post_idempotency', 'post_idempotency_restart', 'migration', 'migration_v7', 'post_lifecycle', 'analytics'):
                       cursor.execute(f'CREATE DATABASE pf_{name}_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin')
           PY
       - name: Java tests and package (including all MySQL suites)
@@ -74,6 +77,25 @@ jobs:
         run: |
           bash -n deploy/scripts/deploy-release.sh
           python -m unittest discover -s tests/deploy -v
+      - name: Real profile pipeline (Java -> Python -> MySQL)
+        timeout-minutes: 10
+        env:
+          PIPELINE_REPORT_DIR: server/target/issue12-verify-ci-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          python intelligence/scripts/verify_profile_pipeline.py \
+            --mysql-user "$MYSQL_TEST_USER" \
+            --mysql-password "$MYSQL_TEST_PASSWORD" \
+            --mysql-port 3306 \
+            --artifacts-dir "$PIPELINE_REPORT_DIR"
+      - name: Save real-pipeline report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: profile-pipeline-report
+          # Whitelist only the sanitized summary; logs, state and env files stay off the artifact.
+          path: server/target/issue12-verify-ci-*/summary.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Save test reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

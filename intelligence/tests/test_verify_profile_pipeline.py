@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import re
+import zipfile
 
 import pymysql
 import pytest
@@ -69,8 +70,8 @@ def test_cleanup_only_removes_databases_created_by_this_run(
     monkeypatch.setattr(pipeline.secrets, "token_hex",
                         lambda size: "c0111de0" if size == 4 else original_token_hex(size))
     monkeypatch.setattr(pipeline.Services, "start_java", start_java)
-    jar = tmp_path / "server.jar"
-    jar.touch()
+    # 产物必须是可读的 JAR（含迁移），否则运行前检查就会失败，测不到清理路径。
+    jar = build_jar(tmp_path, CURRENT, "server.jar")
     before = datetime.now(timezone.utc)
     result = pipeline.main(["--jar", str(jar), "--mysql-user", "test",
                             "--mysql-password", "audit-password",
@@ -132,3 +133,145 @@ def test_successful_equality_does_not_dump_the_profile():
     assert evidence.rows[0]["ok"] is True
     assert USER_ID not in evidence.rows[0]["detail"]
     assert "topics" not in evidence.rows[0]["detail"]
+
+
+def build_jar(tmp_path, names, filename="server.jar", contents=None):
+    """构造只含迁移条目的最小 JAR，避免测试依赖真实构建产物。"""
+    jar = tmp_path / filename
+    with zipfile.ZipFile(jar, "w") as archive:
+        for name in names:
+            body = (contents or {}).get(name, "-- migration")
+            archive.writestr(f"{pipeline.JAR_MIGRATION_DIR}/{name}", body)
+    return jar
+
+
+CURRENT = ["V1__business_schema.sql", "V2__user_status_audit.sql", "V3__uploaded_images.sql",
+           "V4__demo_avatars_and_seed_batches.sql", "V5__analytics_events.sql",
+           "V6__recommendation_preferences.sql", "V7__user_bio.sql",
+           "V9__post_creation_idempotency.sql"]
+
+
+def test_jar_migrations_reads_versions_not_counts(tmp_path):
+    jar = build_jar(tmp_path, CURRENT + ["V12__later_change.sql"])
+    migrations = pipeline.jar_migrations(jar)
+    assert sorted(migrations, key=int) == ["1", "2", "3", "4", "5", "6", "7", "9", "12"]
+    # 版本 9 是最大版本，不是迁移数量；8 号缺口是合法的。
+    assert len(migrations) == 9
+    assert "8" not in migrations
+    # 每个版本都带文件名与内容摘要，供“同版本改名/改内容”比对。
+    assert set(migrations["9"]) == {"name", "sha256"}
+    assert migrations["9"]["name"] == "V9__post_creation_idempotency.sql"
+    assert len(migrations["9"]["sha256"]) == 64
+
+
+def test_same_version_renamed_is_not_treated_as_the_same_migration(tmp_path):
+    jar = pipeline.jar_migrations(build_jar(tmp_path, CURRENT, "jar.jar"))
+    renamed = [("V9__different_migration.sql" if name.startswith("V9__") else name)
+               for name in CURRENT]
+    source = pipeline.jar_migrations(build_jar(tmp_path, renamed, "source.jar"))
+    report = pipeline.verify_migrations(jar, [(version, 1) for version in jar], source=source)
+    assert report["ok"] is False
+    # 版本集合本身仍然一致，问题只出在文件名。
+    assert report["expected_versions"] == report["applied_versions"] == [
+        "1", "2", "3", "4", "5", "6", "7", "9"]
+    assert report["renamed"] == [{"version": "9",
+                                  "jar": "V9__post_creation_idempotency.sql",
+                                  "source": "V9__different_migration.sql"}]
+    assert "文件名不一致" in report["reason"]
+
+
+def test_same_name_changed_sql_content_fails(tmp_path):
+    jar = pipeline.jar_migrations(build_jar(tmp_path, CURRENT, "jar.jar"))
+    contents = {"V9__post_creation_idempotency.sql": "-- changed body\nCREATE TABLE x(id INT);"}
+    source = pipeline.jar_migrations(build_jar(tmp_path, CURRENT, "source.jar", contents))
+    report = pipeline.verify_migrations(jar, [(version, 1) for version in jar], source=source)
+    assert report["ok"] is False
+    assert report["changed_content"] == ["9"]
+    assert report["renamed"] == []
+    assert "内容与源码不一致" in report["reason"]
+
+
+def test_migration_report_never_includes_sql_bodies(tmp_path):
+    jar = pipeline.jar_migrations(build_jar(tmp_path, CURRENT, "jar.jar"))
+    contents = {"V9__post_creation_idempotency.sql": "INSERT INTO secret_table VALUES (1);"}
+    source = pipeline.jar_migrations(build_jar(tmp_path, CURRENT, "source.jar", contents))
+    report = pipeline.verify_migrations(jar, [(version, 1) for version in jar], source=source)
+    serialized = json.dumps(report, ensure_ascii=False)
+    assert report["changed_content"] == ["9"]        # 只报版本
+    assert "INSERT INTO" not in serialized and "secret_table" not in serialized
+    assert "sha256" not in serialized
+    # 改名场景才需要文件名，用来定位是哪一份对不上。
+    renamed = [("V9__other_name.sql" if name.startswith("V9__") else name) for name in CURRENT]
+    renamed_source = pipeline.jar_migrations(build_jar(tmp_path, renamed, "renamed.jar"))
+    renamed_report = pipeline.verify_migrations(jar, [(v, 1) for v in jar], source=renamed_source)
+    assert "V9__other_name.sql" in json.dumps(renamed_report, ensure_ascii=False)
+
+
+def test_migration_check_accepts_current_master_v1_to_v7_plus_v9(tmp_path):
+    jar = build_jar(tmp_path, CURRENT)
+    applied = [(str(int(v[1:].split("__")[0])), 1) for v in CURRENT]
+    report = pipeline.verify_migrations(pipeline.jar_migrations(jar), applied,
+                                        source=pipeline.jar_migrations(jar))
+    assert report["ok"] is True
+    assert report["expected_count"] == report["applied_count"] == 8
+    assert report["expected_versions"] == ["1", "2", "3", "4", "5", "6", "7", "9"]
+
+
+def test_next_legal_migration_passes_without_code_change(tmp_path):
+    names = CURRENT + ["V10__next_feature.sql"]
+    jar = build_jar(tmp_path, names)
+    migrations = pipeline.jar_migrations(jar)
+    applied = [(version, 1) for version in migrations]
+    assert pipeline.verify_migrations(migrations, applied, source=migrations)["ok"] is True
+
+    # 只新增文件、数据库尚未升级时，必须报“缺少迁移”而不是放过。
+    report = pipeline.verify_migrations(migrations, applied[:-1], source=migrations)
+    assert report["ok"] is False and report["missing"] == ["10"]
+
+
+def test_missing_next_migration_in_jar_fails_as_stale_build(tmp_path):
+    source = pipeline.jar_migrations(build_jar(tmp_path, CURRENT + ["V10__next_feature.sql"],
+                                               "source.jar"))
+    jar = pipeline.jar_migrations(build_jar(tmp_path, CURRENT, "stale.jar"))
+    report = pipeline.verify_migrations(jar, [(v, 1) for v in jar], source=source)
+    assert report["ok"] is False
+    assert report["source_not_in_jar"] == ["10"]
+    assert "重新打包" in report["reason"]
+
+
+@pytest.mark.parametrize("applied,missing,unexpected,failed,keyword", [
+    ([(v, 1) for v in ("1", "2", "3", "4", "5", "6", "9")], ["7"], [], [], "缺少"),
+    ([(v, 1) for v in ("1", "2", "3", "4", "5", "6", "7", "8", "9")], [], ["8"], [], "之外"),
+    ([(v, 1) for v in ("1", "2", "3", "4", "5", "6", "7")] + [("9", 0)], ["9"], [], ["9"], "失败"),
+])
+def test_migration_set_is_compared_exactly(tmp_path, applied, missing, unexpected, failed, keyword):
+    jar = build_jar(tmp_path, CURRENT)
+    migrations = pipeline.jar_migrations(jar)
+    report = pipeline.verify_migrations(migrations, applied, source=migrations)
+    assert report["ok"] is False
+    assert report["missing"] == missing
+    assert report["unexpected"] == unexpected
+    assert report["failed"] == failed
+    assert keyword in report["reason"]
+
+
+def test_jar_and_source_must_match_both_ways(tmp_path):
+    source = pipeline.jar_migrations(build_jar(tmp_path, CURRENT + ["V10__next_feature.sql"],
+                                               "source.jar"))
+    jar = pipeline.jar_migrations(build_jar(tmp_path, CURRENT + ["V11__unexpected.sql"], "jar.jar"))
+    report = pipeline.verify_migrations(jar, [(v, 1) for v in jar], source=source)
+    assert report["ok"] is False
+    assert report["source_not_in_jar"] == ["10"]
+    assert report["jar_not_in_source"] == ["11"]
+
+
+def test_migration_check_reports_versions_without_secrets(tmp_path):
+    jar = build_jar(tmp_path, CURRENT)
+    migrations = pipeline.jar_migrations(jar)
+    report = pipeline.verify_migrations(migrations, [(v, 1) for v in migrations],
+                                        source=migrations)
+    serialized = json.dumps(report, ensure_ascii=False)
+    assert "V1__" not in serialized           # 报告保留版本，不倾倒文件名清单以外的内容
+    assert "password" not in serialized and "token" not in serialized
+    assert report["expected_versions"] == ["1", "2", "3", "4", "5", "6", "7", "9"]
+
