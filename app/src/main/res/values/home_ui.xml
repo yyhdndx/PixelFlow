@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_create">发布作品</string>
+    <string name="home_community">社区</string>
+    <string name="home_recommendations">为你推荐</string>
+    <string name="home_empty_title">这里还没有作品</string>
+    <string name="home_empty_community">新的分享正在路上，也可以发布你的第一份作品。</string>
+    <string name="home_empty_recommendations">暂时没有推荐内容，先去社区发现喜欢的作品吧。</string>
+    <string name="home_error_title">暂时无法加载</string>
+    <string name="home_recommendations_unavailable">推荐暂时不可用，可以先浏览社区作品。</string>
+    <string name="home_refresh">刷新看看</string>
+    <string name="home_retry">重试</string>
+    <string name="home_end">没有更多了</string>
+    <string name="home_refresh_failed">刷新未完成，已保留当前作品。%1$s</string>
+    <string name="home_page_failed">更多作品未能加载。%1$s</string>
+    <style name="HomeTabLabel" parent="TextAppearance.MaterialComponents.Button">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="HomeNavigationLabel" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">11sp</item>
+    </style>
+</resources>

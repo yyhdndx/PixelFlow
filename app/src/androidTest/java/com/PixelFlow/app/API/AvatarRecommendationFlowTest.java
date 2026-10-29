@@ -196,7 +196,7 @@ public class AvatarRecommendationFlowTest {
             assertFalse((Boolean) field(f, "requestInFlight"));
             assertEquals(1, ((WaterfallAdapter) field(f, "adapter")).getData().size());
         });
-        screen.onActivity(a -> ((TabLayout) a.findViewById(R.id.tab_layout)).getTabAt(4).select());
+        screen.onActivity(a -> ((TabLayout) a.findViewById(R.id.tab_layout)).getTabAt(1).select());
         await(a -> { assertEquals(1, recommendations.get()); assertFalse((Boolean) field(fragment(a, HomeFragment.class), "requestInFlight")); });
         screen.onActivity(a -> assertEquals("failed recommendation must not reuse another tab's rows", 0,
                 ((WaterfallAdapter) field(fragment(a, HomeFragment.class), "adapter")).getData().size()));
@@ -260,11 +260,11 @@ public class AvatarRecommendationFlowTest {
         });
     }
     @Test public void recommendationRetryShowsResultsAndCommunityFailureDoesNotKeepThem() {
-        screen = ActivityScenario.launch(MainActivity.class); feedReady(1); selectTab(4); feedReady(0);
+        screen = ActivityScenario.launch(MainActivity.class); feedReady(1); selectTab(1); feedReady(0);
         recommendationsOk = true;
         screen.onActivity(a -> a.findViewById(R.id.retry_button).performClick()); feedReady(1);
         screen.onActivity(a -> assertEquals(View.VISIBLE, a.findViewById(R.id.rec_banner).getVisibility()));
-        failFeed = true; selectTab(3); feedReady(0);
+        failFeed = true; selectTab(0); feedReady(0);
         screen.onActivity(a -> {
             assertEquals(View.GONE, a.findViewById(R.id.rec_banner).getVisibility());
             assertEquals(View.VISIBLE, a.findViewById(R.id.empty_state_layout).getVisibility());
@@ -272,9 +272,9 @@ public class AvatarRecommendationFlowTest {
     }
     @Test public void emptyRecommendationShowsEmptyStateWithoutRepeatedAutoLoads() {
         recommendationsOk = true; emptyRecommendations = true;
-        screen = ActivityScenario.launch(MainActivity.class); feedReady(1); selectTab(4); feedReady(0);
+        screen = ActivityScenario.launch(MainActivity.class); feedReady(1); selectTab(1); feedReady(0);
         screen.onActivity(a -> {
-            assertEquals(a.getString(R.string.nullContent), ((android.widget.TextView) a.findViewById(R.id.feed_state_message)).getText().toString());
+            assertEquals(a.getString(R.string.home_empty_recommendations), ((android.widget.TextView) a.findViewById(R.id.feed_state_message)).getText().toString());
             assertFalse((Boolean) field(fragment(a, HomeFragment.class), "hasMoreData"));
             invoke(fragment(a, HomeFragment.class), "loadData", new Class<?>[]{boolean.class}, false);
         });

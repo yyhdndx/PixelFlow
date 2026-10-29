@@ -20,23 +20,29 @@
         android:layout_alignParentBottom="true"
         android:background="@android:color/white"
         app:menu="@menu/bottom_nav_menu"
-        app:elevation="6dp"
+        app:elevation="0dp"
+        app:labelVisibilityMode="labeled"
+        app:itemIconSize="20dp"
+        app:itemTextAppearanceActive="@style/HomeNavigationLabel"
+        app:itemTextAppearanceInactive="@style/HomeNavigationLabel"
         app:itemIconTint="@color/nav_item_color"
         app:itemTextColor="@color/nav_item_color" />
 
-    <!-- 相机按钮 -->
+    <!-- 相机按钮：填满导航内容区高度，与导航项垂直居中对齐 -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab_camera"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_above="@id/bottom_navigation"
+        android:layout_alignTop="@id/bottom_navigation"
         android:layout_centerHorizontal="true"
-        android:layout_marginBottom="16dp"
-        android:src="@android:drawable/ic_menu_camera"
-        android:contentDescription="@string/camera"
+        android:src="@android:drawable/ic_input_add"
+        android:contentDescription="@string/home_create"
+        app:fabCustomSize="56dp"
+        app:maxImageSize="24dp"
+        app:useCompatPadding="false"
         app:backgroundTint="@color/profile_accent"
         app:tint="@android:color/white"
-        app:elevation="8dp"
+        app:elevation="0dp"
         app:rippleColor="@color/profile_soft" />
 
 </RelativeLayout>

@@ -802,7 +802,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
     private void loadInteractionState() {
         refreshServerLike();
-        refreshServerFollow();
+        // 游客也能看详情：不读取需要登录的关注状态，避免弹出登录提示。
+        if (ApiClient.getInstance(this).isLoggedIn()) refreshServerFollow();
     }
 
     private boolean canUpdateInteraction() { return !isFinishing() && !isDestroyed(); }
@@ -1162,7 +1163,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         boolean hasAuthor = workItem.getAuthor() != null && workItem.getAuthor().getUserId() != null
                 && !workItem.getAuthor().getUserId().isEmpty();
         boolean followingNow = followLoaded && following;
-        followButton.setEnabled(hasAuthor && followLoaded && !followSaving);
+        followButton.setEnabled(hasAuthor && !followSaving);
         followButton.setText(!hasAuthor ? "作者信息缺失" : followingNow ? "已关注" : "关注");
         followButton.setBackgroundColor(getResources().getColor(
                 followingNow ? R.color.gray_200 : android.R.color.transparent));
@@ -1172,6 +1173,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     }
 
     private void refreshServerFollow() {
+        // 未登录时直接展示可点击的“关注”按钮，点击时跳转登录，不请求关注状态也不弹提示。
+        if (!ApiClient.getInstance(this).isLoggedIn()) { updateFollowButton(); return; }
         String userId = workItem.getAuthor() == null ? null : workItem.getAuthor().getUserId();
         if (userId == null || userId.isEmpty()) { updateFollowButton(); return; }
         if (followJob != null) followJob.cancel();
@@ -1204,11 +1207,11 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         if (followSaving) return;
         String userId = workItem.getAuthor() == null ? null : workItem.getAuthor().getUserId();
         if (userId == null || userId.isEmpty()) return;
-        if (!followLoaded) { refreshServerFollow(); return; }
         if (!ApiClient.getInstance(this).isLoggedIn()) {
             startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
             return;
         }
+        if (!followLoaded) { refreshServerFollow(); return; }
         boolean target = !following;
         following = target;
         followSaving = true;
@@ -1364,11 +1367,11 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
     private void toggleLikeStatus() {
         if (likeSaving) return;
-        if (loadedLike == null) { refreshServerLike(); return; }
         if (!ApiClient.getInstance(this).isLoggedIn()) {
             startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
             return;
         }
+        if (loadedLike == null) { refreshServerLike(); return; }
         likeSaving = true;
         isChanged = true;
         updateLikeButton();

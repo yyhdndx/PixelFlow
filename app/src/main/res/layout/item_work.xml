@@ -3,123 +3,61 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="1dp"
+    android:layout_margin="4dp"
     android:foreground="?attr/selectableItemBackground"
-    app:cardCornerRadius="0dp"
+    app:cardCornerRadius="8dp"
+    app:cardBackgroundColor="@color/profile_surface"
     app:cardElevation="0dp"
     app:cardUseCompatPadding="false"
     app:cardPreventCornerOverlap="false">
 
-<LinearLayout
-android:layout_width="match_parent"
-android:layout_height="wrap_content"
-android:orientation="vertical"
-android:background="?attr/selectableItemBackground"
-android:clipChildren="true"
-android:clipToPadding="true">
-
-<!-- 图片容器 -->
-<FrameLayout
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:clipChildren="true"
-    android:clipToPadding="true">
-
-    <!-- 图片 -->
-    <ImageView
-        android:id="@+id/cover_image"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:scaleType="centerCrop"
-        android:adjustViewBounds="false"
-        android:contentDescription="@string/workOutline"
-        android:background="@color/gray_100" />
-
-</FrameLayout>
-
-<!-- 内容区域 -->
-<LinearLayout
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="6dp">
-
-    <!-- 标题 -->
-    <TextView
-        android:id="@+id/title_text"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="12sp"
-        android:textStyle="bold"
-        android:textColor="#222222"
-        android:maxLines="2"
-        android:ellipsize="end"
-        android:lineSpacingExtra="1dp"
-        android:paddingBottom="3dp" />
-
-    <!-- 作者与点赞 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:orientation="vertical"
+        android:clipChildren="true"
+        android:clipToPadding="true">
 
-        <!-- 作者信息 -->
-        <LinearLayout
-            android:layout_width="0dp"
+        <!-- 图片：铺满卡片宽度，圆角由 CardView 裁剪 -->
+        <ImageView
+            android:id="@+id/cover_image"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:scaleType="centerCrop"
+            android:adjustViewBounds="false"
+            android:contentDescription="@string/workOutline"
+            android:background="@color/gray_100" />
 
-            <!-- 作者头像 -->
-            <ImageView
-                android:id="@+id/author_avatar"
-                android:layout_width="14dp"
-                android:layout_height="14dp"
-                android:scaleType="centerCrop"
-                android:clipToOutline="true"
-                android:background="@drawable/circle_bg_gray"
-                android:contentDescription="@string/authorAvatar" />
-
-            <!-- 作者名 -->
-            <TextView
-                android:id="@+id/author_name"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:textSize="10sp"
-                android:textColor="#666666"
-                android:maxLines="1"
-                android:ellipsize="end" />
-        </LinearLayout>
-
-        <!-- 点赞区域 -->
+        <!-- 标题 + 点赞：同行排列，避免图标与文字重叠 -->
         <LinearLayout
-            android:id="@+id/like_container"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:paddingStart="8dp"
+            android:paddingEnd="6dp"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp">
+
+            <TextView
+                android:id="@+id/title_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/profile_ink"
+                android:maxLines="1"
+                android:ellipsize="end" />
 
             <ImageView
                 android:id="@+id/like_icon"
-                android:layout_width="12dp"
-                android:layout_height="12dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_marginStart="8dp"
                 android:src="@drawable/ic_thumb_up_outline"
+                android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/praise" />
-
-            <TextView
-                android:id="@+id/like_count"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="2dp"
-                android:textSize="10sp"
-                android:textColor="#666666"
-                android:fontFamily="sans-serif" />
-
         </LinearLayout>
     </LinearLayout>
-</LinearLayout>
-</LinearLayout>
-    </androidx.cardview.widget.CardView>
+</androidx.cardview.widget.CardView>

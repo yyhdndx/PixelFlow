@@ -17,6 +17,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 
 import com.PixelFlow.app.API.ApiClient;
 import com.PixelFlow.app.API.CommunityClient;
@@ -40,11 +41,13 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
     private static final int TYPE_ITEM = 0;
     private static final int TYPE_LOADING = 1;
+    private static final int TYPE_END = 2;
     public static final int REQUEST_CODE_DETAIL = 1001; // 改为public，方便外部使用
 
     private Context context;
     private List<WorkItem> workItems;
     private boolean isLoading = false;
+    private boolean endVisible = false;
     private final java.util.Map<String, CommunityClient.Job> likeJobs = new java.util.HashMap<>();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private boolean released;
@@ -83,6 +86,13 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         if (viewType == TYPE_LOADING) {
             View view = LayoutInflater.from(context).inflate(R.layout.item_loading_more, parent, false);
             return new LoadingViewHolder(view);
+        } else if (viewType == TYPE_END) {
+            View view = LayoutInflater.from(context).inflate(R.layout.item_end, parent, false);
+            StaggeredGridLayoutManager.LayoutParams lp = new StaggeredGridLayoutManager.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.setFullSpan(true);
+            view.setLayoutParams(lp);
+            return new EndViewHolder(view);
         } else {
             View view = LayoutInflater.from(context).inflate(R.layout.item_work, parent, false);
             return new WorkViewHolder(view);
@@ -102,16 +112,20 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 onWorkActionListener.onLoadMore();
             }
         }
+        // 末尾“没有更多了”提示无需绑定数据
     }
 
     @Override
     public int getItemCount() {
-        return workItems.size() + (isLoading ? 1 : 0);
+        return workItems.size() + ((isLoading || endVisible) ? 1 : 0);
     }
 
     @Override
     public int getItemViewType(int position) {
-        return (position == workItems.size() && isLoading) ? TYPE_LOADING : TYPE_ITEM;
+        if (position == workItems.size() && (isLoading || endVisible)) {
+            return isLoading ? TYPE_LOADING : TYPE_END;
+        }
+        return TYPE_ITEM;
     }
 
     // 数据操作方法
@@ -131,13 +145,24 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     public void setLoading(boolean loading) {
-        if (isLoading != loading) {
-            isLoading = loading;
-            if (loading) {
-                notifyItemInserted(workItems.size());
-            } else {
-                notifyItemRemoved(workItems.size());
-            }
+        boolean hadFooter = isLoading || endVisible;
+        isLoading = loading;
+        if (loading) endVisible = false;
+        boolean hasFooter = isLoading || endVisible;
+        if (hadFooter != hasFooter) {
+            if (hasFooter) notifyItemInserted(workItems.size());
+            else notifyItemRemoved(workItems.size());
+        }
+    }
+
+    public void setEndVisible(boolean visible) {
+        boolean hadFooter = isLoading || endVisible;
+        endVisible = visible;
+        if (visible) isLoading = false;
+        boolean hasFooter = isLoading || endVisible;
+        if (hadFooter != hasFooter) {
+            if (hasFooter) notifyItemInserted(workItems.size());
+            else notifyItemRemoved(workItems.size());
         }
     }
 
@@ -201,21 +226,13 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     class WorkViewHolder extends RecyclerView.ViewHolder {
         ImageView coverImage;
         TextView titleText;
-        ImageView authorAvatar;
-        TextView authorName;
         ImageView likeIcon;
-        TextView likeCount;
-        View likeContainer;
 
         WorkViewHolder(@NonNull View itemView) {
             super(itemView);
             coverImage = itemView.findViewById(R.id.cover_image);
             titleText = itemView.findViewById(R.id.title_text);
-            authorAvatar = itemView.findViewById(R.id.author_avatar);
-            authorName = itemView.findViewById(R.id.author_name);
             likeIcon = itemView.findViewById(R.id.like_icon);
-            likeCount = itemView.findViewById(R.id.like_count);
-            likeContainer = itemView.findViewById(R.id.like_container);
         }
 
         private void loadImageSafely(String url, ImageView imageView,
@@ -303,11 +320,9 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
             int screenWidth = displayMetrics.widthPixels;
 
-            // 计算每个卡片的宽度（考虑间距）
-            // 新间距计算：左padding(4dp) + 右padding(4dp) + 卡片间距(2dp*2) = 12dp
-            int totalPaddingDp = 12;
-            int totalPaddingPx = (int) (totalPaddingDp * displayMetrics.density);
-            int itemWidth = (screenWidth - totalPaddingPx) / 2;
+            // 双列卡片：扣除卡片左右 4dp 边距后计算内容宽度，卡片之间留出间隙。
+            int cardMargin = (int) (4 * displayMetrics.density);
+            int itemWidth = screenWidth / 2 - cardMargin * 2;
 
             // 设置图片尺寸（保持3:4比例）
             int itemHeight = (int) (itemWidth * 1.33f);
@@ -343,20 +358,11 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             // 设置标题/正文
             titleText.setText(workItem.getTitle());
 
-            // 设置作者信息
-            authorName.setText(workItem.getAuthorName());
-            Glide.with(context)
-                    .load(workItem.getAuthorAvatarUrl())
-                    .placeholder(R.drawable.ic_avatar_placeholder)
-                    .circleCrop()
-                    .override(80, 80)  // 减小头像加载尺寸
-                    .into(authorAvatar);
-
             // 设置点赞状态
             updateLikeUI(workItem);
 
             // 点赞按钮点击事件
-            likeContainer.setOnClickListener(v -> {
+            likeIcon.setOnClickListener(v -> {
                 if (onWorkActionListener != null) {
                     int current = getBindingAdapterPosition();
                     if (current != RecyclerView.NO_POSITION)
@@ -376,9 +382,8 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 likeIcon.setColorFilter(context.getResources().getColor(android.R.color.holo_red_dark));
             } else {
                 likeIcon.setImageResource(R.drawable.ic_thumb_up_outline);
-                likeIcon.setColorFilter(context.getResources().getColor(android.R.color.darker_gray));
+                likeIcon.setColorFilter(context.getResources().getColor(R.color.gray_600));
             }
-            likeCount.setText(String.valueOf(workItem.getLikeCount()));
         }
 
         private void openDetailPageWithAnimation(WorkItem workItem, int position) {
@@ -422,6 +427,13 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     // 加载更多ViewHolder
     static class LoadingViewHolder extends RecyclerView.ViewHolder {
         LoadingViewHolder(@NonNull View itemView) {
+            super(itemView);
+        }
+    }
+
+    // 没有更多了ViewHolder
+    static class EndViewHolder extends RecyclerView.ViewHolder {
+        EndViewHolder(@NonNull View itemView) {
             super(itemView);
         }
     }

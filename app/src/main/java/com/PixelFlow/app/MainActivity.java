@@ -18,6 +18,7 @@ import android.widget.FrameLayout;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
+import com.PixelFlow.app.API.ApiClient;
 import com.PixelFlow.app.ButtonFragment.HomeFragment;
 import com.PixelFlow.app.ButtonFragment.ProfileFragment;
 import com.PixelFlow.app.Streams.PreloadManager;
@@ -53,7 +54,7 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
 
         // 默认显示首页
         if (savedInstanceState == null) {
-            showFragment(HomeFragment.newInstance());
+            // The navigation listener creates the page; avoid two initial Home fragments/requests.
             bottomNavigationView.setSelectedItemId(R.id.nav_home);
         }
 
@@ -197,6 +198,11 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
     }
 
     private void showCreateOptions() {
+        // 未登录时直接跳转登录页，与点赞/关注保持一致，不弹提示框。
+        if (!ApiClient.getInstance(this).isLoggedIn()) {
+            startActivity(new Intent(this, AccountActivity.class));
+            return;
+        }
         androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
         builder.setTitle("创建作品");
         builder.setMessage("选择创建方式");
@@ -242,10 +248,7 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
     // 实现HomeFragment的滚动监听接口
     @Override
     public void onScrollDown() {
-        // 向下滚动时隐藏FAB
-        if (isFabVisible && fabCamera != null) {
-            hideFab();
-        }
+        // 发布入口已移入底部导航，不遮挡作品，滚动时保持可用。
     }
 
     @Override
