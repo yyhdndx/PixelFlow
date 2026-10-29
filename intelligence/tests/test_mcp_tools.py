@@ -1,5 +1,6 @@
 """Unit tests for the creator MCP tools (no network, no Java process)."""
 import asyncio
+import base64
 import json
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from pixelflow_intelligence.mcp.audit import AuditLog
 from pixelflow_intelligence.mcp.auth import ScopeError
 from pixelflow_intelligence.mcp.config import McpSettings
 from pixelflow_intelligence.mcp.gateway import GatewayError
+from pixelflow_intelligence.mcp.remote import StaticTokenVerifier, require_http_token
 from pixelflow_intelligence.mcp.server import create_server
 from pixelflow_intelligence.mcp.tools import CreatorTools, ToolError
 
@@ -179,3 +181,46 @@ def test_server_registers_six_named_tools(tmp_path):
         "upload_media", "create_post_draft", "update_post_draft",
         "submit_post_for_review", "withdraw_post", "list_my_posts"}
     assert all(tool.description for tool in listed)
+
+
+def test_upload_media_accepts_base64_for_remote_mode(tmp_path):
+    tools, _ = make_tools(tmp_path)
+    result = tools.upload_media(content_base64=base64.b64encode(PNG).decode(),
+                                filename="cover.png")
+    assert result["media_id"] == "m_1" and result["content_type"] == "image/png"
+    with pytest.raises(ToolError) as both:
+        tools.upload_media(file_path=str(tmp_path / "a.png"),
+                           content_base64=base64.b64encode(PNG).decode())
+    assert both.value.code == "INVALID_ARGUMENT"
+    with pytest.raises(ToolError):
+        tools.upload_media(content_base64="not-base64!", filename="cover.png")
+    with pytest.raises(ToolError):
+        tools.upload_media(content_base64=base64.b64encode(PNG).decode(), filename="cover.gif")
+
+
+def test_remote_mode_requires_a_strong_bearer_token():
+    with pytest.raises(ValueError):
+        require_http_token("")
+    with pytest.raises(ValueError):
+        require_http_token("too-short")
+    token = "t" * 40
+    assert require_http_token(token) == token
+    with pytest.raises(ValueError):
+        McpSettings(http_token="short")
+
+
+def test_static_token_verifier_accepts_only_the_configured_token():
+    token = "s" * 40
+    verifier = StaticTokenVerifier(token)
+    accepted = asyncio.run(verifier.verify_token(token))
+    assert accepted is not None and accepted.client_id == "pixelflow-agent"
+    assert asyncio.run(verifier.verify_token("x" * 40)) is None
+    assert asyncio.run(verifier.verify_token("")) is None
+
+
+def test_http_server_is_built_with_the_verifier(tmp_path):
+    tools, _ = make_tools(tmp_path)
+    settings = McpSettings(username="mcp_creator", password="secret-value")
+    server = create_server(settings, tools, http_token="h" * 40)
+    listed = asyncio.run(server.list_tools())
+    assert len(listed) == 6

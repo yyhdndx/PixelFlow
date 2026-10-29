@@ -36,12 +36,17 @@
 
 | 检查 | 结果 |
 | --- | --- |
-| 新增单元测试 `tests/test_mcp_tools.py` | **8 passed**（入参校验、scope 拒绝、审计脱敏、6 个工具注册、上游错误脱敏） |
-| Python 全量回归 | **207 passed, 6 skipped**（原 199 + 新增 8；跳过仍是未配置 MySQL 的分析套件） |
+| 新增单元测试 `tests/test_mcp_tools.py` | **12 passed**（入参校验、scope 拒绝、审计脱敏、6 工具注册、base64 上传、Bearer 校验、远程模式强制 token） |
+| Python 全量回归 | **211 passed, 6 skipped**（原 199 + 新增 12；跳过仍是未配置 MySQL 的分析套件） |
 | Java 代码改动 | **无**（`git status` 中 `server/` 无变更，原测试基线不受影响） |
-| 端到端（真实 Java + MySQL） | 上传 → 建草稿（post_id=34）→ 列表回查命中 → 提交审核 `PENDING` → 撤回 `WITHDRAWN` |
-| MCP 协议（官方客户端 stdio） | 握手成功，`tools/list` 返回 6 个工具，`tools/call list_my_posts` 返回真实作品 |
+| 端到端（真实 Java + MySQL，stdio） | 上传 → 建草稿（post_id=34）→ 列表回查命中 → 提交审核 `PENDING` → 撤回 `WITHDRAWN` |
+| 端到端（远程 Streamable HTTP，Bearer） | 无 token / 错 token → **401**；正确 token → 6 个工具、base64 上传、建稿（post_id=35）、提交 `PENDING`、列表命中 |
 | 审计日志 | 每次调用一行 JSONL，含工具、账号、状态、耗时与 `post_id`；无标题正文、无密码 |
+
+远程模式的验证方式：`--transport streamable-http --port 18766` 启动后，
+`GET /mcp` 无 token 与错 token 均返回 401、正确 token 返回 400（缺少 MCP 会话头，属预期）；
+再用官方 MCP 客户端带 `Authorization: Bearer` 完成 `initialize → tools/list → tools/call`，
+依次调用 `upload_media(content_base64) → create_post_draft → submit_post_for_review → list_my_posts`。
 
 端到端步骤（可复跑）：
 
@@ -61,11 +66,11 @@ submit_post_for_review / withdraw_post`。
 
 ## 依赖处理
 
-`mcp==2.3.0` 会要求 `pydantic>=2.12`、`starlette>=0.27`、`httpx2` 等。为避免升级既有锁定版本，实际做法是：
+`mcp==2.3.0` 会要求 `pydantic>=2.12`、`starlette>=0.27`、`httpx2`/`httpcore2` 等。为避免升级既有锁定版本，实际做法是：
 
 1. 先 `uv pip sync requirements-lock.txt` 把环境恢复到锁定状态；
-2. 再以 `--no-deps` 安装 `mcp` 及其**新增**依赖（`mcp-types`、`httpx2`、`jsonschema`、`pyjwt`、
-   `python-multipart`、`sse-starlette`、`truststore`、`referencing`、`rpds-py`、`attrs`、`pywin32`）；
+2. 再以 `--no-deps` 安装 `mcp` 及其**新增**依赖（`mcp-types`、`httpx2`、`httpcore2`、`jsonschema`、
+   `pyjwt`、`python-multipart`、`sse-starlette`、`truststore`、`referencing`、`rpds-py`、`attrs`、`pywin32`）；
 3. `requirements-lock.txt` 采用**追加段落**记录这些新增包，上面既有版本一字未改；
 4. `pyproject.toml` 把 MCP 放进可选依赖组 `[mcp]`，不装 MCP 的部署不受影响。
 

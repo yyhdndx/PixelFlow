@@ -20,6 +20,8 @@ class McpSettings:
     scopes: frozenset[str] = frozenset(SUPPORTED_SCOPES)
     audit_log: str = field(default="", repr=False)
     timeout_seconds: float = 8.0
+    http_token: str = field(default="", repr=False)
+    public_url: str = "http://127.0.0.1:8765"
 
     def __post_init__(self):
         url = urlsplit(self.java_url)
@@ -31,6 +33,12 @@ class McpSettings:
             raise ValueError(f"未知 scope：{sorted(unknown)}")
         if not 1.0 <= float(self.timeout_seconds) <= 30.0:
             raise ValueError("PIXELFLOW_MCP_TIMEOUT 必须在 1 到 30 秒之间")
+        if self.http_token and (len(self.http_token) < 32 or not self.http_token.isascii()
+                               or self.http_token.strip() != self.http_token):
+            raise ValueError("PIXELFLOW_MCP_HTTP_TOKEN 必须是至少 32 位可打印 ASCII，且首尾无空白")
+        public = urlsplit(self.public_url)
+        if public.scheme not in {"http", "https"} or not public.hostname:
+            raise ValueError("PIXELFLOW_MCP_PUBLIC_URL 必须是 HTTP(S) origin")
 
     @classmethod
     def from_env(cls) -> "McpSettings":
@@ -42,6 +50,8 @@ class McpSettings:
             scopes=frozenset(item.strip() for item in raw_scopes.split(",") if item.strip()),
             audit_log=os.getenv("PIXELFLOW_MCP_AUDIT_LOG", ""),
             timeout_seconds=float(os.getenv("PIXELFLOW_MCP_TIMEOUT", "8")),
+            http_token=os.getenv("PIXELFLOW_MCP_HTTP_TOKEN", ""),
+            public_url=os.getenv("PIXELFLOW_MCP_PUBLIC_URL", "http://127.0.0.1:8765"),
         )
 
     def require_credentials(self) -> None:

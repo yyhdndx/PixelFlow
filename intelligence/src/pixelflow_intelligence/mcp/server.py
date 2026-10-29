@@ -1,12 +1,18 @@
-"""MCP server assembly: six creator tools over a stdio or HTTP transport."""
+"""MCP server assembly: six creator tools over stdio or Streamable HTTP.
+
+stdio trusts the OS process boundary. The HTTP transport additionally requires a
+pre-shared bearer token, verified before any tool runs.
+"""
 from __future__ import annotations
 
+from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver import MCPServer
 
 from .audit import AuditLog
 from .auth import ServiceAccount
 from .config import McpSettings
 from .gateway import JavaGateway
+from .remote import StaticTokenVerifier
 from .tools import CreatorTools
 
 INSTRUCTIONS = (
@@ -16,7 +22,7 @@ INSTRUCTIONS = (
 )
 
 TOOL_DESCRIPTIONS = {
-    "upload_media": "上传一张本地 PNG/JPEG 图片（≤8MB），返回 media_id 供草稿引用。",
+    "upload_media": "上传一张 PNG/JPEG 图片（≤8MB）：本地路径或 base64 二选一，返回 media_id。",
     "create_post_draft": "创建一篇作品草稿，返回 post_id；支持 idempotency_key 重试去重。",
     "update_post_draft": "修改自己的草稿/被驳回作品；仅 DRAFT、REJECTED、WITHDRAWN 可改。",
     "submit_post_for_review": "提交作品审核，状态变为 PENDING（不会直接公开）。",
@@ -26,14 +32,20 @@ TOOL_DESCRIPTIONS = {
 
 
 def create_server(settings: McpSettings | None = None,
-                  tools: CreatorTools | None = None) -> MCPServer:
+                  tools: CreatorTools | None = None,
+                  http_token: str = "") -> MCPServer:
     settings = settings or McpSettings.from_env()
     settings.require_credentials()
     account = ServiceAccount(settings)
     creator = tools or CreatorTools(JavaGateway(settings, account), account,
                                     AuditLog(settings.audit_log))
+    verifier = StaticTokenVerifier(http_token) if http_token else None
+    auth = AuthSettings(issuer_url=settings.public_url,
+                        resource_server_url=settings.public_url,
+                        validate_token_resource=False) if http_token else None
     server = MCPServer(name="pixelflow-creator", title="PixelFlow 创作者工具",
-                       version="0.1.0", instructions=INSTRUCTIONS)
+                       version="0.1.0", instructions=INSTRUCTIONS,
+                       token_verifier=verifier, auth=auth)
     for name in ("upload_media", "create_post_draft", "update_post_draft",
                  "submit_post_for_review", "withdraw_post", "list_my_posts"):
         server.add_tool(getattr(creator, name), name=name,

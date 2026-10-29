@@ -7,6 +7,8 @@ to a database directly.
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import re
 import time
 import uuid
@@ -101,22 +103,42 @@ class CreatorTools:
         return result
 
     # -- 1. media ----------------------------------------------------------
-    def upload_media(self, file_path: str) -> dict:
-        """上传一张本地图片（PNG/JPEG，≤8MB），返回 media_id 供草稿引用。"""
+    def upload_media(self, file_path: str | None = None, content_base64: str | None = None,
+                     filename: str | None = None) -> dict:
+        """上传一张图片（PNG/JPEG，≤8MB）：本地绝对路径或 base64 二选一。
+
+        远程模式（MCP 跑在服务器上）用 ``content_base64`` + ``filename``；本地
+        stdio 模式可以直接给 ``file_path``。
+        """
         def action():
-            path = Path(file_path).expanduser()
-            if not path.is_absolute():
-                raise ToolError("INVALID_ARGUMENT", "file_path 必须是绝对路径")
-            if not path.is_file():
-                raise ToolError("INVALID_ARGUMENT", "file_path 指向的文件不存在")
-            content_type = ALLOWED_IMAGES.get(path.suffix.lower())
-            if not content_type:
-                raise ToolError("INVALID_ARGUMENT", "仅支持 PNG 或 JPEG 图片")
-            size = path.stat().st_size
-            if size > MAX_IMAGE_BYTES:
+            if bool(file_path) == bool(content_base64):
+                raise ToolError("INVALID_ARGUMENT",
+                                "file_path 与 content_base64 必须二选一，且只能提供其中一个")
+            if file_path:
+                path = Path(file_path).expanduser()
+                if not path.is_absolute():
+                    raise ToolError("INVALID_ARGUMENT", "file_path 必须是绝对路径")
+                if not path.is_file():
+                    raise ToolError("INVALID_ARGUMENT", "file_path 指向的文件不存在")
+                name = path.name
+                content_type = ALLOWED_IMAGES.get(path.suffix.lower())
+                if not content_type:
+                    raise ToolError("INVALID_ARGUMENT", "仅支持 PNG 或 JPEG 图片")
+                content = path.read_bytes()
+            else:
+                name = (filename or "").strip()
+                if not name or "/" in name or "\\" in name:
+                    raise ToolError("INVALID_ARGUMENT", "filename 必须是纯文件名")
+                content_type = ALLOWED_IMAGES.get(Path(name).suffix.lower())
+                if not content_type:
+                    raise ToolError("INVALID_ARGUMENT", "filename 需以 .png/.jpg/.jpeg 结尾")
+                try:
+                    content = base64.b64decode(content_base64, validate=True)
+                except (binascii.Error, ValueError):
+                    raise ToolError("INVALID_ARGUMENT", "content_base64 不是合法的 base64") from None
+            if len(content) > MAX_IMAGE_BYTES:
                 raise ToolError("MEDIA_TOO_LARGE", "图片超过 8MB 上限")
-            content = path.read_bytes()
-            body = self.gateway.upload_media(path.name, content, content_type)
+            body = self.gateway.upload_media(name, content, content_type)
             return {
                 "media_id": body.get("mediaId"),
                 "width": body.get("width"),
@@ -125,7 +147,9 @@ class CreatorTools:
                 "content_type": body.get("contentType"),
             }
 
-        return self._run("upload_media", "media:write", {"file_path": str(file_path)}, action)
+        params = {"filename": filename or "", "file_path": file_path or "",
+                  "base64_len": len(content_base64 or "")}
+        return self._run("upload_media", "media:write", params, action)
 
     # -- 2. create draft ---------------------------------------------------
     def create_post_draft(self, title: str, content: str, media_ids: list[str] | None = None,

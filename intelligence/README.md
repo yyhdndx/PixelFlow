@@ -125,15 +125,21 @@ Cursor、Trae 等）调用；规划与多轮对话在客户端，服务端只提
 # 可选依赖组：只新增 MCP SDK，不升级分析服务现有锁定版本
 pip install -e ".[mcp]"
 
-# stdio（桌面客户端直接拉起）
+# 远程部署（推荐）：Streamable HTTP，必须带 Bearer token
 $env:PIXELFLOW_MCP_JAVA_URL='http://127.0.0.1:8080'
 $env:PIXELFLOW_MCP_SERVICE_USERNAME='mcp_creator'
 $env:PIXELFLOW_MCP_SERVICE_PASSWORD='<服务账号密码>'
-.\.venv\Scripts\python.exe -m pixelflow_intelligence.mcp
+$env:PIXELFLOW_MCP_HTTP_TOKEN='<至少 32 位随机 ASCII>'
+$env:PIXELFLOW_MCP_PUBLIC_URL='https://pixelflow.example.com'
+.\.venv\Scripts\python.exe -m pixelflow_intelligence.mcp --transport streamable-http --host 127.0.0.1 --port 8765
 
-# 远程 / 多客户端
-.\.venv\Scripts\python.exe -m pixelflow_intelligence.mcp --transport streamable-http --port 8765
+# 本机 stdio（桌面客户端直接拉起，无需 HTTP token）
+.\.venv\Scripts\python.exe -m pixelflow_intelligence.mcp
 ```
+
+远程模式缺少 `PIXELFLOW_MCP_HTTP_TOKEN` 会**拒绝启动**（退出码 2）；所有 `/mcp` 请求必须带
+`Authorization: Bearer <token>`，否则 401。Nginx/TLS、systemd 与轮换步骤见
+[MCP 工具契约](../contracts/mcp/README.md) 的“远程部署”一节。
 
 六个工具：`upload_media`、`create_post_draft`、`update_post_draft`、`submit_post_for_review`、
 `withdraw_post`、`list_my_posts`。提交后仅进入 `PENDING`，仍需管理员审核才会公开；服务账号、scope、
