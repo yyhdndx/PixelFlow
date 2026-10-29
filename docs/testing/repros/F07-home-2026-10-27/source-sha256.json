@@ -1,0 +1,10 @@
+{
+  "app/src/main/java/com/PixelFlow/app/ButtonFragment/HomeFragment.java": "45b1dbc7d13ea8013c10c81ddc1cfef424f76020df04c1366c226492d4f26d6d",
+  "app/src/main/java/com/PixelFlow/app/MainActivity.java": "e5ccc7c8054e2675c76860be1dcafed7318237482710a2bd8e4074201941c2de",
+  "app/src/main/res/layout/fragment_home.xml": "1cb0fdbb9399e1146163ab6aba24e95b4f484a75c8c70634d4796195c72db255",
+  "app/src/main/res/layout/item_work.xml": "9bb93f6101ad6fb8b5a3b374a9c3f1b9c31d6330bd9fb2dd428183c203ffcae7",
+  "app/src/main/res/values/home_ui.xml": "407001e1158bfb27e0ba71216624119e9a4b47a58f558285bc3150a28a89ec18",
+  "app/src/androidTest/java/com/PixelFlow/app/API/HomeFeedFlowTest.java": "6679b77bb325df090b1b0a421f973aabca1933cc5daf6bb60e99ed201b65ebb2",
+  "app/src/androidTest/java/com/PixelFlow/app/API/AvatarRecommendationFlowTest.java": "0f39dc37804d0d11ef566f44b5ffe38d6959ab1ed73e019e662b0e7657ab2fa4",
+  "app/src/androidTest/java/com/PixelFlow/app/API/ProfileFlowTest.java": "51999423f4c6d9361cf248f3b8003f7d45cdbe176097e4f2d1345180896935b0"
+}

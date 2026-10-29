@@ -1,0 +1,13 @@
+{
+  "app/src/main/java/com/PixelFlow/app/ButtonFragment/HomeFragment.java": "4adbc39f8516264bd835dbbdf849001fbc7845f5917e430e972ac1b0e20f8f51",
+  "app/src/main/java/com/PixelFlow/app/DetailPage/WorkDetailActivity.java": "bae206502f2473ff6a3e0f861dd6511f6750c14b90b9e138c854165ac67b0de0",
+  "app/src/main/java/com/PixelFlow/app/MainActivity.java": "c5e3170eb2943eb395155d86df25a6cbf829174bf92419ada2bb2509935a0c87",
+  "app/src/main/java/com/PixelFlow/app/Streams/WaterfallAdapter.java": "5fd278e532444b3ef8849c8748d522cf15f76a014b8211d32335d6b727187bb6",
+  "app/src/main/res/layout/activity_main.xml": "fb417cad227dc612054ea99ebb9825bdc525180397806f2d6ff2537d5de1149b",
+  "app/src/main/res/layout/fragment_home.xml": "3bc127706cb0ed4efb7d6471333181c1a274d04e035c46565e169615a7ab5c13",
+  "app/src/main/res/layout/item_work.xml": "8c5a912f0a493feb7a6017c94a162e1a75de9782fd367bac2826346610b55677",
+  "app/src/main/res/layout/item_end.xml": "df0e4d830d2e9d26e3afa714b7a3926eb2ecbda4af76f59e489af104b70dbde5",
+  "app/src/main/res/values/home_ui.xml": "fcf60230b3a22d33b8dee3538917a5406be31ec250de8c07df6efd4357ae9ebf",
+  "app/src/androidTest/java/com/PixelFlow/app/API/HomeFeedFlowTest.java": "e3d4dec8dc09d95333e252b747c291ceed638199e8c0d6380cab7c3769be9902",
+  "app/src/androidTest/java/com/PixelFlow/app/API/AvatarRecommendationFlowTest.java": "0f39dc37804d0d11ef566f44b5ffe38d6959ab1ed73e019e662b0e7657ab2fa4"
+}

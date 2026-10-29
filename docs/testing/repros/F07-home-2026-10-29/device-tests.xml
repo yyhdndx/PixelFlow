@@ -1,0 +1,35 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuite name="FrontendPushAcceptance" tests="32" failures="0" errors="0" skipped="0">
+  <testcase name="accountChangeAfterUploadDoesNotSetAvatarOrAcceptOldPicker" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="3.821" />
+  <testcase name="failedRecommendationMustNotDisplayCommunityItems" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="1.569" />
+  <testcase name="uploadFinishesAfterTabNavigationAndReturningProfileReadsIt" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="1.963" />
+  <testcase name="pickerResultBeforeOnResumeMustStillUpload" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="1.981" />
+  <testcase name="confirmedClearMustSurviveLeavingPage" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="47.516" />
+  <testcase name="uploadSurvivesRotationAndReconcilesNewView" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="1.776" />
+  <testcase name="accountChangeDuringCompressionDoesNotStartUpload" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="1.726" />
+  <testcase name="committedWriteErrorReReadsAvatarAndAllowsNextOperation" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="2.566" />
+  <testcase name="emptyRecommendationShowsEmptyStateWithoutRepeatedAutoLoads" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="1.364" />
+  <testcase name="recommendationRetryShowsResultsAndCommunityFailureDoesNotKeepThem" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="2.394" />
+  <testcase name="avatarWorksWhileProfileRemainsResumed_control" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="1.644" />
+  <testcase name="statisticsFailureKeepsUnknownAndLogoutDoesNotLeakPreviousProfile" classname="com.PixelFlow.app.API.ProfileFlowTest" time="6.095" />
+  <testcase name="loginEditRotateSaveAndReenterReadsServer" classname="com.PixelFlow.app.API.ProfileFlowTest" time="7.07" />
+  <testcase name="lostWriteResponseIsConfirmedWithoutDuplicatePut" classname="com.PixelFlow.app.API.ProfileFlowTest" time="4.661" />
+  <testcase name="failedSaveKeepsDraftAndVerifiesBeforeRetry" classname="com.PixelFlow.app.API.ProfileFlowTest" time="5.924" />
+  <testcase name="failedReconciliationOnlyAllowsReadRetryBeforeAnotherWrite" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="2.03" />
+  <testcase name="writeResponseFailureReconcilesCommittedStateWithoutResubmitting" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="1.361" />
+  <testcase name="leavingDetailMustNotDiscardQueuedFavoriteWrite" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="1.606" />
+  <testcase name="backgroundReturnWaitsForInflightWriteAndDoesNotDuplicateIt" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="2.258" />
+  <testcase name="switchingAccountsDiscardsTheOldWriteCallback" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="2.339" />
+  <testcase name="favoritesListDetailRemoveAndImmediateReturnReadsUpdatedList" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="6.594" />
+  <testcase name="stoppedReadRestartsWithoutShowingTheOldFavoriteState" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="2.824" />
+  <testcase name="ordinaryFavoriteWriteReadsServerState" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="1.492" />
+  <testcase name="recreationPreservesTheQueuedWriteAndReadsItsResult" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="1.754" />
+  <testcase name="emptyCommunityIsDistinctFromFailure" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="1.37" />
+  <testcase name="recreationPreservesRecommendationSource" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="2.442" />
+  <testcase name="changedAccountDuringRequestReloadsWithoutOldViewerState" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="1.613" />
+  <testcase name="stoppedRequestResumesWithoutStuckSpinner" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="2.106" />
+  <testcase name="unavailableRecommendationExplainsItAndCommunityStillWorks" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="2.487" />
+  <testcase name="failedRefreshRetainsCardsAndRetryStartsAtFirstPage" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="1.708" />
+  <testcase name="failedPaginationRetainsCardsAndRetriesTheSameCursorOnlyOnRequest" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="1.529" />
+  <testcase name="firstPageFailureHasExplicitRetryAndOnlyTwoActualSources" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="2.342" />
+</testsuite>
