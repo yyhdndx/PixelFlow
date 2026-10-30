@@ -5,22 +5,47 @@ Trae 等）。规划、多轮对话与追问由客户端 Agent 承担；服务�
 
 - 传输：**`streamable-http`（远程部署，默认推荐，路径 `/mcp`）** 与 `stdio`（桌面客户端直接拉起）
 - 服务实现：`intelligence/src/pixelflow_intelligence/mcp/`
-- 身份：独立服务账号（Java `users` 表中的真实账号，CREATOR 角色），**不复用任何人的登录态**
+- 身份：**远程默认 OAuth 2.1，每个客户端代表浏览器里登录的那个用户**；stdio 与静态 token 模式使用独立服务账号
 - 业务事实：仍以 Java 服务为准；MCP 层不直接读写数据库
 
 ## 鉴权与权限
 
+三种模式，优先级从高到低：
+
+| 模式 | 客户端如何证明身份 | 业务身份 | 适用 |
+| --- | --- | --- | --- |
+| **OAuth 2.1（远程默认）** | 浏览器登录后拿到的 MCP access token | **登录用户本人** | 服务器部署、真实演示 |
+| 静态 Bearer（设置 `PIXELFLOW_MCP_HTTP_TOKEN`） | 预共享字符串 | 服务账号 `mcp_creator` | 服务对服务、临时排障 |
+| stdio | 操作系统进程边界 | 服务账号 `mcp_creator` | 本机开发 |
+
 | 机制 | 说明 |
 | --- | --- |
-| 客户端鉴权（远程） | 每个请求必须带 `Authorization: Bearer <PIXELFLOW_MCP_HTTP_TOKEN>`；缺失或错误一律 401，且在工具执行前拒绝 |
-| 客户端鉴权（stdio） | 由操作系统进程边界保证，无需额外 token（谁都启动不了别人的进程） |
-| 登录 | 服务账号用 `POST /api/auth/login` 换取 access token，缓存 8 分钟，401 时自动重登一次 |
-| 凭据来源 | 仅环境变量 `PIXELFLOW_MCP_SERVICE_USERNAME` / `PIXELFLOW_MCP_SERVICE_PASSWORD` / `PIXELFLOW_MCP_HTTP_TOKEN`，不写配置文件、不进 Git |
-| Scope | `media:write`、`post:write`、`post:read`，由 `PIXELFLOW_MCP_SCOPES` 控制（逗号分隔） |
+| 授权端点 | `/.well-known/oauth-authorization-server`、`/authorize`、`/token`、`/register`、`/revoke`、`/oauth/login` |
+| 客户端注册 | 动态注册（RFC 7591）开启，`valid_scopes` 为三个业务 scope，默认 `post:read` |
+| PKCE | 强制授权码 + S256；不存 client secret（公共客户端） |
+| 令牌 | MCP access token 1 小时、refresh 30 天；Java token 由 MCP 在到期前 60 秒自动用 refresh 轮换 |
+| Scope | `media:write`、`post:write`、`post:read`，由 OAuth 授权时授予，工具执行前逐个校验 |
 | 越权 | 缺 scope 时工具在转发请求**之前**拒绝，审计记为 `denied` |
+| 凭据 | 用户密码只在登录表单提交一次、直接转发给 Java `/api/auth/login`，**不落盘、不写日志**；MCP 只保留 Java 令牌 |
+| 撤销 | `POST /revoke` 撤销 access/refresh；进程重启后所有令牌失效（内存态） |
 | 未开放能力 | 删除作品、修改他人作品、批量操作、审核他人内容一律不封装 |
 
-> 远程模式**拒绝在没有 token 的情况下启动**（退出码 2），不会出现"裸奔"的 HTTP 端点。
+> 静态 token 模式**拒绝在缺少 token 时启动**（退出码 2）；OAuth 模式则必须能对外提供 `PIXELFLOW_MCP_PUBLIC_URL`。
+
+### OAuth 登录流程
+
+```
+客户端 ──GET /authorize（code_challenge, state）──▶ MCP
+MCP    ──302 /oauth/login?request_id=...─────────▶ 浏览器
+浏览器 ──用户名/密码──▶ MCP ──POST /api/auth/login──▶ Java
+MCP    ──302 redirect_uri?code=...&state=...─────▶ 客户端
+客户端 ──POST /token（code + code_verifier）─────▶ MCP ──▶ access/refresh token
+客户端 ──Authorization: Bearer <access>─────────▶ /mcp
+```
+
+- 待登录请求 10 分钟有效，密码错误**不会**消耗该请求，用户可原地重试；
+- 登录页只包含用户名/密码，不展示第三方信息；错误以固定文案返回（401）；
+- 授权码 5 分钟、一次性；PKCE 校验由 SDK 完成。
 
 ## 工具
 
@@ -76,14 +101,15 @@ Agent 客户端 ──HTTPS + Bearer──> Nginx(/mcp) ──HTTP 127.0.0.1:876
 ```
 
 ```bash
-# /etc/pixelflow/mcp.env（600，root:root）
+# /etc/pixelflow/mcp.env（600，root:root）—— OAuth 模式（推荐）
 PIXELFLOW_MCP_JAVA_URL=http://127.0.0.1:8080
-PIXELFLOW_MCP_SERVICE_USERNAME=mcp_creator
-PIXELFLOW_MCP_SERVICE_PASSWORD=<服务账号密码>
-PIXELFLOW_MCP_HTTP_TOKEN=<至少 32 位随机 ASCII，例如 openssl rand -hex 32>
 PIXELFLOW_MCP_PUBLIC_URL=https://pixelflow.example.com
-PIXELFLOW_MCP_SCOPES=media:write,post:write,post:read
 PIXELFLOW_MCP_AUDIT_LOG=/var/log/pixelflow/mcp-audit.jsonl
+
+# 可选：设置下面两项即退回“服务账号 + 静态 Bearer”，不再启用 OAuth
+# PIXELFLOW_MCP_SERVICE_USERNAME=mcp_creator
+# PIXELFLOW_MCP_SERVICE_PASSWORD=<服务账号密码>
+# PIXELFLOW_MCP_HTTP_TOKEN=<至少 32 位随机 ASCII>
 ```
 
 ```ini
@@ -107,32 +133,38 @@ WantedBy=multi-user.target
 ```
 
 ```nginx
-location /mcp {
-    # 客户端必须自带 Bearer；Nginx 只做 TLS 终止与体积限制
+# OAuth 端点也要暴露，否则客户端无法完成授权
+location ~ ^/(mcp|authorize|token|register|revoke|oauth|\.well-known) {
     client_max_body_size 12m;
-    proxy_pass http://127.0.0.1:8765/mcp;
+    proxy_pass http://127.0.0.1:8765;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
     proxy_read_timeout 120s;
     proxy_buffering off;          # Streamable HTTP 的流式响应
 }
 ```
 
-客户端只需填 URL 与 token（示例为支持远程 MCP 的客户端配置）：
+客户端只需要填 URL，首次连接会弹出浏览器登录：
 
 ```json
 {
   "mcpServers": {
-    "pixelflow-creator": {
-      "url": "https://pixelflow.example.com/mcp",
-      "headers": { "Authorization": "Bearer <PIXELFLOW_MCP_HTTP_TOKEN>" }
-    }
+    "pixelflow-creator": { "url": "https://pixelflow.example.com/mcp" }
   }
 }
 ```
 
-**轮换**：改 `PIXELFLOW_MCP_HTTP_TOKEN` → `systemctl restart pixelflow-mcp` → 同步更新客户端；旧 token 立即失效。
+使用静态 token 的回退模式时，才需要额外带 header：
+
+```json
+{ "url": "https://pixelflow.example.com/mcp",
+  "headers": { "Authorization": "Bearer <PIXELFLOW_MCP_HTTP_TOKEN>" } }
+```
+
+**登出/轮换**：OAuth 模式调用 `POST /revoke` 撤销令牌，或重启进程让全部内存令牌失效；静态模式改
+`PIXELFLOW_MCP_HTTP_TOKEN` 后重启并同步客户端。
 **反向代理注意**：`/mcp` 必须允许流式响应（关闭 `proxy_buffering`），且不要缓存。
 
 ## 本地启动（stdio）
@@ -181,7 +213,9 @@ $env:PIXELFLOW_MCP_AUDIT_LOG='server/target/mcp-audit.jsonl'
 ## 限制
 
 - 远程模式下 `upload_media` 用 `content_base64` + `filename`（8MB 图片 base64 后约 11MB，服务端已把请求体上限调到 12MB，Nginx 也需同步 `client_max_body_size`）；`file_path` 只对 stdio 或运维脚本有意义。
-- 远程模式目前是**单个共享 Bearer token**，不区分调用方身份；多客户端/需要逐用户审计时应升级为 OAuth 2.1（MCP 规范推荐路径）。
+- OAuth 令牌、授权码、客户端注册均为**进程内存**：重启即全部失效，且只能单实例运行；多副本部署需要换成 Redis/数据库存储并共享签名密钥。
+- 授权页只有登录表单，没有细粒度 scope 勾选（客户端注册时一次申请全部业务 scope）；撤销按令牌粒度，不提供"查看已授权应用"页面。
+- 动态客户端注册未做人工审核，任何能访问 `/register` 的客户端都可注册；如需限制，应在 Nginx 层加白名单或关闭 DCR 改为预注册。
 - `list_my_posts` 在最近 150 条自己的作品窗口内过滤（3 页 × 50），未把 `status` 下推到 SQL；作品量增大后再加服务端筛选参数。
 - 工具返回的文本内容为 JSON 字符串（MCP 客户端按 `content[0].text` 解析），未启用结构化输出 schema。
 - 不提供 Agent 规划、多轮记忆或追问；这些由客户端负责，服务端只保证每次调用可控、可审计。

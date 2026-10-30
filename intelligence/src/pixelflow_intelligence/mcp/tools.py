@@ -15,7 +15,7 @@ import uuid
 from pathlib import Path
 
 from .audit import AuditLog
-from .auth import ScopeError, ServiceAccount
+from .auth import ScopeError
 from .gateway import GatewayError, JavaGateway
 
 POST_ID = re.compile(r"^[1-9][0-9]{0,17}$")
@@ -70,10 +70,10 @@ def _require_media_ids(values) -> list[str]:
 
 
 class CreatorTools:
-    def __init__(self, gateway: JavaGateway, account: ServiceAccount, audit: AuditLog,
+    def __init__(self, gateway: JavaGateway, tokens, audit: AuditLog,
                  clock=time.perf_counter):
         self.gateway = gateway
-        self.account = account
+        self.tokens = tokens
         self.audit = audit
         self.clock = clock
 
@@ -81,24 +81,29 @@ class CreatorTools:
     def _run(self, tool: str, scope: str, params: dict, action):
         started = self.clock()
         try:
-            self.account.require(scope)
+            self.tokens.require(scope)
             result = action()
         except ScopeError as error:
-            self.audit.record(tool=tool, account=self.account.name, status="denied",
+            self.audit.record(tool=tool, account=self.tokens.name, status="denied",
                               params=params, duration_ms=(self.clock() - started) * 1000,
                               error="FORBIDDEN")
             raise ToolError("FORBIDDEN", str(error)) from None
+        except PermissionError as error:
+            self.audit.record(tool=tool, account=self.tokens.name, status="error",
+                              params=params, duration_ms=(self.clock() - started) * 1000,
+                              error="UNAUTHORIZED")
+            raise ToolError("UNAUTHORIZED", str(error)) from None
         except ToolError as error:
-            self.audit.record(tool=tool, account=self.account.name, status="error",
+            self.audit.record(tool=tool, account=self.tokens.name, status="error",
                               params=params, duration_ms=(self.clock() - started) * 1000,
                               error=error.code)
             raise
         except GatewayError as error:
-            self.audit.record(tool=tool, account=self.account.name, status="error",
+            self.audit.record(tool=tool, account=self.tokens.name, status="error",
                               params=params, duration_ms=(self.clock() - started) * 1000,
                               error=error.code)
             raise ToolError(error.code, error.message) from None
-        self.audit.record(tool=tool, account=self.account.name, status="ok",
+        self.audit.record(tool=tool, account=self.tokens.name, status="ok",
                           params=params, duration_ms=(self.clock() - started) * 1000)
         return result
 
@@ -269,3 +274,4 @@ class CreatorTools:
         return self._run("list_my_posts", "post:read",
                          {"status": (status or "").upper() or None, "limit": limit,
                           "query": (query or "").strip() or None}, action)
+

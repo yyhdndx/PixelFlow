@@ -87,3 +87,23 @@ submit_post_for_review / withdraw_post`。
 - `list_my_posts` 的过滤在最近 150 条窗口内完成，未下推到 SQL。
 - 工具返回 JSON 文本（`content[0].text`），未启用结构化输出 schema。
 - 未实现 Agent 规划/多轮记忆；服务端只保证每次调用可控、可审计。
+
+## 2026-10-30 OAuth 2.1 升级验证
+
+远程模式从"共享静态 token"升级为 OAuth 2.1 授权码 + PKCE（动态客户端注册）：
+
+| 检查 | 结果 |
+| --- | --- |
+| 动态注册 `POST /register` | 201，拿到 `client_id` |
+| `GET /authorize`（S256） | 302 跳转到 `/oauth/login?request_id=…` |
+| 登录页 | 200，含用户名/密码表单 |
+| 错误密码 | 401，且**不消耗**待登录请求，可原地重试 |
+| 正确登录 | 302 回 `redirect_uri?code=…&state=…`，state 原样保留 |
+| `POST /token`（code + verifier） | 200，返回 access（1h）与 refresh（30d） |
+| 以该 token 调 MCP | 6 个工具可用；上传图片、建草稿成功 |
+| **身份验证** | 草稿作者 = 浏览器登录用户（`oauth_tester`），不是服务账号 |
+| 单元测试 | `test_mcp_oauth.py` 7 项 + `test_mcp_tools.py` 12 项，共 **19 passed** |
+| 全量回归 | **218 passed, 6 skipped** |
+
+安全性说明：用户密码只在登录表单提交一次并直接转发给 Java `/api/auth/login`，MCP 不落盘、不写日志；
+MCP 只保留 Java 令牌并在到期前 60 秒自动轮换；令牌与授权码均为内存态，重启即失效。

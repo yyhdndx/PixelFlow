@@ -31,10 +31,10 @@ class GatewayError(RuntimeError):
 
 
 class JavaGateway:
-    def __init__(self, settings: McpSettings, account: ServiceAccount,
+    def __init__(self, settings: McpSettings, tokens,
                  transport: httpx.BaseTransport | None = None):
         self.settings = settings
-        self.account = account
+        self.tokens = tokens
         self._transport = transport
 
     def _client(self) -> httpx.Client:
@@ -44,7 +44,7 @@ class JavaGateway:
 
     def _request(self, method: str, path: str, *, params=None, json_body=None,
                  files=None, headers=None, retry: bool = True):
-        request_headers = self.account.headers()
+        request_headers = self.tokens.headers()
         request_headers.update(headers or {})
         try:
             with self._client() as client:
@@ -55,7 +55,7 @@ class JavaGateway:
         except httpx.HTTPError:
             raise GatewayError("UPSTREAM_UNAVAILABLE", "业务服务暂时不可用") from None
         if response.status_code == 401 and retry:
-            self.account.invalidate()
+            self.tokens.invalidate()
             return self._request(method, path, params=params, json_body=json_body,
                                  files=files, headers=headers, retry=False)
         if response.status_code >= 400:
@@ -98,3 +98,4 @@ class JavaGateway:
         if not isinstance(body, list):
             raise GatewayError("INVALID_UPSTREAM_RESPONSE", "业务服务返回了非预期的作品列表")
         return body
+

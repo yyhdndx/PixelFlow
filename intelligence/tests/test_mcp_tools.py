@@ -29,6 +29,12 @@ class FakeAccount:
         if scope not in self.scopes:
             raise ScopeError(f"服务账号未被授予 {scope} 权限，调用已拒绝")
 
+    def headers(self):
+        return {"Authorization": "Bearer fake-service-token"}
+
+    def invalidate(self):
+        return None
+
 
 class FakeGateway:
     def __init__(self):
