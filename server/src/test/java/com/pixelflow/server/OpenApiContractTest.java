@@ -110,7 +110,28 @@ class OpenApiContractTest {
         assertEquals("boolean",((Map<?,?>)basePost.get("is_favorited")).get("type"));
         assertTrue(paths.containsKey("/api/users/me/profile/history"));
         assertTrue(schemas.containsKey("ProfileHistoryPage"));
+        for (String endpoint:List.of("/api/auth/login","/api/auth/register","/api/media")) {
+            var responses=(Map<?,?>)((Map<?,?>)((Map<?,?>)paths.get(endpoint)).get("post")).get("responses");
+            assertEquals(Map.of("$ref","#/components/responses/RateLimited"),responses.get("429"));
+        }
+        var rateLimited=(Map<?,?>)((Map<?,?>)((Map<?,?>)document.get("components")).get("responses")).get("RateLimited");
+        assertTrue(((Map<?,?>)rateLimited.get("headers")).keySet().containsAll(List.of("Retry-After","Cache-Control","X-Request-Id")));
         references(document,document);
+    }
+    @Test void backendWorkflowRequiresRealRedisAndPreservesExistingChecks() throws Exception {
+        Map<String,Object> workflow;
+        try (var reader=Files.newBufferedReader(Path.of("../.github/workflows/backend.yml"))) {
+            var options=new LoaderOptions(); options.setAllowDuplicateKeys(false);
+            workflow=new Yaml(options).load(reader);
+        }
+        var verify=(Map<?,?>)((Map<?,?>)workflow.get("jobs")).get("verify");
+        var services=(Map<?,?>)verify.get("services");
+        assertEquals("redis:7.4",((Map<?,?>)services.get("redis")).get("image"));
+        assertTrue(services.containsKey("mysql"));
+        var steps=(List<?>)verify.get("steps");
+        String commands=steps.stream().map(step -> Objects.toString(((Map<?,?>)step).get("run"),"")).reduce("",(left,right)->left+"\n"+right);
+        assertTrue(commands.contains("-Predis-integration verify"));
+        assertTrue(commands.contains("pytest")); assertTrue(commands.contains("verify_profile_pipeline.py"));
     }
     private void references(Object node,Map<String,Object> root) {
         if (node instanceof Map<?,?> map) {

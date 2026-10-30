@@ -23,7 +23,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Configuration
 public class SecurityConfig {
     @Bean
-    SecurityFilterChain security(HttpSecurity http, AuthService auth, ObjectMapper json) throws Exception {
+    SecurityFilterChain security(HttpSecurity http, AuthService auth, ObjectMapper json,
+            com.pixelflow.server.ratelimit.RateLimitProperties limits,
+            com.pixelflow.server.ratelimit.RedisRateLimiter limiter,
+            com.pixelflow.server.ratelimit.ClientIpResolver ips) throws Exception {
         return http.csrf(c -> c.disable()).sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .requestCache(c -> c.disable()).formLogin(c -> c.disable()).httpBasic(c -> c.disable())
                 .authorizeHttpRequests(r -> r
@@ -54,7 +57,9 @@ public class SecurityConfig {
                         }
                         chain.doFilter(req,res);
                     }
-                },UsernamePasswordAuthenticationFilter.class).build();
+                },UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new com.pixelflow.server.ratelimit.RateLimitFilter(limits,limiter,ips,json),
+                        UsernamePasswordAuthenticationFilter.class).build();
     }
     private static void write(ObjectMapper json,HttpServletRequest req,HttpServletResponse res,int status,String code) throws IOException {
         res.setStatus(status); res.setContentType("application/json;charset=UTF-8");

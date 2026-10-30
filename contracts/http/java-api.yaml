@@ -142,6 +142,7 @@ paths:
                   height: {type: integer}
                   size: {type: integer, description: 重新编码后的字节数}
                   contentType: {type: string, enum: [image/png]}
+        '429': {$ref: '#/components/responses/RateLimited'}
         default: {$ref: '#/components/responses/Error'}
   /api/media/{id}:
     delete:
@@ -184,6 +185,7 @@ paths:
             example: {username: alice, password: replace-with-your-password, nickname: 小明}
       responses:
         '201': {description: 创建 CREATOR 账号（包含普通用户权限）, content: {application/json: {schema: {$ref: '#/components/schemas/User'}}}}
+        '429': {$ref: '#/components/responses/RateLimited'}
         default: {$ref: '#/components/responses/Error'}
   /api/auth/login:
     post:
@@ -201,6 +203,7 @@ paths:
                 password: {type: string, maxLength: 72, format: password}
       responses:
         '200': {$ref: '#/components/responses/Tokens'}
+        '429': {$ref: '#/components/responses/RateLimited'}
         default: {$ref: '#/components/responses/Error'}
   /api/auth/refresh:
     post:
@@ -740,6 +743,28 @@ components:
           schema: {$ref: '#/components/schemas/Draft'}
           example: {title: 我的作品, content: 正文, clips: [{type: 0, width: 600, height: 800, url: 'https://example.com/image.png'}]}
   responses:
+    RateLimited:
+      description: 启用 Redis 限流后超出固定窗口额度；所有到达的尝试计数，成功不重置，超限不续期。Redis 故障时 fail-open。登录按 IP 总量及 IP/小写账号分别计数；注册按 IP；上传按认证用户。
+      headers:
+        Retry-After:
+          description: 所有超额维度剩余窗口秒数最大值，向上取整且至少 1。
+          schema: {type: integer, minimum: 1}
+          example: 12
+        Cache-Control:
+          schema: {type: string, enum: [no-store]}
+        X-Request-Id:
+          schema: {type: string}
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status_code, code, message, requestId]
+            properties:
+              status_code: {type: integer, enum: [429]}
+              code: {type: string, enum: [RATE_LIMITED]}
+              message: {type: string}
+              requestId: {type: string}
+          example: {status_code: 429, code: RATE_LIMITED, message: 请求过于频繁，请稍后重试, requestId: 'c4f36eb0-a783-43ac-8d70-c359b45292b4'}
     Error:
       description: 400 参数无效；401 未认证；403 无权限；404 不存在/不可见；409 冲突/草稿不完整/媒体配额；413 超出上传大小；500 内部异常。所有响应含 X-Request-Id。
       content:
