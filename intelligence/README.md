@@ -2,7 +2,7 @@
 
 首次开发先阅读 [后端开发上手指南](../docs/后端开发上手指南.md)，使用 Python 3.11，复制 [.env.example](.env.example) 并显式加载环境变量。本页保留模块和接口细节，不要直接跳过数据库与令牌配置执行启动命令。
 
-状态：已实现 FastAPI 服务、Java 事件增量同步、MySQL 事件与画像快照、用户本人画像查询、本人历史画像游标分页、三个推荐业务 Skill 和注册表，以及读取真实 Java Feed 的本人推荐预览。SQLite 保留用于离线测试和旧数据迁移。Skill 使用确定性规则，不调用模型、不需要模型密钥；Agent、MCP 和面向客户端的正式推荐入口尚未实现。
+状态：已实现 FastAPI 服务、Java 事件增量同步、MySQL 事件与画像快照、用户本人画像查询、本人历史画像游标分页、五个业务 Skill 和注册表（推荐侧 `profile_insight`/`candidate_recall`/`feed_rank`，创作侧 `content_safety`/`creator_assist`），以及读取真实 Java Feed 的本人推荐预览。SQLite 保留用于离线测试和旧数据迁移。Skill 使用确定性规则，不调用模型、不需要模型密钥；Agent 与面向客户端的正式推荐入口尚未实现。
 
 部署时设置 `ANALYTICS_DB=mysql://pixelflow_analytics:<URL编码后的密码>@127.0.0.1:3306/pixelflow_analytics`。省略时默认连接本机 MySQL，同名账号、不含密码，因此必须先配置账号。不要提交带密码的 URL。MySQL 初始化版本由 `analytics/mysql_schema.py` 管理；同步与重算共用 checkpoint 行锁，状态查询使用一致快照。完整步骤见 [MySQL 部署与迁移](../deploy/MySQL部署与迁移.md)。
 
@@ -22,7 +22,7 @@
 
 已实现 profile_insight（画像解读与降级）、candidate_recall（候选池内兴趣/热门召回）、feed_rank（排序与多样性过滤）。注册表提供输入输出校验、身份与 scope 检查、协作式超时及 trace_id。content_safety、creator_assist 仍是预留目录。
 
-三个 Skill 只消费可信调用方提供的画像和候选快照，不自行查询数据库；推荐交付前仍需 Java 复核状态、权限和负反馈。完整边界、字段 Schema 导出方式及评分规则见 [Skill 契约](../contracts/skills/README.md)。在本目录运行 `.\.venv\Scripts\python.exe scripts/demo_skills.py` 可验证美食、数码与冷启动三组离线调用；示例是固定流水线，不是 Agent。
+推荐侧三个 Skill 只消费可信调用方提供的画像和候选快照，不自行查询数据库；推荐交付前仍需 Java 复核状态、权限和负反馈。创作侧 `content_safety`/`creator_assist` 同样是确定性规则、不访问网络与数据库，只产出建议、不改作品状态。完整边界、字段 Schema 导出方式及评分规则见 [Skill 契约](../contracts/skills/README.md)。在本目录运行 `.\.venv\Scripts\python.exe scripts/demo_skills.py` 可验证美食、数码与冷启动三组离线调用，`scripts/demo_content_skills.py` 演示创作侧两个 Skill；示例是固定流水线，不是 Agent。
 
 单元测试位于 `tests/`，公共评测样本位于仓库根目录 `tests/fixtures/`。业务 Skill 的输入、输出和权限约束记录在 `contracts/skills/`。实现 MCP 时复用身份和权限校验，不允许模型直接控制数据库写操作。
 

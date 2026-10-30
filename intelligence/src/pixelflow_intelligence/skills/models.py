@@ -117,3 +117,45 @@ class RankOutput(Model):
     items: list[Ranked]
     filtered: int
     truncated_by_diversity: int
+
+
+# -- content_safety -------------------------------------------------------
+class SafetyInput(Model):
+    user_id: str = Field(min_length=1, max_length=36)
+    title: str = Field(min_length=1, max_length=120)
+    content: str = Field(default="", max_length=5000)
+    tags: list[str] = Field(default_factory=list, max_length=10)
+
+
+class SafetyHit(Model):
+    rule: Literal["CONTACT_INFO", "EXTERNAL_LINK", "PRIVATE_TRADE", "ABUSIVE_LANGUAGE",
+                  "SPAM_REPEAT", "LOW_INFORMATION"]
+    level: Literal["low", "medium", "high"]
+    message: str = Field(min_length=1, max_length=160)
+
+
+class SafetyOutput(Model):
+    user_id: str
+    risk: Literal["low", "medium", "high"]
+    hits: list[SafetyHit]
+    suggestions: list[str] = Field(max_length=10)
+    policy_version: str = "content-safety-v1"
+    # 明确声明这是建议而不是处置：不修改任何作品状态。
+    decision: Literal["human_review_required", "allowed"] = "human_review_required"
+
+
+# -- creator_assist -------------------------------------------------------
+class AssistInput(Model):
+    user_id: str = Field(min_length=1, max_length=36)
+    title: str = Field(default="", max_length=120)
+    content: str = Field(min_length=1, max_length=5000)
+    media_count: int = Field(default=0, ge=0, le=9)
+
+
+class AssistOutput(Model):
+    user_id: str
+    topics: list[str] = Field(max_length=7)
+    title_suggestions: list[str] = Field(max_length=3)
+    tags: list[str] = Field(max_length=5)
+    notes: list[str] = Field(max_length=6)
+    policy_version: str = "creator-assist-v1"

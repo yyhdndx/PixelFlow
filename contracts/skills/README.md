@@ -1,6 +1,8 @@
 # 推荐业务 Skill 契约
 
-已实现三个可组合的 Python 业务 Skill 和注册表，版本均为 1.0.0。它们是项目运行时能力，不是 Codex 的个人技能文件，也不等同于已实现 Agent 或 MCP。
+已实现五个可组合的 Python 业务 Skill 和注册表，版本均为 1.0.0。它们是项目运行时能力，不是 Codex 的个人技能文件，也不等同于已实现 Agent 或 MCP。
+
+前三个（`profile_insight`、`candidate_recall`、`feed_rank`）服务于推荐链路；后两个（`content_safety`、`creator_assist`）服务于创作链路，只给建议、不改作品状态。
 
 ## 调用与 Schema
 
@@ -13,13 +15,15 @@
 
 第一条运行美食、数码、冷启动三组离线样例；第二条输出注册表元数据及完整输入、输出 JSON Schema。Schema 由实现模型生成，唯一入口为 `create_registry().describe()`，避免手写副本与代码漂移。
 
-调用方式为 `registry.invoke(name, payload, context)`。成功返回 `skill`、`skill_version`、`trace_id`、`elapsed_ms` 和 `output`；三个步骤可以共用一个 Context、trace_id 和总截止时间。样例脚本提供完整可执行参数。
+调用方式为 `registry.invoke(name, payload, context)`。成功返回 `skill`、`skill_version`、`trace_id`、`elapsed_ms` 和 `output`；多个步骤可以共用一个 Context、trace_id 和总截止时间。样例脚本提供完整可执行参数。
 
 |名称|权限|主要输入|主要输出|
 |---|---|---|---|
 |profile_insight|profile:read|user_id、可选 snapshot、max_age_seconds|画像版本、策略、降级原因、归一化主题/作者/媒介偏好|
 |candidate_recall|candidates:read|user_id、insight、candidates、excluded_post_ids、limit|候选及主题、可用召回渠道、检查/拒绝数量|
 |feed_rank|candidates:read|user_id、insight、recalled、excluded_post_ids、limit、作者/主题上限|作品顺序、分数及分项、推荐原因、过滤数量、策略版本|
+|content_safety|content:check|user_id、title、content、tags|risk（low/medium/high）、命中规则、修改建议、decision、策略版本|
+|creator_assist|content:assist|user_id、title、content、media_count|主题、标题建议（≤3）、标签（≤5）、提示（≤6）、策略版本|
 
 参数使用严格类型校验，拒绝未知字段、NaN 和无穷值。作品 ID 是正整数字符串，时间是 Unix 秒。snapshot 接受分析服务的画像字段；缺失可传 null。候选必须显式携带 status 和 author_enabled，不能省略后默认公开。
 
@@ -49,6 +53,32 @@ freshness = 1 / (1 + age_days)
 topic 是作品各主题对应偏好占比的均值；author、media 是对应偏好占比。popular 策略下三个偏好项均为0。分数相同按创建时间降序、数字 ID 升序，保证固定输入与时间下结果稳定。输出分数保留6位小数。规则版本为 feed-rank-v1，不代表已训练或验证推荐准确率。
 
 返回数量上限默认10、最多50；每作者默认2条，每主题默认3条。多主题作品占用每个命中主题的名额，未知主题归为“其他”。无法满足数量时允许少返回，不放宽过滤和多样性限制。召回 rejected 统计硬过滤、重复及冲突，不统计容量截断；排序 filtered 同理，truncated_by_diversity 仅统计填满前遍历到的多样性拒绝项。
+
+## 创作侧 Skill（content_safety / creator_assist）
+
+两者都是**确定性规则**，不访问网络、数据库或模型，同一输入永远同一输出；它们只产出建议，不修改作品状态。
+
+**content_safety**（scope `content:check`，策略版本 `content-safety-v1`）检查标题、正文与标签：
+
+|规则|级别|触发条件|
+|---|---|---|
+|CONTACT_INFO|high|手机号、邮箱或“微信/加我/私聊”等站外联系方式|
+|PRIVATE_TRADE|high|代购、刷单、返利、私下转账、定金等表述|
+|ABUSIVE_LANGUAGE|high|人身攻击或侮辱性用语|
+|EXTERNAL_LINK|medium|`http(s)://` 或 `www.` 站外链接|
+|SPAM_REPEAT|medium|连续 10 个以上重复字符，或超过 20 个感叹号|
+|LOW_INFORMATION|low|标题少于 4 字或正文少于 10 字|
+
+输出 `risk` 取命中项的最高级别，并附 `suggestions` 与 `decision`：`allowed`（低风险）或 `human_review_required`（中高风险）。**该 Skill 不能下架、驳回或标记任何作品**，最终处置仍由管理员完成。
+
+**creator_assist**（scope `content:assist`，策略版本 `creator-assist-v1`）复用平台 7 个主题关键词表：
+
+- `topics`：命中的平台主题，未命中归为“其他”；
+- `tags`：主题名 + 正文命中的关键词，最多 5 个，长度 ≤24；
+- `title_suggestions`：最多 3 条、每条 ≤120 字；无标题时用首行生成，有标题时补主题前缀/后缀，不改写语义；
+- `notes`：标题过长、未配图、缺少标签、正文过短等提示，最多 6 条。
+
+它不调用大模型，因此不会“润色”出平台不认识的标签；客户端如需更自然的文案，可在拿到这些约束后自行生成。
 
 ## 失败与执行约束
 
