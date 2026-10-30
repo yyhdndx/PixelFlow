@@ -121,39 +121,23 @@ $env:PIXELFLOW_MAINTENANCE_URL='http://127.0.0.1:8001'
 `pixelflow_intelligence.mcp` 把"创作者"能力封装为 MCP 工具，供外部 Agent（Claude Desktop、Cherry Studio、
 Cursor、Trae 等）调用；规划与多轮对话在客户端，服务端只提供受控、可审计的写操作。
 
+远程服务使用 **OAuth 2.1**：客户端连接后打开浏览器，用户用自己的 PixelFlow 账号登录，之后每个工具调用
+都以该用户身份执行。没有 stdio 入口，也没有共享的服务账号 token。
+
 ```powershell
-# 可选依赖组：只新增 MCP SDK，不升级分析服务现有锁定版本
-pip install -e ".[mcp]"
-
-# 远程部署（推荐）：Streamable HTTP，必须带 Bearer token
+cd intelligence
+uv pip install -e ".[mcp]"
 $env:PIXELFLOW_MCP_JAVA_URL='http://127.0.0.1:8080'
-$env:PIXELFLOW_MCP_SERVICE_USERNAME='mcp_creator'
-$env:PIXELFLOW_MCP_SERVICE_PASSWORD='<服务账号密码>'
-$env:PIXELFLOW_MCP_HTTP_TOKEN='<至少 32 位随机 ASCII>'
-$env:PIXELFLOW_MCP_PUBLIC_URL='https://pixelflow.example.com'
-.\.venv\Scripts\python.exe -m pixelflow_intelligence.mcp --transport streamable-http --host 127.0.0.1 --port 8765
-
-# 本机 stdio（桌面客户端直接拉起，无需 HTTP token）
-.\.venv\Scripts\python.exe -m pixelflow_intelligence.mcp
+$env:PIXELFLOW_MCP_PUBLIC_URL='http://127.0.0.1:8765'
+$env:PIXELFLOW_MCP_AUDIT_LOG='server/target/mcp-audit.jsonl'
+.\.venv\Scripts\python.exe -m pixelflow_intelligence.mcp --host 127.0.0.1 --port 8765
 ```
-
-远程模式缺少 `PIXELFLOW_MCP_HTTP_TOKEN` 会**拒绝启动**（退出码 2）；所有 `/mcp` 请求必须带
-`Authorization: Bearer <token>`，否则 401。Nginx/TLS、systemd 与轮换步骤见
-[MCP 工具契约](../contracts/mcp/README.md) 的“远程部署”一节。
 
 六个工具：`upload_media`、`create_post_draft`、`update_post_draft`、`submit_post_for_review`、
-`withdraw_post`、`list_my_posts`。提交后仅进入 `PENDING`，仍需管理员审核才会公开；服务账号、scope、
-审计字段与错误码见 [MCP 工具契约](../contracts/mcp/README.md)。
+`withdraw_post`、`list_my_posts`。提交后仅进入 `PENDING`，仍需管理员审核才会公开；OAuth 端点、scope、
+审计字段与错误码见 [MCP 工具契约](../contracts/mcp/README.md)，验收记录见
+[MCP 创作者工具验收](../docs/testing/MCP创作者工具验收.md)。
 
-本地联调冒烟（需 Java 已启动、真实 MySQL）：
-
-```powershell
-$env:PYTHONPATH="$PWD\intelligence\src"
-.\.venv\Scripts\python.exe scripts\smoke_mcp_creator.py `
-    --java-url http://127.0.0.1:18080 --username mcp_creator --password <密码> --register
-```
-
-脚本走通"生成图片 → 上传 → 建草稿 → 列表回查 → 提交审核 → 撤回"，不直接碰数据库。
-验收记录见 [MCP 创作者工具验收](../docs/testing/MCP创作者工具验收.md)。
-
-实现参考 [FastAPI 安全依赖说明](https://fastapi.tiangolo.com/tutorial/security/first-steps/)和 [Python SQLite 事务文档](https://docs.python.org/3/library/sqlite3.html)。当前为本地课程实现，不是可直接公网部署的生产服务。
+实现参考 [FastAPI 安全依赖说明](https://fastapi.tiangolo.com/tutorial/security/first-steps/)和
+[Python SQLite 事务文档](https://docs.python.org/3/library/sqlite3.html)。当前为本地课程实现，
+不是可直接公网部署的生产服务。

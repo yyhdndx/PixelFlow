@@ -10,7 +10,6 @@ from pixelflow_intelligence.mcp.audit import AuditLog
 from pixelflow_intelligence.mcp.auth import ScopeError
 from pixelflow_intelligence.mcp.config import McpSettings
 from pixelflow_intelligence.mcp.gateway import GatewayError
-from pixelflow_intelligence.mcp.remote import StaticTokenVerifier, require_http_token
 from pixelflow_intelligence.mcp.server import create_server
 from pixelflow_intelligence.mcp.tools import CreatorTools, ToolError
 
@@ -180,7 +179,7 @@ def test_upstream_error_is_sanitized(tmp_path):
 
 def test_server_registers_six_named_tools(tmp_path):
     tools, _ = make_tools(tmp_path)
-    settings = McpSettings(username="mcp_creator", password="secret-value")
+    settings = McpSettings(public_url="http://127.0.0.1:8765")
     server = create_server(settings, tools)
     listed = asyncio.run(server.list_tools())
     assert {tool.name for tool in listed} == {
@@ -204,29 +203,8 @@ def test_upload_media_accepts_base64_for_remote_mode(tmp_path):
         tools.upload_media(content_base64=base64.b64encode(PNG).decode(), filename="cover.gif")
 
 
-def test_remote_mode_requires_a_strong_bearer_token():
+def test_server_requires_a_public_url():
     with pytest.raises(ValueError):
-        require_http_token("")
+        McpSettings(public_url="")
     with pytest.raises(ValueError):
-        require_http_token("too-short")
-    token = "t" * 40
-    assert require_http_token(token) == token
-    with pytest.raises(ValueError):
-        McpSettings(http_token="short")
-
-
-def test_static_token_verifier_accepts_only_the_configured_token():
-    token = "s" * 40
-    verifier = StaticTokenVerifier(token)
-    accepted = asyncio.run(verifier.verify_token(token))
-    assert accepted is not None and accepted.client_id == "pixelflow-agent"
-    assert asyncio.run(verifier.verify_token("x" * 40)) is None
-    assert asyncio.run(verifier.verify_token("")) is None
-
-
-def test_http_server_is_built_with_the_verifier(tmp_path):
-    tools, _ = make_tools(tmp_path)
-    settings = McpSettings(username="mcp_creator", password="secret-value")
-    server = create_server(settings, tools, http_token="h" * 40)
-    listed = asyncio.run(server.list_tools())
-    assert len(listed) == 6
+        McpSettings(public_url="ftp://example.com")

@@ -1,6 +1,6 @@
 """Creator-facing tools exposed over MCP.
 
-Every tool validates its own inputs, checks the service-account scope before
+Every tool validates its own inputs, checks the granted token scope before
 touching the business API, and writes one audit line whether it succeeds, is
 denied or fails. Business state still lives in Java; this module never writes
 to a database directly.
@@ -113,7 +113,7 @@ class CreatorTools:
         """上传一张图片（PNG/JPEG，≤8MB）：本地绝对路径或 base64 二选一。
 
         远程模式（MCP 跑在服务器上）用 ``content_base64`` + ``filename``；本地
-        stdio 模式可以直接给 ``file_path``。
+        本机调试或运维脚本可以直接给 ``file_path``。
         """
         def action():
             if bool(file_path) == bool(content_base64):

@@ -251,7 +251,7 @@ class PixelFlowOAuthProvider(OAuthAuthorizationServerProvider):
 
 
 class OAuthBearerSource:
-    """Per-request token source: acts as the logged-in user, not the service account."""
+    """Per-request token source: acts as the logged-in user, not a shared machine account."""
 
     def __init__(self, provider: PixelFlowOAuthProvider):
         self.provider = provider
@@ -281,26 +281,6 @@ class OAuthBearerSource:
     def invalidate(self) -> None:
         # Java tokens are refreshed inside the provider; nothing to drop here.
         return None
-
-
-class ServiceAccountSource:
-    """stdio mode: one machine account, no browser login."""
-
-    def __init__(self, account):
-        self.account = account
-
-    @property
-    def name(self) -> str:
-        return self.account.name
-
-    def require(self, scope: str) -> None:
-        self.account.require(scope)
-
-    def headers(self) -> dict:
-        return self.account.headers()
-
-    def invalidate(self) -> None:
-        self.account.invalidate()
 
 
 def login_page(request_id: str, error: str = "") -> str:

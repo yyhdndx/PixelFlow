@@ -15,8 +15,7 @@ from pixelflow_intelligence.mcp.oauth import LoginError, PixelFlowOAuthProvider
 
 
 def settings(**overrides):
-    values = dict(java_url="http://java.test", username="mcp_creator", password="secret",
-                  public_url="http://127.0.0.1:8765")
+    values = dict(java_url="http://java.test", public_url="http://127.0.0.1:8765")
     values.update(overrides)
     return McpSettings(**values)
 

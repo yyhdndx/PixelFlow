@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import httpx
 
-from .auth import ServiceAccount
 from .config import McpSettings
 
 STATUS_CODES = {

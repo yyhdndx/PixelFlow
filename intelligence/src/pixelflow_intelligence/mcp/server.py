@@ -1,9 +1,8 @@
-"""MCP server assembly: six creator tools over stdio, static bearer or OAuth.
+"""MCP server assembly: six creator tools over the remote OAuth transport.
 
-- stdio: one service account, no browser login (local development)
-- streamable-http + PIXELFLOW_MCP_HTTP_TOKEN: pre-shared bearer (service-to-service)
-- streamable-http without that token: OAuth 2.1 authorization code + PKCE, so each
-  client acts as the human who logged in
+There is exactly one transport (Streamable HTTP) and one identity source
+(OAuth 2.1 browser login). Each client acts as the human who logged in; no
+shared machine account and no stdio entry point exist any more.
 """
 from __future__ import annotations
 
@@ -14,12 +13,9 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse
 
 from .audit import AuditLog
-from .auth import ServiceAccount
 from .config import SUPPORTED_SCOPES, McpSettings
 from .gateway import JavaGateway
-from .oauth import (LoginError, OAuthBearerSource, PixelFlowOAuthProvider,
-                    ServiceAccountSource, login_page)
-from .remote import StaticTokenVerifier
+from .oauth import (LoginError, OAuthBearerSource, PixelFlowOAuthProvider, login_page)
 from .tools import CreatorTools
 
 INSTRUCTIONS = (
@@ -42,68 +38,52 @@ TOOL_NAMES = ("upload_media", "create_post_draft", "update_post_draft",
 
 
 def create_server(settings: McpSettings | None = None,
-                  tools: CreatorTools | None = None,
-                  http_token: str = "",
-                  oauth: bool = False) -> MCPServer:
+                  tools: CreatorTools | None = None) -> MCPServer:
     settings = settings or McpSettings.from_env()
-    provider = PixelFlowOAuthProvider(settings) if oauth else None
+    provider = PixelFlowOAuthProvider(settings)
 
     if tools is None:
-        if oauth:
-            tokens = OAuthBearerSource(provider)
-        else:
-            settings.require_credentials()
-            tokens = ServiceAccountSource(ServiceAccount(settings))
+        tokens = OAuthBearerSource(provider)
         tools = CreatorTools(JavaGateway(settings, tokens), tokens,
                              AuditLog(settings.audit_log))
 
-    if oauth:
-        auth = AuthSettings(
-            issuer_url=settings.public_url,
-            resource_server_url=settings.public_url,
-            validate_token_resource=False,
-            required_scopes=["post:read"],
-            client_registration_options=ClientRegistrationOptions(
-                enabled=True, valid_scopes=list(SUPPORTED_SCOPES),
-                default_scopes=["post:read"]),
-            revocation_options=RevocationOptions(enabled=True),
-        )
-        server = MCPServer(name="pixelflow-creator", title="PixelFlow 创作者工具",
-                           version="0.2.0", instructions=INSTRUCTIONS,
-                           auth_server_provider=provider, auth=auth)
-    else:
-        verifier = StaticTokenVerifier(http_token) if http_token else None
-        static_auth = AuthSettings(issuer_url=settings.public_url,
-                                   resource_server_url=settings.public_url,
-                                   validate_token_resource=False) if http_token else None
-        server = MCPServer(name="pixelflow-creator", title="PixelFlow 创作者工具",
-                           version="0.2.0", instructions=INSTRUCTIONS,
-                           token_verifier=verifier, auth=static_auth)
+    auth = AuthSettings(
+        issuer_url=settings.public_url,
+        resource_server_url=settings.public_url,
+        validate_token_resource=False,
+        required_scopes=["post:read"],
+        client_registration_options=ClientRegistrationOptions(
+            enabled=True, valid_scopes=list(SUPPORTED_SCOPES),
+            default_scopes=["post:read"]),
+        revocation_options=RevocationOptions(enabled=True),
+    )
+    server = MCPServer(name="pixelflow-creator", title="PixelFlow 创作者工具",
+                       version="0.3.0", instructions=INSTRUCTIONS,
+                       auth_server_provider=provider, auth=auth)
 
     for name in TOOL_NAMES:
         server.add_tool(getattr(tools, name), name=name,
                         description=TOOL_DESCRIPTIONS[name])
 
-    if oauth:
-        @server.custom_route("/oauth/login", methods=["GET", "POST"], include_in_schema=False)
-        async def oauth_login(request: Request):
-            if request.method == "GET":
-                request_id = request.query_params.get("request_id", "")
-                if provider.pending_login(request_id) is None:
-                    return HTMLResponse(
-                        login_page(request_id, "登录请求已过期，请从客户端重新发起授权"),
-                        status_code=400)
-                return HTMLResponse(login_page(request_id))
-            form = await request.form()
-            request_id = str(form.get("request_id", ""))
-            username = str(form.get("username", ""))
-            password = str(form.get("password", ""))
-            try:
-                # Java login is blocking; keep the event loop free.
-                target = await run_in_threadpool(provider.complete_login,
-                                                 request_id, username, password)
-            except LoginError as error:
-                return HTMLResponse(login_page(request_id, str(error)), status_code=401)
-            return RedirectResponse(target, status_code=302)
+    @server.custom_route("/oauth/login", methods=["GET", "POST"], include_in_schema=False)
+    async def oauth_login(request: Request):
+        if request.method == "GET":
+            request_id = request.query_params.get("request_id", "")
+            if provider.pending_login(request_id) is None:
+                return HTMLResponse(
+                    login_page(request_id, "登录请求已过期，请从客户端重新发起授权"),
+                    status_code=400)
+            return HTMLResponse(login_page(request_id))
+        form = await request.form()
+        request_id = str(form.get("request_id", ""))
+        username = str(form.get("username", ""))
+        password = str(form.get("password", ""))
+        try:
+            # Java login is blocking; keep the event loop free.
+            target = await run_in_threadpool(provider.complete_login,
+                                             request_id, username, password)
+        except LoginError as error:
+            return HTMLResponse(login_page(request_id, str(error)), status_code=401)
+        return RedirectResponse(target, status_code=302)
 
     return server
