@@ -326,22 +326,36 @@ public class CreateWorkActivity extends AppCompatActivity {
     }
 
     private void openImagePicker() {
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         if (!model.editable()) return;
-        intent.setType("image/*");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        imagePickerLauncher.launch(intent);
+        // 应用内相册选择页：不再走系统文件入口
+        Intent intent = new Intent(this, MediaPickerActivity.class);
+        intent.putExtra(MediaPickerActivity.EXTRA_MAX_COUNT, Math.max(1, 9 - media.size()));
+        mediaPickerLauncher.launch(intent);
     }
 
-    private final ActivityResultLauncher<Intent> imagePickerLauncher = registerForActivityResult(
+    private final ActivityResultLauncher<Intent> mediaPickerLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
                 if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-                    handleSelectedMedia(result.getData());
+                    List<String> uris = result.getData().getStringArrayListExtra(MediaPickerActivity.EXTRA_SELECTED_URIS);
+                    if (uris != null) addSelectedUris(uris);
                 }
             });
+
+    /** 应用内选图页回传的 MediaStore 地址：并入草稿媒体区 */
+    private void addSelectedUris(List<String> uris) {
+        if (!model.editable()) return;
+        for (String value : uris) {
+            if (value == null) continue;
+            Uri uri = Uri.parse(value);
+            if (!containsUri(uri) && media.size() < 9) {
+                media.add(new MediaEntry(uri.toString(), null, null));
+            }
+        }
+        updateMediaPreviews();
+        updateMediaCount();
+        updateSaveButtonState();
+    }
 
     /** 首页「拍摄新作品」带入的初始图片：并入草稿媒体区 */
     private void applyInitialMedia() {
@@ -362,33 +376,13 @@ public class CreateWorkActivity extends AppCompatActivity {
         updateSaveButtonState();
     }
 
-    private void handleSelectedMedia(Intent data) {
-        if (!model.editable()) return;
-        if (data.getClipData() != null) {
-            int count = data.getClipData().getItemCount();
-            for (int i = 0; i < count; i++) {
-                Uri uri = data.getClipData().getItemAt(i).getUri();
-                if (!containsUri(uri) && media.size() < 9) { persistUri(uri); media.add(new MediaEntry(uri.toString(), null, null)); }
-            }
-        } else if (data.getData() != null) {
-            Uri uri = data.getData();
-            if (!containsUri(uri) && media.size() < 9) { persistUri(uri); media.add(new MediaEntry(uri.toString(), null, null)); }
-        }
-        if (media.size() > 9) {
-            media.subList(9, media.size()).clear();
-            Toast.makeText(this, "最多 9 张图片", Toast.LENGTH_SHORT).show();
-        }
-        updateMediaPreviews();
-        updateMediaCount();
-        updateSaveButtonState();
-    }
-
     private void persistUri(Uri uri) {
         try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
         catch (SecurityException ignored) { /* Read errors are surfaced if the provider later revokes access. */ }
     }
 
     private boolean containsUri(Uri uri) {
+
         for (MediaEntry entry : media) {
             if (entry.uri != null && entry.uri.equals(uri.toString())) return true;
         }

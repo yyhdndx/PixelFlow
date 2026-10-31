@@ -26,8 +26,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"
         tools:ignore="ProtectedPermissions" />
 
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
+    <!-- 应用内相册选择页：Android 13+ 用细分媒体权限 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <!-- 如果需要拍照功能 -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -70,6 +70,7 @@
 
         <!-- ================== MainActivity（主界面） ================== -->
         <activity android:name=".AccountActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".MediaPickerActivity" android:exported="false" />
         <activity android:name=".EditProfileActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".InterestProfileActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" />
         <activity android:name=".HistoryProfileActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" />
