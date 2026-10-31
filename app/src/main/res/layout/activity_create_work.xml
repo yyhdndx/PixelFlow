@@ -13,18 +13,18 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="@color/profile_surface"
-        android:elevation="2dp"
-        android:paddingHorizontal="16dp">
+        android:elevation="1dp">
 
-        <!-- 返回按钮 -->
         <ImageView
             android:id="@+id/btn_back"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="8dp"
+            android:padding="10dp"
             android:src="@drawable/ic_arrow_back"
-            android:padding="4dp"
             android:contentDescription="@string/back"
-            app:tint="@color/black" />
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="@color/profile_ink" />
 
         <TextView
             android:id="@+id/create_title"
@@ -34,20 +34,23 @@
             android:text="创建作品"
             android:textSize="18sp"
             android:textStyle="bold"
-            android:textColor="@color/black"
+            android:textColor="@color/profile_ink"
             android:gravity="center" />
 
         <!-- 占位，保持对称 -->
         <View
-            android:layout_width="24dp"
-            android:layout_height="24dp" />
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginEnd="8dp" />
     </LinearLayout>
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:padding="16dp">
+        android:paddingHorizontal="20dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="8dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -59,23 +62,32 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="标题"
-                android:textSize="14sp"
-                android:textColor="@color/black"
+                android:textSize="15sp"
+                android:textColor="@color/profile_ink"
                 android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="10dp" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="18dp"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                app:boxBackgroundColor="@color/profile_surface">
+                app:hintEnabled="false"
+                app:boxBackgroundColor="@color/profile_surface"
+                app:boxStrokeColor="@color/profile_border"
+                app:boxStrokeWidth="1dp"
+                app:boxCornerRadiusTopStart="14dp"
+                app:boxCornerRadiusTopEnd="14dp"
+                app:boxCornerRadiusBottomStart="14dp"
+                app:boxCornerRadiusBottomEnd="14dp">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/et_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="给你的作品起个名字"
+                    android:textColor="@color/profile_ink"
+                    android:textSize="15sp"
                     android:maxLines="1"
                     android:singleLine="true" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -85,24 +97,33 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="描述"
-                android:textSize="14sp"
-                android:textColor="@color/black"
+                android:textSize="15sp"
+                android:textColor="@color/profile_ink"
                 android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="10dp" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                app:boxBackgroundColor="@color/profile_surface">
+                app:hintEnabled="false"
+                app:boxBackgroundColor="@color/profile_surface"
+                app:boxStrokeColor="@color/profile_border"
+                app:boxStrokeWidth="1dp"
+                app:boxCornerRadiusTopStart="14dp"
+                app:boxCornerRadiusTopEnd="14dp"
+                app:boxCornerRadiusBottomStart="14dp"
+                app:boxCornerRadiusBottomEnd="14dp">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/et_description"
                     android:layout_width="match_parent"
-                    android:layout_height="120dp"
+                    android:layout_height="130dp"
                     android:hint="分享你的创作故事或灵感..."
+                    android:textColor="@color/profile_ink"
+                    android:textSize="15sp"
                     android:gravity="top"
+                    android:padding="14dp"
                     android:maxLines="10"
                     android:inputType="textMultiLine" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -112,11 +133,12 @@
                 android:id="@+id/tv_char_count"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="0/500"
+                android:text="0/5000"
                 android:textSize="12sp"
                 android:textColor="@color/profile_muted"
                 android:gravity="end"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="18dp" />
 
             <TextView
                 android:id="@+id/creation_status"
@@ -126,65 +148,127 @@
                 android:accessibilityLiveRegion="polite"
                 android:textColor="@color/profile_muted"
                 android:visibility="gone" />
-            <Button
-                android:id="@+id/creation_retry"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/creation_retry_read"
-                android:visibility="gone" />
-            <Button
-                android:id="@+id/creation_my_works"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/creation_check_my_works"
-                android:visibility="gone" />
 
+            <!-- AI 辅助创作主入口 -->
             <Button
                 android:id="@+id/creation_assist"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="AI 辅助创作" />
+                android:layout_height="52dp"
+                android:layout_marginTop="2dp"
+                android:background="@drawable/bg_ai_button"
+                app:backgroundTint="@null"
+                app:icon="@drawable/ic_sparkle"
+                app:iconTint="@android:color/white"
+                app:iconGravity="textStart"
+                app:iconPadding="10dp"
+                android:gravity="center"
+                android:paddingStart="20dp"
+                android:paddingEnd="24dp"
+                android:text="AI 辅助创作"
+                android:textAllCaps="false"
+                android:textColor="@android:color/white"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
             <TextView
                 android:id="@+id/creation_assist_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:accessibilityLiveRegion="polite"
+                android:textColor="@color/profile_muted"
                 android:visibility="gone" />
-            <Button
-                android:id="@+id/creation_assist_preview"
+
+            <!-- AI 辅助的次级操作：一行文字按钮 -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="查看建议"
-                android:visibility="gone" />
-            <Button
-                android:id="@+id/creation_assist_cancel"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="跳过 AI"
-                android:visibility="gone" />
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="18dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/creation_assist_preview"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:background="@android:color/transparent"
+                    android:text="查看建议"
+                    android:textAllCaps="false"
+                    android:textColor="@color/profile_accent"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/creation_retry"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:background="@android:color/transparent"
+                    android:text="@string/creation_retry_read"
+                    android:textAllCaps="false"
+                    android:textColor="@color/profile_accent"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/creation_my_works"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:background="@android:color/transparent"
+                    android:text="@string/creation_check_my_works"
+                    android:textAllCaps="false"
+                    android:textColor="@color/profile_accent"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/creation_assist_cancel"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:background="@android:color/transparent"
+                    android:text="跳过 AI"
+                    android:textAllCaps="false"
+                    android:textColor="@color/profile_muted"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
+            </LinearLayout>
 
             <!-- 话题标签 -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="话题"
-                android:textSize="14sp"
-                android:textColor="@color/black"
+                android:textSize="15sp"
+                android:textColor="@color/profile_ink"
                 android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="10dp" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="18dp"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                app:boxBackgroundColor="@color/profile_surface">
+                app:hintEnabled="false"
+                app:boxBackgroundColor="@color/profile_surface"
+                app:boxStrokeColor="@color/profile_border"
+                app:boxStrokeWidth="1dp"
+                app:boxCornerRadiusTopStart="14dp"
+                app:boxCornerRadiusTopEnd="14dp"
+                app:boxCornerRadiusBottomStart="14dp"
+                app:boxCornerRadiusBottomEnd="14dp">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/et_hashtags"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="例如：#数字艺术 #设计 #灵感"
+                    android:textColor="@color/profile_ink"
+                    android:textSize="15sp"
                     android:maxLines="2" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -193,10 +277,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="添加媒体"
-                android:textSize="14sp"
-                android:textColor="@color/black"
+                android:textSize="15sp"
+                android:textColor="@color/profile_ink"
                 android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="10dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -207,22 +291,36 @@
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_add_image"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="74dp"
                     android:layout_weight="1"
                     android:layout_marginEnd="8dp"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:background="@drawable/bg_add_media_tile"
+                    app:backgroundTint="@null"
+                    app:icon="@drawable/plus"
+                    app:iconTint="@color/profile_accent"
                     android:text="添加图片"
-                    app:icon="@drawable/plus"/>
+                    android:textAllCaps="false"
+                    android:textColor="@color/profile_accent"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_add_video"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="74dp"
                     android:layout_weight="1"
                     android:layout_marginStart="8dp"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:background="@drawable/bg_add_media_tile"
+                    app:backgroundTint="@null"
+                    app:icon="@drawable/plus"
+                    app:iconTint="@color/profile_accent"
                     android:text="添加视频"
-                    app:icon="@drawable/plus"/>
+                    android:textAllCaps="false"
+                    android:textColor="@color/profile_accent"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
             </LinearLayout>
 
             <!-- 媒体预览区域 -->
@@ -231,15 +329,15 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="8dp"
-                android:minHeight="80dp" />
+                android:layout_marginBottom="6dp"
+                android:minHeight="96dp" />
 
             <!-- 媒体文件计数 -->
             <TextView
                 android:id="@+id/tv_media_count"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="0个文件"
+                android:text="0 张图片"
                 android:textSize="12sp"
                 android:textColor="@color/profile_muted"
                 android:layout_marginBottom="24dp" />
@@ -251,9 +349,11 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:background="@color/profile_surface"
-        android:elevation="4dp"
-        android:padding="16dp">
+        android:elevation="6dp"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="12dp">
 
         <Button
             android:id="@+id/btn_cancel"
@@ -261,30 +361,41 @@
             android:layout_height="48dp"
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
+            android:background="@android:color/transparent"
             android:text="取消"
+            android:textAllCaps="false"
             android:textColor="@color/profile_muted"
-            android:background="@android:color/transparent" />
+            android:textSize="14sp"
+            android:textStyle="bold" />
 
         <Button
             android:id="@+id/btn_save"
             android:layout_width="0dp"
             android:layout_height="48dp"
-            android:layout_weight="1"
+            android:layout_weight="1.2"
             android:layout_marginHorizontal="4dp"
-            android:text="保存草稿"
-            android:textColor="@color/profile_ink"
             android:background="@drawable/bg_button_secondary"
+            app:backgroundTint="@null"
+            android:text="保存草稿"
+            android:textAllCaps="false"
+            android:textColor="@color/profile_ink"
+            android:textSize="14sp"
+            android:textStyle="bold"
             android:enabled="false" />
 
         <Button
             android:id="@+id/btn_publish"
             android:layout_width="0dp"
             android:layout_height="48dp"
-            android:layout_weight="1"
+            android:layout_weight="1.2"
             android:layout_marginStart="8dp"
-            android:text="提交审核"
-            android:textColor="@android:color/white"
             android:background="@drawable/bg_button_primary"
+            app:backgroundTint="@null"
+            android:text="提交审核"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:textStyle="bold"
             android:enabled="false" />
     </LinearLayout>
 </LinearLayout>

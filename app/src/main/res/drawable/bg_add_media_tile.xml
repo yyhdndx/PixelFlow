@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 添加媒体虚线磁贴：白底 + 主题紫虚线描边，禁用时弱化 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/profile_surface" />
+            <stroke
+                android:width="1.5dp"
+                android:color="@color/profile_accent"
+                android:dashWidth="6dp"
+                android:dashGap="4dp" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+    <item android:state_enabled="false">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/profile_bg" />
+            <stroke
+                android:width="1.5dp"
+                android:color="@color/profile_border"
+                android:dashWidth="6dp"
+                android:dashGap="4dp" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+</selector>

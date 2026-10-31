@@ -321,8 +321,7 @@ public class CreateWorkActivity extends AppCompatActivity {
         boolean canPublish = hasTitle && hasMedia && model.state != null && (model.editable() || retry);
         btnSave.setEnabled(canSave);
         btnPublish.setEnabled(canPublish);
-        btnSave.setBackgroundColor(getResources().getColor(canSave ? R.color.primary_color : R.color.gray_400));
-        btnPublish.setBackgroundColor(getResources().getColor(canPublish ? R.color.red_500 : R.color.gray_400));
+        // 按钮外观由 bg_button_primary / bg_button_secondary 的启用状态选择器承载，不再用纯色覆盖圆角
     }
 
     private void openImagePicker() {
@@ -406,7 +405,7 @@ public class CreateWorkActivity extends AppCompatActivity {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dpToPx(80), dpToPx(80));
         params.setMargins(dpToPx(4), 0, dpToPx(4), 0);
         cardView.setLayoutParams(params);
-        cardView.setRadius(dpToPx(8));
+        cardView.setRadius(dpToPx(12));
         cardView.setCardElevation(dpToPx(2));
 
         ImageView imageView = new ImageView(this);
@@ -444,7 +443,7 @@ public class CreateWorkActivity extends AppCompatActivity {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dpToPx(80), dpToPx(80));
         params.setMargins(dpToPx(4), 0, dpToPx(4), 0);
         cardView.setLayoutParams(params);
-        cardView.setRadius(dpToPx(8));
+        cardView.setRadius(dpToPx(12));
         cardView.setCardElevation(dpToPx(2));
         cardView.setCardBackgroundColor(getResources().getColor(R.color.gray_200));
 
