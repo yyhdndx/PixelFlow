@@ -221,9 +221,9 @@ public class CreateWorkActivity extends AppCompatActivity {
 
     private void updateCharCount(int count) {
         tvCharCount.setText(count + "/5000");
-        if (count > 5000) tvCharCount.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-        else if (count > 4500) tvCharCount.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
-        else tvCharCount.setTextColor(getResources().getColor(R.color.gray_600));
+        if (count > 5000) tvCharCount.setTextColor(getResources().getColor(R.color.profile_error));
+        else if (count > 4500) tvCharCount.setTextColor(getResources().getColor(R.color.profile_accent));
+        else tvCharCount.setTextColor(getResources().getColor(R.color.profile_muted));
     }
 
     private LinearLayout assistPanel() {

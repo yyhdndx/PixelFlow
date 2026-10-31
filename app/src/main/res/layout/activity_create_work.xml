@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/gray_50">
+    android:background="@color/profile_bg">
 
     <!-- 标题栏 -->
     <LinearLayout
@@ -12,7 +12,7 @@
         android:layout_height="56dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="@android:color/white"
+        android:background="@color/profile_surface"
         android:elevation="2dp"
         android:paddingHorizontal="16dp">
 
@@ -69,7 +69,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                app:boxBackgroundColor="@android:color/white">
+                app:boxBackgroundColor="@color/profile_surface">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/et_title"
@@ -95,7 +95,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                app:boxBackgroundColor="@android:color/white">
+                app:boxBackgroundColor="@color/profile_surface">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/et_description"
@@ -114,7 +114,7 @@
                 android:layout_height="wrap_content"
                 android:text="0/500"
                 android:textSize="12sp"
-                android:textColor="@color/gray_600"
+                android:textColor="@color/profile_muted"
                 android:gravity="end"
                 android:layout_marginBottom="16dp" />
 
@@ -178,7 +178,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                app:boxBackgroundColor="@android:color/white">
+                app:boxBackgroundColor="@color/profile_surface">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/et_hashtags"
@@ -241,7 +241,7 @@
                 android:layout_height="wrap_content"
                 android:text="0个文件"
                 android:textSize="12sp"
-                android:textColor="@color/gray_600"
+                android:textColor="@color/profile_muted"
                 android:layout_marginBottom="24dp" />
         </LinearLayout>
     </ScrollView>
@@ -251,7 +251,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:background="@android:color/white"
+        android:background="@color/profile_surface"
         android:elevation="4dp"
         android:padding="16dp">
 
@@ -262,7 +262,7 @@
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
             android:text="取消"
-            android:textColor="@color/gray_600"
+            android:textColor="@color/profile_muted"
             android:background="@android:color/transparent" />
 
         <Button
@@ -272,8 +272,8 @@
             android:layout_weight="1"
             android:layout_marginHorizontal="4dp"
             android:text="保存草稿"
-            android:textColor="@android:color/white"
-            android:background="@color/gray_400"
+            android:textColor="@color/profile_ink"
+            android:background="@drawable/bg_button_secondary"
             android:enabled="false" />
 
         <Button
@@ -284,7 +284,7 @@
             android:layout_marginStart="8dp"
             android:text="提交审核"
             android:textColor="@android:color/white"
-            android:background="@color/gray_400"
+            android:background="@drawable/bg_button_primary"
             android:enabled="false" />
     </LinearLayout>
 </LinearLayout>

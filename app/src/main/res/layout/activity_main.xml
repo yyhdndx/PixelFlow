@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/gray_100">
+    android:background="@color/profile_bg">
 
     <!-- Fragment容器 -->
     <FrameLayout
@@ -12,37 +12,39 @@
         android:layout_height="match_parent"
         android:layout_above="@id/bottom_navigation" />
 
-    <!-- 底部导航栏 -->
+    <!-- 底部导航栏：纸白底 + 顶部细分隔线 + 靛紫波纹 -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottom_navigation"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:background="@android:color/white"
+        android:background="@drawable/nav_bar_background"
         app:menu="@menu/bottom_nav_menu"
         app:elevation="0dp"
         app:labelVisibilityMode="labeled"
-        app:itemIconSize="20dp"
+        app:itemIconSize="22dp"
+        app:itemRippleColor="@color/accent_ripple"
         app:itemTextAppearanceActive="@style/HomeNavigationLabel"
         app:itemTextAppearanceInactive="@style/HomeNavigationLabel"
         app:itemIconTint="@color/nav_item_color"
         app:itemTextColor="@color/nav_item_color" />
 
-    <!-- 相机按钮：填满导航内容区高度，与导航项垂直居中对齐 -->
+    <!-- 发布按钮：品牌靛紫 + 白色圆头加号，轻微悬浮 -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab_camera"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignTop="@id/bottom_navigation"
         android:layout_centerHorizontal="true"
-        android:src="@android:drawable/ic_input_add"
+        android:layout_marginTop="8dp"
+        android:src="@drawable/ic_add"
         android:contentDescription="@string/home_create"
         app:fabCustomSize="56dp"
         app:maxImageSize="24dp"
         app:useCompatPadding="false"
         app:backgroundTint="@color/profile_accent"
         app:tint="@android:color/white"
-        app:elevation="0dp"
-        app:rippleColor="@color/profile_soft" />
+        app:elevation="6dp"
+        app:rippleColor="@color/accent_ripple_strong" />
 
 </RelativeLayout>

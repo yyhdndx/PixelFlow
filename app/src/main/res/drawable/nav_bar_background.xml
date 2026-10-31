@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 底部导航背景：纸白底 + 顶部 1px 分隔线 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:gravity="top">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/profile_border" />
+            <size android:height="1dp" />
+        </shape>
+    </item>
+    <item android:top="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/profile_surface" />
+        </shape>
+    </item>
+</layer-list>

@@ -749,9 +749,12 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private void updateLikeButton() {
         boolean liked = loadedLike != null && loadedLike.isLiked();
         likeButton.setEnabled(!likeSaving);
+        likeButton.setSelected(liked);
+        likeButton.clearColorFilter();
         likeButton.setImageResource(liked ? R.drawable.ic_thumb_up : R.drawable.ic_thumb_up_outline);
+        // 颜色由 like_icon_tint 选择器按 state_selected 驱动
         likeButton.setColorFilter(getResources().getColor(
-                liked ? android.R.color.holo_red_dark : R.color.gray_600));
+                liked ? R.color.like_active : R.color.profile_muted));
     }
 
     private void updateFavoriteButton() {
@@ -760,7 +763,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 : !favoriteLoaded ? R.string.favorite_state_retry
                 : favorited ? R.string.favorite_action_remove : R.string.favorite_action_add));
         collectButton.setColorFilter(getResources().getColor(
-                favorited ? R.color.profile_accent : R.color.gray_600));
+                favorited ? R.color.profile_accent : R.color.profile_muted));
     }
 
     private void toggleFavoriteStatus() {

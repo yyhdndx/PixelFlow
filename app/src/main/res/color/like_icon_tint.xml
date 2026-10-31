@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 已点赞：情绪红 -->
+    <item android:color="@color/like_active" android:state_selected="true" />
+    <!-- 未点赞：弱化灰紫 -->
+    <item android:color="@color/profile_muted" />
+</selector>

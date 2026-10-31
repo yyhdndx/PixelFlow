@@ -1,22 +1,67 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- 主应用主题 - 使用 Material Components -->
-    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- 基础颜色 -->
-        <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
+    <!-- 主应用主题 - PixelFlow 商用设计系统（与 profile_* 令牌同源） -->
+    <style name="AppTheme" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <!-- 品牌色 -->
+        <item name="colorPrimary">@color/profile_accent</item>
+        <item name="colorPrimaryVariant">@color/brand_violet_deep</item>
         <item name="colorOnPrimary">@color/white</item>
 
-        <!-- 次要颜色 -->
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_700</item>
-        <item name="colorOnSecondary">@color/black</item>
+        <!-- 次要色：与主色同族，保持克制 -->
+        <item name="colorSecondary">@color/brand_violet_light</item>
+        <item name="colorSecondaryVariant">@color/brand_violet</item>
+        <item name="colorOnSecondary">@color/white</item>
 
-        <!-- 状态栏 -->
-        <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimaryVariant</item>
+        <!-- 纸面与文字 -->
+        <item name="android:colorBackground">@color/profile_bg</item>
+        <item name="colorSurface">@color/profile_surface</item>
+        <item name="colorOnBackground">@color/profile_ink</item>
+        <item name="colorOnSurface">@color/profile_ink</item>
+        <item name="colorError">@color/profile_error</item>
+
+        <!-- 状态栏 / 导航栏：浅色纸面 + 深色图标 -->
+        <item name="android:statusBarColor">@color/profile_bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/profile_surface</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
+        <item name="android:windowBackground">@color/profile_bg</item>
+
+        <!-- 交互反馈：低强度靛紫波纹，避免默认灰色太生硬 -->
+        <item name="colorControlHighlight">@color/accent_ripple</item>
+        <item name="rippleColor">@color/accent_ripple</item>
+
+        <!-- 统一组件圆角家族 -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeRounded.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeRounded.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeRounded.Large</item>
 
         <!-- Material Components 配置 -->
-        <item name="materialButtonStyle">@style/Widget.MaterialComponents.Button</item>
+        <item name="materialButtonStyle">@style/Widget.PixelFlow.Button</item>
         <item name="textAppearanceButton">@style/TextAppearance.MaterialComponents.Button</item>
+    </style>
+
+    <!-- 圆角家族 -->
+    <style name="ShapeRounded.Small" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/radius_control</item>
+    </style>
+    <style name="ShapeRounded.Medium" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/radius_card</item>
+    </style>
+    <style name="ShapeRounded.Large" parent="ShapeAppearance.MaterialComponents.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">24dp</item>
+    </style>
+
+    <!-- 全局主按钮：52dp 高、全圆角端 -->
+    <style name="Widget.PixelFlow.Button" parent="Widget.MaterialComponents.Button">
+        <item name="android:minHeight">52dp</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="cornerRadius">@dimen/radius_pill</item>
+        <item name="android:textColor">@color/white</item>
     </style>
 
     <!-- 详情页专用主题 -->

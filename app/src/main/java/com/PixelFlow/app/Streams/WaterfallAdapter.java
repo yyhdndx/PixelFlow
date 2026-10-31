@@ -395,12 +395,13 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
 
         private void updateLikeUI(WorkItem workItem) {
+            // 颜色由 like_icon_tint 选择器按 state_selected 驱动，见 values/color/like_icon_tint.xml
+            likeIcon.setSelected(workItem.isLiked());
+            likeIcon.clearColorFilter();
             if (workItem.isLiked()) {
                 likeIcon.setImageResource(R.drawable.ic_thumb_up);
-                likeIcon.setColorFilter(context.getResources().getColor(android.R.color.holo_red_dark));
             } else {
                 likeIcon.setImageResource(R.drawable.ic_thumb_up_outline);
-                likeIcon.setColorFilter(context.getResources().getColor(R.color.gray_600));
             }
         }
 

@@ -3,9 +3,12 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="4dp"
+    android:layout_marginStart="6dp"
+    android:layout_marginEnd="6dp"
+    android:layout_marginTop="4dp"
+    android:layout_marginBottom="8dp"
     android:foreground="?attr/selectableItemBackground"
-    app:cardCornerRadius="8dp"
+    app:cardCornerRadius="@dimen/radius_card"
     app:cardBackgroundColor="@color/profile_surface"
     app:cardElevation="0dp"
     app:cardUseCompatPadding="false"
@@ -28,14 +31,14 @@
             android:scaleType="centerCrop"
             android:adjustViewBounds="false"
             android:contentDescription="@string/workOutline"
-            android:background="@color/gray_100" />
+            android:background="@drawable/bg_image_placeholder" />
 
             <ImageView
                 android:id="@+id/work_video_badge"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:layout_gravity="top|end"
-                android:layout_margin="8dp"
+                android:layout_margin="10dp"
                 android:padding="7dp"
                 android:background="@drawable/video_badge_background"
                 android:src="@drawable/ic_video_play"
@@ -49,17 +52,17 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingStart="8dp"
-            android:paddingEnd="6dp"
-            android:paddingTop="5dp"
-            android:paddingBottom="5dp">
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="10dp">
 
             <TextView
                 android:id="@+id/title_text"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 android:textStyle="bold"
                 android:textColor="@color/profile_ink"
                 android:maxLines="1"
@@ -67,10 +70,12 @@
 
             <ImageView
                 android:id="@+id/like_icon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:layout_marginStart="8dp"
+                android:padding="2dp"
                 android:src="@drawable/ic_thumb_up_outline"
+                android:tint="@color/like_icon_tint"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/praise" />
         </LinearLayout>

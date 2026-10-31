@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ============================================================
+         PixelFlow 商用设计令牌（Design Tokens）
+         与 profile_* 体系同源：靛紫品牌色 + 暖白纸面 + 深墨文字。
+         新增组件请优先引用这里的语义令牌，不要再写死色值。
+         ============================================================ -->
+
+    <!-- 品牌梯度：用于品牌高光时刻（启动页、FAB、主按钮） -->
+    <color name="brand_violet_light">#FF8B7FF5</color>
+    <color name="brand_violet">#FF6155CE</color>
+    <color name="brand_violet_deep">#FF4A3FB8</color>
+
+    <!-- 点赞/收藏等情绪色 -->
+    <color name="like_active">#FFE5484D</color>
+    <color name="favorite_active">#FFE5484D</color>
+
+    <!-- 图片占位（骨架屏基调） -->
+    <color name="placeholder_base">#FFECECF4</color>
+    <color name="placeholder_highlight">#FFF6F5FC</color>
+
+    <!-- 图片上文字压暗渐变 -->
+    <color name="scrim_bottom">#B3000000</color>
+
+    <!-- 低强度交互色（波纹、悬浮） -->
+    <color name="accent_ripple">#1F6155CE</color>
+    <color name="accent_ripple_strong">#336155CE</color>
+
+    <!-- 字重/字号阶梯（Type Scale） -->
+    <style name="TextDisplay">
+        <item name="android:textColor">@color/profile_ink</item>
+        <item name="android:textSize">24sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.01</item>
+    </style>
+    <style name="TextTitle">
+        <item name="android:textColor">@color/profile_ink</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="TextSubtitle">
+        <item name="android:textColor">@color/profile_ink</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="TextBody">
+        <item name="android:textColor">@color/profile_ink</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+    <style name="TextCaption">
+        <item name="android:textColor">@color/profile_muted</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+    <style name="TextTabActive">
+        <item name="android:textColor">@color/profile_accent</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="TextTabInactive">
+        <item name="android:textColor">@color/profile_muted</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <!-- 统一圆角与间距 -->
+    <dimen name="radius_card">16dp</dimen>
+    <dimen name="radius_control">12dp</dimen>
+    <dimen name="radius_pill">22dp</dimen>
+    <dimen name="spacing_unit">4dp</dimen>
+    <dimen name="page_padding">16dp</dimen>
+</resources>

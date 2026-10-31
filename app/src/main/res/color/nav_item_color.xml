@@ -2,6 +2,6 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 选中状态：红色 -->
     <item android:color="@color/profile_accent" android:state_checked="true" />
-    <!-- 未选中状态：深灰色 -->
-    <item android:color="@color/gray_600" android:state_checked="false" />
+    <!-- 未选中状态：弱化灰紫 -->
+    <item android:color="@color/profile_muted" android:state_checked="false" />
 </selector>

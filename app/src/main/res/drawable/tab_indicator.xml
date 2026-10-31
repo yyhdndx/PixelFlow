@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tab 选中指示条：圆角短粗条，不铺满整宽 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/profile_accent" />
+    <corners android:radius="2dp" />
+    <size android:height="3dp" />
+</shape>
