@@ -40,7 +40,7 @@ class PostIdempotencyRestartTest {
             int port=app.getWebServer().getPort(); var db=app.getBean(JdbcTemplate.class);
             assertEquals("旧作品",db.queryForObject("SELECT title FROM posts WHERE id=70",String.class));
             assertEquals("legacy-media",db.queryForObject("SELECT media_id FROM post_media WHERE post_id=70",String.class));
-            assertEquals("10",db.queryForObject("SELECT version FROM flyway_schema_history WHERE success=TRUE ORDER BY installed_rank DESC LIMIT 1",String.class));
+            assertEquals("11",db.queryForObject("SELECT version FROM flyway_schema_history WHERE success=TRUE ORDER BY installed_rank DESC LIMIT 1",String.class));
             assertEquals(201,send(port,"/api/auth/register",null,null,"{\"username\":\"restart\",\"password\":\"restart-password\",\"nickname\":\"重启\"}").statusCode());
             var login=send(port,"/api/auth/login",null,null,"{\"username\":\"restart\",\"password\":\"restart-password\"}");
             assertEquals(200,login.statusCode()); auth="Bearer "+json.readTree(login.body()).get("accessToken").asText();

@@ -19,6 +19,7 @@ class CreationAssistApiTest {
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate db;
     String alice, bob;
+    final String suggestionId = "11111111-1111-1111-1111-111111111111";
 
     @BeforeEach void setup() throws Exception {
         for (String table : List.of("recommendation_suppressed_topics","recommendation_blocked_authors","recommendation_preferences",
@@ -27,6 +28,9 @@ class CreationAssistApiTest {
             db.update("DELETE FROM " + table);
         alice = account("assist_alice");
         bob = account("assist_bob");
+        db.update("INSERT INTO creation_suggestions(id,user_id,source_title,source_content,result_json,expires_at) VALUES(?,?,?,?,?,?)",
+                suggestionId,db.queryForObject("SELECT id FROM users WHERE username='assist_alice'",String.class),"草稿","正文",
+                "{\"title_candidates\":[\"新标题\"],\"content_candidates\":[\"新正文\"]}",Long.MAX_VALUE);
     }
 
     String account(String name) throws Exception {
@@ -47,26 +51,26 @@ class CreationAssistApiTest {
     @Test void applyAssistUpdatesContentAndBumpsVersion() throws Exception {
         String id = createDraft(alice);
         mvc.perform(post("/api/posts/" + id + "/assist-application").header("Authorization", alice)
-                .contentType("application/json").content("{\"title\":\"新标题\",\"content\":\"新正文\",\"expected_version\":0}"))
+                .contentType("application/json").content("{\"title\":\"新标题\",\"content\":\"新正文\",\"expected_version\":0,\"suggestion_id\":\"11111111-1111-1111-1111-111111111111\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.title").value("新标题"))
                 .andExpect(jsonPath("$.content").value("新正文")).andExpect(jsonPath("$.content_version").value(1));
     }
 
     @Test void applyAssistStaleVersionConflicts() throws Exception {
         String id = createDraft(alice);
-        String body = "{\"title\":\"新标题\",\"content\":\"新正文\",\"expected_version\":0}";
+        String body = "{\"title\":\"新标题\",\"content\":\"新正文\",\"expected_version\":0,\"suggestion_id\":\"11111111-1111-1111-1111-111111111111\"}";
         mvc.perform(post("/api/posts/" + id + "/assist-application").header("Authorization", alice)
                 .contentType("application/json").content(body)).andExpect(status().isOk());
         mvc.perform(post("/api/posts/" + id + "/assist-application").header("Authorization", alice)
-                .contentType("application/json").content("{\"title\":\"再次\",\"content\":\"再次\",\"expected_version\":0}"))
-                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
+                .contentType("application/json").content("{\"title\":\"再次\",\"content\":\"再次\",\"expected_version\":0,\"suggestion_id\":\"11111111-1111-1111-1111-111111111111\"}"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SUGGESTION_ALREADY_APPLIED"));
     }
 
     @Test void applyAssistRejectsNonOwner() throws Exception {
         String id = createDraft(alice);
         mvc.perform(post("/api/posts/" + id + "/assist-application").header("Authorization", bob)
-                .contentType("application/json").content("{\"title\":\"新标题\",\"content\":\"新正文\",\"expected_version\":0}"))
-                .andExpect(status().isForbidden());
+                .contentType("application/json").content("{\"title\":\"新标题\",\"content\":\"新正文\",\"expected_version\":0,\"suggestion_id\":\"11111111-1111-1111-1111-111111111111\"}"))
+                .andExpect(status().isNotFound());
     }
 
     @Test void createAssistRequiresAuth() throws Exception {
@@ -85,5 +89,29 @@ class CreationAssistApiTest {
         mvc.perform(post("/api/agent/create-assist").header("Authorization", alice).contentType("application/json")
                 .content("{\"draft\":{\"title\":\"\",\"content\":\"\",\"tags\":[]},\"goal\":\"hack\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test void identicalApplicationReplaysOriginalResponse() throws Exception {
+        String id=createDraft(alice);
+        String body=json.writeValueAsString(Map.of("title","新标题","content","新正文","expected_version",0,"suggestion_id",suggestionId));
+        String first=mvc.perform(post("/api/posts/"+id+"/assist-application").header("Authorization",alice)
+                .contentType("application/json").content(body)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String replay=mvc.perform(post("/api/posts/"+id+"/assist-application").header("Authorization",alice)
+                .contentType("application/json").content(body)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        org.junit.jupiter.api.Assertions.assertEquals(json.readTree(first),json.readTree(replay));
+        org.junit.jupiter.api.Assertions.assertEquals(1,db.queryForObject("SELECT content_version FROM posts WHERE id=?",Integer.class,id));
+    }
+    @Test void arbitraryTextCannotMasqueradeAsSuggestedCandidate() throws Exception {
+        String id=createDraft(alice);
+        String body=json.writeValueAsString(Map.of("title","伪造候选","content","新正文","expected_version",0,"suggestion_id",suggestionId));
+        mvc.perform(post("/api/posts/"+id+"/assist-application").header("Authorization",alice)
+                .contentType("application/json").content(body)).andExpect(status().isBadRequest());
+    }
+    @Test void editedDraftRejectsOldSuggestion() throws Exception {
+        String id=createDraft(alice);
+        db.update("UPDATE posts SET content='后续编辑',content_version=1 WHERE id=?",id);
+        String body=json.writeValueAsString(Map.of("title","新标题","content","新正文","expected_version",1,"suggestion_id",suggestionId));
+        mvc.perform(post("/api/posts/"+id+"/assist-application").header("Authorization",alice)
+                .contentType("application/json").content(body)).andExpect(status().isConflict());
     }
 }

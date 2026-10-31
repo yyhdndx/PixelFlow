@@ -139,6 +139,30 @@
                 android:text="@string/creation_check_my_works"
                 android:visibility="gone" />
 
+            <Button
+                android:id="@+id/creation_assist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="AI 辅助创作" />
+            <TextView
+                android:id="@+id/creation_assist_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:accessibilityLiveRegion="polite"
+                android:visibility="gone" />
+            <Button
+                android:id="@+id/creation_assist_preview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="查看建议"
+                android:visibility="gone" />
+            <Button
+                android:id="@+id/creation_assist_cancel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="跳过 AI"
+                android:visibility="gone" />
+
             <!-- 话题标签 -->
             <TextView
                 android:layout_width="match_parent"

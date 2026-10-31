@@ -12,6 +12,7 @@ from ..analytics.store import Store
 from ..recommendation.preview import preview
 from ..skills import Context, SkillError, create_registry
 from ..skills.models import DraftSnapshot
+from ..clients.deepseek import DeepSeekAssist
 
 
 class ProfileRefreshInput(BaseModel):
@@ -239,15 +240,23 @@ def create_app(settings=None, upstream=None):
         except UpstreamError:
             raise HTTPException(503, "Java identity service unavailable") from None
         try:
-            registry = create_registry()
+            registry = create_registry(DeepSeekAssist(settings) if settings.deepseek_api_key else None)
             context = Context(user, frozenset({"content:check", "content:assist"}),
-                              int(time.time()), time.monotonic() + 10)
+                              int(time.time()), time.monotonic() + 40)
             assist = registry.invoke("creator_assist", {
                 "user_id": user, "draft": body.draft.model_dump(), "goal": body.goal,
                 "prompt": body.prompt, "audience": body.audience}, context)["output"]
             safety = registry.invoke("content_safety", {
                 "user_id": user, "title": body.draft.title, "content": body.draft.content,
                 "tags": body.draft.tags}, context)["output"]
+            # Inspect generated candidates as well as the original text; never mark unsafe output safe.
+            checks = [safety]
+            for text in assist["title_candidates"] + assist["content_candidates"] + assist["tag_suggestions"]:
+                checks.append(registry.invoke("content_safety", {
+                    "user_id": user, "title": "", "content": text, "tags": []}, context)["output"])
+            safety = dict(max(checks, key=lambda c: {"low": 0, "medium": 1, "high": 2, "unknown": 3}[c["risk_level"]]))
+            safety["rule_hits"] = sorted({hit for c in checks for hit in c["rule_hits"]})
+            safety["suggestions"] = list(dict.fromkeys(s for c in checks for s in c["suggestions"]))
             return {
                 "user_id": user, "trace_id": context.trace_id,
                 "suggestion_id": str(uuid.uuid4()), "goal": body.goal,
@@ -256,6 +265,7 @@ def create_app(settings=None, upstream=None):
                 "edit_suggestions": assist["edit_suggestions"],
                 "content_candidates": assist["content_candidates"],
                 "policy_version": assist["policy_version"],
+                "provider": "deepseek" if settings.deepseek_api_key else "rules",
                 "safety": safety,
             }
         except (SkillError, TimeoutError, ValidationError):

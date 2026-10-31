@@ -119,7 +119,10 @@ public class CommunityClient implements AutoCloseable {
         if ("POST".equals(method) && "/api/posts".equals(path) && job.creationKey != null)
             builder.header("Idempotency-Key", job.creationKey);
         builder.method(method, body);
-        job.call = http.newCall(builder.build());
+        OkHttpClient transport = path.equals("/api/agent/create-assist")
+                ? http.newBuilder().readTimeout(50, TimeUnit.SECONDS).build() : http;
+        job.call = transport.newCall(builder.build());
+        if (path.equals("/api/agent/create-assist")) job.call.timeout().timeout(55, TimeUnit.SECONDS);
         if (path.equals("/api/events")) job.call.timeout().timeout(3, TimeUnit.SECONDS);
         if (job.cancelled) job.call.cancel();
         try (Response response = job.call.execute()) {
@@ -426,6 +429,23 @@ public class CommunityClient implements AutoCloseable {
             return draft(job, null, title, content, mediaIds, expected);
         }, callback);
     }
+    public Job createAssist(String title, String content, List<String> tags, String goal, String prompt,
+            String audience, Callback<CreationSuggestion> callback) {
+        return submit((job, expected) -> {
+            if (title.length() > 120 || content.length() > 5000 || prompt.length() > 200 || audience.length() > 64)
+                throw new ApiError(400, "输入内容过长，请精简后重试");
+            JsonObject draft = new JsonObject();
+            draft.addProperty("title", title); draft.addProperty("content", content);
+            draft.add("tags", gson.toJsonTree(tags));
+            JsonObject input = new JsonObject(); input.add("draft", draft);
+            input.addProperty("goal", goal); input.addProperty("prompt", prompt); input.addProperty("audience", audience);
+            String raw = authenticated(job, "/api/agent/create-assist", "POST", input, expected, true);
+            CreationSuggestion result = gson.fromJson(raw, CreationSuggestion.class);
+            if (result == null || !result.valid()) throw new ApiError(502, "建议响应不完整，请重试");
+            return result;
+        }, callback);
+    }
+
     public Job updatePost(String id, String title, String content, List<String> mediaIds, Callback<PostItem> callback) {
         return submit((job, expected) -> draft(job, id, title, content, mediaIds, expected), callback);
     }

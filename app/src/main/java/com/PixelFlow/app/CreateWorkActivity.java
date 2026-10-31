@@ -56,6 +56,7 @@ public class CreateWorkActivity extends AppCompatActivity {
     private TextView operationStatus;
     private Button checkState, myWorks;
     private boolean binding;
+    private androidx.appcompat.app.AlertDialog assistDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -92,6 +93,9 @@ public class CreateWorkActivity extends AppCompatActivity {
         btnSave = findViewById(R.id.btn_save);
         btnPublish = findViewById(R.id.btn_publish);
         btnCancel = findViewById(R.id.btn_cancel);
+        findViewById(R.id.creation_assist).setOnClickListener(v -> showAssistRequest());
+        findViewById(R.id.creation_assist_preview).setOnClickListener(v -> showAssistPreview());
+        findViewById(R.id.creation_assist_cancel).setOnClickListener(v -> model.cancelAssist());
 
         findViewById(R.id.btn_back).setOnClickListener(v -> onBackPressed());
         operationStatus = findViewById(R.id.creation_status);
@@ -156,6 +160,12 @@ public class CreateWorkActivity extends AppCompatActivity {
             finish(); return;
         }
         tvTitle.setText(model.state.postId == null ? "创作作品" : "编辑作品");
+        findViewById(R.id.creation_assist).setEnabled(model.editable() && !model.assistBusy);
+        TextView assistStatus = findViewById(R.id.creation_assist_status);
+        assistStatus.setText(model.assistMessage);
+        assistStatus.setVisibility(model.assistMessage.isEmpty() ? View.GONE : View.VISIBLE);
+        findViewById(R.id.creation_assist_preview).setVisibility(model.suggestion == null ? View.GONE : View.VISIBLE);
+        findViewById(R.id.creation_assist_cancel).setVisibility(model.assistBusy ? View.VISIBLE : View.GONE);
         operationStatus.setText(model.state.message);
         operationStatus.setVisibility(model.state.message.isEmpty() ? View.GONE : View.VISIBLE);
         checkState.setVisibility(model.state.needsReconcile && !model.busy ? View.VISIBLE : View.GONE);
@@ -198,7 +208,7 @@ public class CreateWorkActivity extends AppCompatActivity {
                     }
                 }
             }
-            @Override public void afterTextChanged(Editable s) {}
+            @Override public void afterTextChanged(Editable s) { captureText(); }
         });
 
         btnAddImage.setOnClickListener(v -> openImagePicker());
@@ -214,6 +224,78 @@ public class CreateWorkActivity extends AppCompatActivity {
         if (count > 5000) tvCharCount.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
         else if (count > 4500) tvCharCount.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
         else tvCharCount.setTextColor(getResources().getColor(R.color.gray_600));
+    }
+
+    private LinearLayout assistPanel() {
+        LinearLayout panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL);
+        int padding = dpToPx(20); panel.setPadding(padding, padding, padding, padding);
+        return panel;
+    }
+    private void showAssistRequest() {
+        if (!model.editable() || model.assistBusy) return;
+        captureText();
+        LinearLayout panel = assistPanel();
+        android.widget.Spinner goal = new android.widget.Spinner(this);
+        goal.setAdapter(new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item,
+                new String[]{"综合优化", "优化标题", "润色正文", "根据主题写文案", "推荐话题"}));
+        panel.addView(goal);
+        EditText prompt = new EditText(this); prompt.setHint("主题或写作要求（可选）");
+        prompt.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)}); panel.addView(prompt);
+        EditText audience = new EditText(this); audience.setHint("目标读者（可选）");
+        audience.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(64)}); panel.addView(audience);
+        assistDialog = new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("AI 辅助创作")
+                .setMessage("将草稿文字和写作要求发送给 DeepSeek，生成后由你选择是否采用。")
+                .setView(panel).setNegativeButton("取消", null).setPositiveButton("生成建议", (d,w) -> {
+                    captureText();
+                    model.requestAssist(new String[]{"all","improve_title","polish_content","write_content","suggest_tags"}[goal.getSelectedItemPosition()],
+                            prompt.getText().toString().trim(), audience.getText().toString().trim());
+                }).create();
+        assistDialog.show();
+    }
+    private android.widget.RadioGroup candidateChoices(LinearLayout panel, String label, List<String> candidates) {
+        TextView heading = new TextView(this); heading.setText(label); panel.addView(heading);
+        android.widget.RadioGroup group = new android.widget.RadioGroup(this);
+        android.widget.RadioButton keep = new android.widget.RadioButton(this); keep.setId(View.generateViewId());
+        keep.setText("保留原文"); group.addView(keep); group.check(keep.getId());
+        for (String candidate : candidates) {
+            android.widget.RadioButton option = new android.widget.RadioButton(this);
+            option.setId(View.generateViewId()); option.setText(candidate); option.setTag(candidate); group.addView(option);
+        }
+        panel.addView(group); return group;
+    }
+    private String selectedCandidate(android.widget.RadioGroup group) {
+        View selected = group.findViewById(group.getCheckedRadioButtonId());
+        return selected == null ? null : (String) selected.getTag();
+    }
+    private void showAssistPreview() {
+        com.PixelFlow.app.API.CreationSuggestion value = model.suggestion;
+        if (value == null || !model.editable()) return;
+        LinearLayout panel = assistPanel();
+        TextView notes = new TextView(this);
+        String risk = "low".equals(value.safety.risk_level) ? "未发现规则风险" : "请留意内容风险";
+        notes.setText(risk + "\n" + android.text.TextUtils.join("\n", value.safety.suggestions)
+                + "\n" + android.text.TextUtils.join("\n", value.edit_suggestions));
+        panel.addView(notes);
+        android.widget.RadioGroup titles = candidateChoices(panel, "标题", value.title_candidates);
+        android.widget.RadioGroup copies = candidateChoices(panel, "正文", value.content_candidates);
+        android.widget.CheckBox tags = new android.widget.CheckBox(this);
+        tags.setText("将话题加入正文：" + android.text.TextUtils.join(" ", value.tag_suggestions));
+        tags.setVisibility(value.tag_suggestions.isEmpty() ? View.GONE : View.VISIBLE); panel.addView(tags);
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this); scroll.addView(panel);
+        assistDialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("rules".equals(value.provider) ? "规则建议（未启用模型）" : "DeepSeek 建议")
+                .setView(scroll).setNegativeButton("继续编辑", null).setPositiveButton("确认填入草稿", null).create();
+        assistDialog.setOnShowListener(d -> assistDialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener(v -> {
+            captureText();
+            if (selectedCandidate(titles) == null && selectedCandidate(copies) == null && !tags.isChecked()) {
+                Toast.makeText(this, "请先选择要采用的建议", Toast.LENGTH_SHORT).show(); return;
+            }
+            if (model.acceptAssist(selectedCandidate(titles), selectedCandidate(copies), tags.isChecked())) {
+                binding = true; etTitle.setText(model.state.title); etDescription.setText(model.state.content); binding = false;
+                updateSaveButtonState(); assistDialog.dismiss();
+            } else Toast.makeText(this, model.assistMessage, Toast.LENGTH_LONG).show();
+        }));
+        assistDialog.show();
     }
 
     private void updateMediaCount() {
@@ -435,6 +517,7 @@ public class CreateWorkActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (assistDialog != null) assistDialog.dismiss();
         clearMediaPreviews();
         super.onDestroy();
     }

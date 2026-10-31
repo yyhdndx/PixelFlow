@@ -32,6 +32,12 @@ public final class DraftEditorModel extends AndroidViewModel {
     public final MutableLiveData<Integer> changes = new MutableLiveData<>(0);
     public State state;
     public boolean busy;
+    public boolean assistBusy;
+    public CreationSuggestion suggestion;
+    public String assistMessage = "";
+    private String assistSnapshot;
+    private CommunityClient.Job assistJob;
+    private int assistGeneration;
     private final ApiClient api;
     private final ExecutorService images = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -86,6 +92,55 @@ public final class DraftEditorModel extends AndroidViewModel {
         return ownsSession() && !busy && !state.creationUnknown && !state.needsReconcile
                 && Arrays.asList("DRAFT", "REJECTED", "WITHDRAWN").contains(state.status);
     }
+    private String textSnapshot() { return new Gson().toJson(Arrays.asList(state.title, state.content, state.tags)); }
+    public void requestAssist(String goal, String prompt, String audience) {
+        if (!editable() || assistBusy) return;
+        suggestion = null; assistSnapshot = textSnapshot(); assistBusy = true;
+        assistMessage = "正在生成建议…";
+        int request = ++assistGeneration;
+        changes.setValue(changes.getValue() + 1);
+        java.util.List<String> tags = new ArrayList<>();
+        for (String tag : state.tags.split("\\s+")) if (!tag.isEmpty() && tag.length() <= 32 && tags.size() < 20) tags.add(tag);
+        assistJob = api.createAssist(state.title, state.content, tags, goal, prompt, audience,
+                new CommunityClient.Callback<CreationSuggestion>() {
+            public void onSuccess(CreationSuggestion value) {
+                if (!current() || request != assistGeneration) return;
+                assistBusy = false;
+                if (!assistSnapshot.equals(textSnapshot())) {
+                    assistMessage = "草稿已修改，请重新生成建议。";
+                } else { suggestion = value; assistMessage = "建议已生成，确认后才会填入草稿。"; }
+                changes.setValue(changes.getValue() + 1);
+            }
+            public void onFailure(String error) {
+                if (!current() || request != assistGeneration) return;
+                assistBusy = false; assistMessage = "生成失败，原稿已保留。可重试或继续手动编辑。";
+                changes.setValue(changes.getValue() + 1);
+            }
+        });
+    }
+    public void cancelAssist() {
+        ++assistGeneration;
+        if (assistJob != null) assistJob.cancel();
+        assistBusy = false; suggestion = null; assistMessage = "";
+        changes.setValue(changes.getValue() + 1);
+    }
+    public boolean acceptAssist(String title, String content, boolean includeTags) {
+        if (!editable() || suggestion == null || !textSnapshot().equals(assistSnapshot)) {
+            assistMessage = "草稿已修改，请重新生成建议。"; suggestion = null;
+            changes.setValue(changes.getValue() + 1); return false;
+        }
+        if (title != null && !suggestion.title_candidates.contains(title)) return false;
+        if (content != null && !suggestion.content_candidates.contains(content)) return false;
+        String nextContent = content == null ? state.content : content;
+        // Current post API stores no separate tags: selected hashtags are explicit body text.
+        if (includeTags) for (String tag : suggestion.tag_suggestions)
+            if (!nextContent.contains(tag)) nextContent += "\n" + tag;
+        if (nextContent.length() > 5000) { assistMessage = "加入话题后正文超过 5000 字，请减少内容。"; return false; }
+        if (title != null) state.title = title;
+        state.content = nextContent;
+        suggestion = null; assistMessage = "已填入草稿，保存或提交审核后生效。";
+        notifyChange(); return true;
+    }
     /** An unknown create is retried with the same Idempotency-Key; the backend replays it idempotently. */
     public boolean retryable() {
         return ownsSession() && !busy && state.creationUnknown && state.postId == null;
@@ -106,6 +161,7 @@ public final class DraftEditorModel extends AndroidViewModel {
     }
     public void submit(boolean publish) {
         if (!current() || busy) return;
+        cancelAssist();
         if (state.needsReconcile) { reconcile(); return; }
         if (state.creationUnknown) {
             // The backend now replays a create idempotently by Idempotency-Key, so an
@@ -230,6 +286,7 @@ public final class DraftEditorModel extends AndroidViewModel {
     }
     @Override protected void onCleared() {
         cleared = true;
+        if (assistJob != null) assistJob.cancel();
         images.shutdownNow();
         // Already-issued server writes are not cancelled. No later stage starts after this editor closes.
     }

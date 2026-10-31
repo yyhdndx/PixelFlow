@@ -29,18 +29,21 @@ public class CreationAssistController {
             @NotBlank @Pattern(regexp="improve_title|suggest_tags|polish_content|write_content|all") String goal,
             @Size(max=200) String prompt, @Size(max=64) String audience) {}
     public record AssistApplication(@NotNull @Size(max=120) String title, @NotNull @Size(max=5000) String content,
-            @Min(0) long expected_version) {}
+            @NotNull @Min(0) Long expected_version,
+            @NotBlank @Pattern(regexp="[a-fA-F0-9-]{36}") String suggestion_id) {}
 
     private final URI endpoint;
     private final ObjectMapper json;
     private final PostService posts;
+    private final CreationSuggestionStore suggestions;
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2))
             .followRedirects(HttpClient.Redirect.NEVER).build();
 
-    public CreationAssistController(ObjectMapper json, PostService posts,
+    public CreationAssistController(ObjectMapper json, PostService posts, CreationSuggestionStore suggestions,
             @Value("${pixelflow.intelligence-base-url:}") String base) {
         this.json = json;
         this.posts = posts;
+        this.suggestions = suggestions;
         if (base.isBlank()) { endpoint = null; return; }
         URI uri = URI.create(base);
         if (!Set.of("http", "https").contains(uri.getScheme()) || uri.getHost() == null
@@ -61,7 +64,7 @@ public class CreationAssistController {
         payload.put("prompt", body.prompt() == null ? "" : body.prompt());
         payload.put("audience", body.audience() == null ? "" : body.audience());
         try {
-            var request = HttpRequest.newBuilder(endpoint).timeout(Duration.ofSeconds(5))
+            var request = HttpRequest.newBuilder(endpoint).timeout(Duration.ofSeconds(45))
                     .header("Authorization", token).header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(payload))).build();
             var upstream = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -72,6 +75,13 @@ public class CreationAssistController {
                     || !actor.id().equals(result.path("user_id").textValue())
                     || !result.path("suggestion_id").isTextual() || !result.path("safety").isObject())
                 throw invalidResponse();
+            for (String field : List.of("title_candidates","content_candidates","tag_suggestions","edit_suggestions")) {
+                if (!result.path(field).isArray() || result.path(field).size()>20) throw invalidResponse();
+                for (JsonNode value : result.path(field)) if (!value.isTextual() || value.asText().length()>5000) throw invalidResponse();
+            }
+            String suggestionId=java.util.UUID.randomUUID().toString();
+            ((com.fasterxml.jackson.databind.node.ObjectNode)result).put("suggestion_id",suggestionId);
+            suggestions.save(suggestionId,actor,body.draft().title(),body.draft().content(),result);
             return ResponseEntity.ok().header("Cache-Control", "no-store").body(result);
         } catch (java.io.IOException error) {
             throw unavailable();
@@ -84,7 +94,7 @@ public class CreationAssistController {
     @PostMapping("/api/posts/{id}/assist-application")
     public Map<String, Object> applyAssist(@PathVariable long id, @AuthenticationPrincipal Actor actor,
             @Valid @RequestBody AssistApplication body) {
-        return posts.applyAssist(id, actor, body.title(), body.content(), body.expected_version());
+        return suggestions.apply(body.suggestion_id(), id, actor, body.title(), body.content(), body.expected_version());
     }
 
     private static ApiException unavailable() { return new ApiException(503, "ASSIST_UNAVAILABLE", "创作辅助服务暂时不可用"); }
