@@ -1,9 +1,21 @@
 server:
+  forward-headers-strategy: none
   address: ${SERVER_ADDRESS:127.0.0.1}
   port: ${SERVER_PORT:8080}
   error:
     include-message: never
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:300ms}
+      timeout: ${REDIS_COMMAND_TIMEOUT:300ms}
+      repositories:
+        enabled: false
   flyway:
     locations: classpath:db/{vendor}
   datasource:
@@ -19,6 +31,22 @@ spring:
       max-file-size: 8MB
       max-request-size: 9MB
 pixelflow:
+  rate-limit:
+    enabled: ${PIXELFLOW_RATE_LIMIT_ENABLED:false}
+    namespace: ${PIXELFLOW_RATE_LIMIT_NAMESPACE:pixelflow:local}
+    trusted-proxies: ${PIXELFLOW_RATE_LIMIT_TRUSTED_PROXIES:}
+    login-ip:
+      limit: ${PIXELFLOW_RATE_LIMIT_LOGIN_IP_LIMIT:100}
+      window: ${PIXELFLOW_RATE_LIMIT_LOGIN_IP_WINDOW:60s}
+    login-account:
+      limit: ${PIXELFLOW_RATE_LIMIT_LOGIN_ACCOUNT_LIMIT:10}
+      window: ${PIXELFLOW_RATE_LIMIT_LOGIN_ACCOUNT_WINDOW:60s}
+    register-ip:
+      limit: ${PIXELFLOW_RATE_LIMIT_REGISTER_IP_LIMIT:10}
+      window: ${PIXELFLOW_RATE_LIMIT_REGISTER_IP_WINDOW:600s}
+    upload-user:
+      limit: ${PIXELFLOW_RATE_LIMIT_UPLOAD_USER_LIMIT:30}
+      window: ${PIXELFLOW_RATE_LIMIT_UPLOAD_USER_WINDOW:60s}
   jwt-secret: ${PIXELFLOW_JWT_SECRET:}
   seed: ${PIXELFLOW_SEED:false}
   admin-password: ${PIXELFLOW_ADMIN_PASSWORD:}

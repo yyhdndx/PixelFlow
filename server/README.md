@@ -6,6 +6,10 @@
 
 源码根目录：`src/main/java/com/pixelflow/server/`。
 
+Redis限流默认关闭，显式设置 `PIXELFLOW_RATE_LIMIT_ENABLED=true` 后保护登录、注册及认证上传；规则和Redis变量见 [.env.example](.env.example)，部署和可信单跳IP配置见 [Redis限流部署](../deploy/Redis限流部署.md)。429使用 `RATE_LIMITED`，包含 `Retry-After`、`Cache-Control: no-store` 和真实请求标识。Redis故障有限超时后放行，保护暂时减弱。
+
+真实Redis专项在仓库根目录执行 `mvn -B -ntp -f server/pom.xml -Predis-integration verify`，使用 `REDIS_TEST_HOST`（默认127.0.0.1）、`REDIS_TEST_PORT`（6379）、`REDIS_TEST_USERNAME` / `REDIS_TEST_PASSWORD`、`REDIS_TEST_DATABASE`（0）。须指向专属本地/受控测试实例；专项唯一前缀且只清理自己的键，Redis不可用直接失败，不静默跳过。普通 `mvn test` 不包含该专项，不能作为Redis验收。结果及Android调用示例见 [Redis限流验收](../docs/testing/Redis限流验收.md)。
+
 |业务包|职责|
 |---|---|
 |auth|注册、登录、令牌、认证与 RBAC|

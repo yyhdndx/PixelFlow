@@ -15,6 +15,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     services:
+      redis:
+        image: redis:7.4
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s --health-timeout=3s --health-retries=12
       mysql:
         image: mysql:8.4
         env:
@@ -68,8 +74,11 @@ jobs:
                   for name in ('business', 'preferences', 'stats', 'connections', 'favorites', 'public_profile', 'user_posts', 'post_idempotency', 'post_idempotency_restart', 'migration', 'migration_v7', 'post_lifecycle', 'analytics'):
                       cursor.execute(f'CREATE DATABASE pf_{name}_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin')
           PY
-      - name: Java tests and package (including all MySQL suites)
-        run: mvn -B -ntp -f server/pom.xml verify
+      - name: Java tests and package (including MySQL and mandatory real Redis suites)
+        env:
+          REDIS_TEST_HOST: 127.0.0.1
+          REDIS_TEST_PORT: '6379'
+        run: mvn -B -ntp -f server/pom.xml -Predis-integration verify
       - name: Python tests (including MySQL)
         working-directory: intelligence
         run: python -m pytest -q --junitxml=../test-results/python.xml
@@ -103,6 +112,7 @@ jobs:
           name: test-reports
           path: |
             server/target/surefire-reports/
+            server/target/failsafe-reports/
             test-results/
           retention-days: 14
       - name: Package tested revision
