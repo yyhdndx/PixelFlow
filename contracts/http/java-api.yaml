@@ -378,6 +378,32 @@ paths:
                   next_cursor: {type: string, nullable: true}
                   post_list: {type: array, items: {$ref: '#/components/schemas/Post'}}
         default: {$ref: '#/components/responses/Error'}
+  /api/search/posts:
+    get:
+      summary: 按关键词搜索公开作品
+      description: |
+        关键词匹配标题与话题标签，仅返回 PUBLISHED 且对当前用户可见的作品；游客可用。
+        实现约束（4GB 演示服务器）：SQL LIKE 前缀匹配 + 时间倒序 + 游标分页即可，
+        不引入 Elasticsearch 等额外组件；q 为 1–60 字，前后空白忽略。
+      security: []
+      parameters:
+        - {name: q, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 60}}
+        - {$ref: '#/components/parameters/Count'}
+        - {$ref: '#/components/parameters/Cursor'}
+      responses:
+        '200':
+          description: 与 /feed/ 相同的响应结构
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, has_more, post_list, next_cursor]
+                properties:
+                  status_code: {type: integer, enum: [0]}
+                  has_more: {type: integer, enum: [0, 1]}
+                  next_cursor: {type: string, nullable: true}
+                  post_list: {type: array, items: {$ref: '#/components/schemas/Post'}}
+        default: {$ref: '#/components/responses/Error'}
   /api/posts:
     get:
       summary: 分页查询自己的作品，含草稿

@@ -254,6 +254,22 @@ public class CommunityClient implements AutoCloseable {
             return result;
         }, callback);
     }
+    /** 关键词搜索公开作品；契约见 contracts/http/java-api.yaml 的 /api/search/posts。游客可用。 */
+    public Job searchPosts(String query, int count, String cursor, Callback<ApiResponse> callback) {
+        return submit((job, expected) -> {
+            if (query == null || query.trim().isEmpty() || query.trim().length() > 60)
+                throw new ApiError(400, "搜索关键词需为 1–60 字");
+            if (count < 1 || count > 50 || (cursor != null && !cursor.matches("[1-9][0-9]{0,18}")))
+                throw new ApiError(400, "分页参数无效");
+            String encoded = java.net.URLEncoder.encode(query.trim(), java.nio.charset.StandardCharsets.UTF_8);
+            ApiResponse result = gson.fromJson(authenticated(job, "/api/search/posts?q=" + encoded
+                    + "&count=" + count + (cursor == null ? "" : "&cursor=" + cursor),
+                    "GET", null, expected, false), ApiResponse.class);
+            if (result == null || result.getStatusCode() != 0 || result.getPostList() == null)
+                throw new ApiError(0, "搜索结果响应不完整");
+            return result;
+        }, callback);
+    }
     public Job getRecommendationFeed(Callback<RecommendationFeed> callback) {
         return submit((job, expected) -> {
             RecommendationFeed feed = gson.fromJson(
