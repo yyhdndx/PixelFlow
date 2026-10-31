@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="clear">清空</string>
+    <string name="search_entry_hint">搜索作品、作者、话题</string>
+    <string name="search_hint">输入关键词搜索作品</string>
+    <string name="search_action">搜索</string>
+    <string name="search_history">搜索历史</string>
+    <string name="search_history_empty">暂无搜索历史</string>
+    <string name="search_clear_history">清空</string>
+    <string name="search_hot">热门搜索</string>
+    <string name="search_empty_title">没有找到相关作品</string>
+    <string name="search_empty_message">换个关键词试试吧</string>
+    <string name="search_unavailable">搜索服务即将上线，敬请期待</string>
+    <string name="search_error_title">暂时无法搜索</string>
+    <string name="search_retry">重试</string>
+    <string name="search_load_more_failed">更多结果未能加载，请重试</string>
+    <string name="search_history_cleared">已清空搜索历史</string>
+    <string name="search_max_length">关键词最多 60 字</string>
+    <string-array name="search_hot_default">
+        <item>风景</item>
+        <item>美食</item>
+        <item>校园</item>
+        <item>旅行</item>
+        <item>猫</item>
+        <item>夜景</item>
+    </string-array>
+</resources>

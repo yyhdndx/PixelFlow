@@ -6,6 +6,32 @@
     android:orientation="vertical"
     android:background="@color/profile_bg">
 
+    <!-- 搜索入口：点击跳转搜索页 -->
+    <FrameLayout
+        android:id="@+id/search_entry"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="4dp"
+        android:background="@drawable/bg_form_card"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:drawableStart="@drawable/ic_search"
+            android:drawablePadding="8dp"
+            android:paddingStart="14dp"
+            android:text="@string/search_entry_hint"
+            android:textColor="@color/profile_muted"
+            android:textSize="13sp" />
+    </FrameLayout>
+
     <!-- 上层Tab导航：融入纸面背景，圆角指示条 -->
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tab_layout"
