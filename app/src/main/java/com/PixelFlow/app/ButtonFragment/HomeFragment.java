@@ -151,6 +151,12 @@ public class HomeFragment extends Fragment {
         Button retryButton = view.findViewById(R.id.retry_button);
 
         retryButton.setOnClickListener(v -> loadData(true));
+
+        View searchEntry = view.findViewById(R.id.search_entry);
+        if (searchEntry != null) {
+            searchEntry.setOnClickListener(v ->
+                    startActivity(new Intent(requireContext(), com.PixelFlow.app.SearchActivity.class)));
+        }
     }
 
     private void setupRecyclerView() {

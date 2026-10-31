@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/profile_bg">
+
+    <!-- 顶栏：返回 + 搜索输入 + 清空 + 搜索动作 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp">
+
+        <ImageButton
+            android:id="@+id/btn_back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/back"
+            android:padding="10dp"
+            android:src="@drawable/ic_arrow_back" />
+
+        <EditText
+            android:id="@+id/et_search"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_form_card"
+            android:drawableStart="@drawable/ic_search"
+            android:drawablePadding="8dp"
+            android:hint="@string/search_hint"
+            android:imeOptions="actionSearch"
+            android:importantForAutofill="no"
+            android:inputType="text"
+            android:maxLength="60"
+            android:maxLines="1"
+            android:paddingStart="14dp"
+            android:paddingEnd="8dp"
+            android:textColor="@color/profile_ink"
+            android:textColorHint="@color/profile_muted"
+            android:textSize="15sp" />
+
+        <ImageButton
+            android:id="@+id/btn_clear"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/clear"
+            android:padding="9dp"
+            android:src="@drawable/ic_close"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/btn_submit"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center"
+            android:paddingStart="12dp"
+            android:paddingEnd="4dp"
+            android:text="@string/search_action"
+            android:textColor="@color/profile_accent"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- 发现页：搜索历史 + 热门搜索 -->
+    <ScrollView
+        android:id="@+id/search_discovery"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="4dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    style="@style/TextCaption"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/search_history"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/btn_clear_history"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:padding="6dp"
+                    android:text="@string/search_clear_history"
+                    android:textColor="@color/profile_accent"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/history_chips"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp" />
+
+            <TextView
+                android:id="@+id/history_empty"
+                style="@style/TextCaption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="@string/search_history_empty" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0.5dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                android:background="@color/profile_border" />
+
+            <TextView
+                style="@style/TextCaption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/search_hot"
+                android:textSize="13sp" />
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/hot_chips"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- 加载中 -->
+    <ProgressBar
+        android:id="@+id/search_progress"
+        style="?android:attr/progressBarStyle"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="48dp"
+        android:indeterminateTint="@color/profile_accent"
+        android:visibility="gone" />
+
+    <!-- 结果瀑布流 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/search_results"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:visibility="gone" />
+
+    <!-- 空 / 错误状态 -->
+    <LinearLayout
+        android:id="@+id/search_state"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="32dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:contentDescription="@string/emptyContent"
+            android:src="@drawable/ic_empty_state" />
+
+        <TextView
+            android:id="@+id/search_state_title"
+            style="@style/TextTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp" />
+
+        <TextView
+            android:id="@+id/search_state_message"
+            style="@style/TextBody"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:textColor="@color/profile_muted" />
+
+        <Button
+            android:id="@+id/search_retry"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:backgroundTint="@color/profile_accent"
+            android:text="@string/search_retry"
+            android:textColor="@android:color/white"
+            android:visibility="gone" />
+    </LinearLayout>
+
+</LinearLayout>
