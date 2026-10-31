@@ -1,7 +1,7 @@
 # [Java][P1] 作品搜索接口（Android 前端已就绪）
 
 负责人：WeiKnight（Gitee: @WeiKnight_CN）。状态：2026-10-31 新建，前端已交付，待后端实现。
-`19` 是仓库任务编号，线上 Gitee Issue 见 docs/issues/README.md 索引。
+`19` 是仓库任务编号，线上 Gitee Issue：https://gitee.com/yyhSEU/pixel-flow/issues/IKRZRU
 
 对应验收：US-02 Feed 扩展 + 人机交互快捷性加分项；阻塞 Android 搜索页联调。
 基线：`feature/search-frontend`（`9d86e19`）已含契约与 Android 调用方；合入后从最新 master 建分支。
