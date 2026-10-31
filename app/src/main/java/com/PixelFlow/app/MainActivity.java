@@ -2,10 +2,12 @@ package com.PixelFlow.app;
 
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.Toast;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.Animation;
@@ -15,7 +17,10 @@ import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
 import android.widget.FrameLayout;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 
 import com.PixelFlow.app.API.ApiClient;
@@ -23,9 +28,11 @@ import com.PixelFlow.app.ButtonFragment.HomeFragment;
 import com.PixelFlow.app.ButtonFragment.ProfileFragment;
 import com.PixelFlow.app.Streams.PreloadManager;
 import com.PixelFlow.app.Streams.WorkItem;
+import com.PixelFlow.app.ui.ActionSheetDialog;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
+import java.io.File;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
@@ -203,23 +210,36 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
             startActivity(new Intent(this, AccountActivity.class));
             return;
         }
-        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
-        builder.setTitle("创建作品");
-        builder.setMessage("选择创建方式");
+        List<ActionSheetDialog.Option> options = new ArrayList<>();
+        options.add(new ActionSheetDialog.Option(R.drawable.ic_camera, "拍摄新作品", this::launchCamera));
+        options.add(new ActionSheetDialog.Option(R.drawable.ic_photo, "从相册创建", this::createWorkFromGallery));
+        options.add(new ActionSheetDialog.Option(R.drawable.ic_edit_note, "创建空白作品", this::createBlankWork));
+        ActionSheetDialog.show(this, "创建作品", "选择创建方式", options);
+    }
 
-        builder.setPositiveButton("拍摄新作品", (dialog, which) -> {
-//            openCamera();
-        });
+    /** 拍摄新作品：输出到 FileProvider 临时文件，成功后带入创建页 */
+    private Uri pendingCameraUri;
+    private final ActivityResultLauncher<Uri> cameraLauncher = registerForActivityResult(
+            new ActivityResultContracts.TakePicture(), success -> {
+                if (!success || pendingCameraUri == null) return;
+                List<String> uris = new ArrayList<>();
+                uris.add(pendingCameraUri.toString());
+                pendingCameraUri = null;
+                createWorkWithUris(uris);
+            });
 
-        builder.setNegativeButton("从相册创建", (dialog, which) -> {
-            createWorkFromGallery();
-        });
-
-        builder.setNeutralButton("创建空白作品", (dialog, which) -> {
-            createBlankWork();
-        });
-
-        builder.show();
+    private void launchCamera() {
+        File dir = new File(getCacheDir(), "camera");
+        //noinspection ResultOfMethodCallIgnored
+        dir.mkdirs();
+        File target = new File(dir, "capture_" + System.currentTimeMillis() + ".jpg");
+        pendingCameraUri = FileProvider.getUriForFile(this, "com.PixelFlow.app.fileprovider", target);
+        try {
+            cameraLauncher.launch(pendingCameraUri);
+        } catch (android.content.ActivityNotFoundException e) {
+            pendingCameraUri = null;
+            Toast.makeText(this, "未找到可用的相机应用", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void createBlankWork() {
@@ -232,9 +252,16 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
     }
 
     private void createWorkFromGallery() {
-        // 这里可以添加从相册选择图片的逻辑
-        // 简化：直接跳转到创建作品界面
+        // 进入创建页后立即拉起图片选择，选完直接出现在草稿区
         Intent intent = new Intent(MainActivity.this, CreateWorkActivity.class);
+        intent.putExtra(CreateWorkActivity.EXTRA_AUTO_PICK, true);
+        startActivity(intent);
+        overridePendingTransition(R.anim.slide_in_up, R.anim.slide_out_down);
+    }
+
+    private void createWorkWithUris(List<String> uris) {
+        Intent intent = new Intent(MainActivity.this, CreateWorkActivity.class);
+        intent.putStringArrayListExtra(CreateWorkActivity.EXTRA_INITIAL_URIS, new ArrayList<>(uris));
         startActivity(intent);
         overridePendingTransition(R.anim.slide_in_up, R.anim.slide_out_down);
     }

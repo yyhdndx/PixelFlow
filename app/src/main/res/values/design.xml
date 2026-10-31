@@ -67,4 +67,10 @@
     <dimen name="radius_pill">22dp</dimen>
     <dimen name="spacing_unit">4dp</dimen>
     <dimen name="page_padding">16dp</dimen>
+
+    <!-- 底部动作面板滑入滑出 -->
+    <style name="PixelFlowBottomSheet">
+        <item name="android:windowEnterAnimation">@anim/slide_in_up</item>
+        <item name="android:windowExitAnimation">@anim/slide_out_down</item>
+    </style>
 </resources>

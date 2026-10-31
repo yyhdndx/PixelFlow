@@ -44,6 +44,17 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
 
+        <!-- 拍摄新作品：临时照片通过 FileProvider 授权给相机应用 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.PixelFlow.app.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- ================== SplashActivity（启动页） ================== -->
         <activity
             android:name=".SplashActivity"

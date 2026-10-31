@@ -31,7 +31,7 @@ public class AccountActivity extends AppCompatActivity {
         findViewById(R.id.account_return).setOnClickListener(v -> finish());
         toggle.setOnClickListener(v -> { registration = !registration; clearErrors(); render(); });
         submit.setOnClickListener(v -> submit());
-        logout.setOnClickListener(v -> new AlertDialog.Builder(this).setTitle("退出当前账号？")
+        logout.setOnClickListener(v -> new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("退出当前账号？")
                 .setMessage("退出后仍可以浏览公开作品。")
                 .setNegativeButton("取消", null).setPositiveButton("退出登录", (d, w) -> {
                     busy = true; job = api.logout(new CommunityClient.Callback<Void>() {

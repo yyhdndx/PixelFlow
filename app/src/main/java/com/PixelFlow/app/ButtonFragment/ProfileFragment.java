@@ -9,13 +9,17 @@ import android.widget.*;
 import androidx.annotation.*;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.PixelFlow.app.*;
 import com.PixelFlow.app.API.*;
+import com.PixelFlow.app.ui.ActionSheetDialog;
 import com.bumptech.glide.Glide;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /** Server-backed page; never reads the legacy device-wide profile preferences. */
 public class ProfileFragment extends Fragment {
@@ -160,17 +164,34 @@ public class ProfileFragment extends Fragment {
         if (avatarModel.isBusy()) return;
         final long session = api.sessionVersion();
         final String owner = api.username();
-        CharSequence[] options = avatarUrl.isEmpty()
-                ? new CharSequence[]{getString(R.string.choose_from_gallery)}
-                : new CharSequence[]{getString(R.string.choose_from_gallery), getString(R.string.restore_default_avatar)};
-        new AlertDialog.Builder(requireContext())
-                .setTitle(R.string.change_avatar)
-                .setItems(options, (dialog, which) -> {
-                    if (!api.isLoggedIn() || api.sessionVersion() != session || !owner.equals(api.username())) return;
-                    if (which == 0) openAvatarPicker(); else clearAvatar();
-                })
-                .setNegativeButton(R.string.cancel, null)
-                .show();
+        List<ActionSheetDialog.Option> options = new ArrayList<>();
+        options.add(new ActionSheetDialog.Option(R.drawable.ic_photo,
+                getString(R.string.choose_from_gallery), this::openAvatarPickerGuarded));
+        if (!avatarUrl.isEmpty()) {
+            options.add(new ActionSheetDialog.Option(R.drawable.ic_edit_note,
+                    getString(R.string.restore_default_avatar), this::clearAvatarGuarded));
+        }
+        // 打开时校验会话，选项点击时再复核一次，防止跨账号误操作
+        sheetSession = session;
+        sheetOwner = owner;
+        ActionSheetDialog.show(requireContext(), getString(R.string.change_avatar), null, options);
+    }
+
+    private long sheetSession;
+    private String sheetOwner;
+
+    private boolean sheetSessionValid() {
+        return api.isLoggedIn() && api.sessionVersion() == sheetSession && sheetOwner.equals(api.username());
+    }
+
+    private void openAvatarPickerGuarded() {
+        if (!sheetSessionValid()) return;
+        openAvatarPicker();
+    }
+
+    private void clearAvatarGuarded() {
+        if (!sheetSessionValid()) return;
+        clearAvatar();
     }
     private void openAvatarPicker() {
         if (!avatarModel.preparePicker()) return;
@@ -188,7 +209,7 @@ public class ProfileFragment extends Fragment {
         avatarModel.clear();
     }
     private void confirmLogout() {
-        new AlertDialog.Builder(requireContext())
+        new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.profile_logout)
                 .setMessage(R.string.profile_logout_desc)
                 .setNegativeButton(R.string.profile_cancel, null)

@@ -36,6 +36,10 @@ public class CreateWorkActivity extends AppCompatActivity {
     public static final String EXTRA_CONTENT = "extra_content";
     public static final String EXTRA_MEDIA_IDS = "extra_media_ids";
     public static final String EXTRA_MEDIA_URLS = "extra_media_urls";
+    /** 布尔：进入页面后立即拉起图片选择器（首页「从相册创建」） */
+    public static final String EXTRA_AUTO_PICK = "extra_auto_pick";
+    /** 字符串数组：进入页面时预置的本地图片 URI 列表（首页「拍摄新作品」） */
+    public static final String EXTRA_INITIAL_URIS = "extra_initial_uris";
 
     private ApiClient api;
     private EditText etTitle;
@@ -78,6 +82,11 @@ public class CreateWorkActivity extends AppCompatActivity {
         setupListeners();
         loadEditingState(savedInstanceState);
         model.changes.observe(this, ignored -> render());
+        applyInitialMedia();
+        if (savedInstanceState == null && getIntent().getBooleanExtra(EXTRA_AUTO_PICK, false)) {
+            getIntent().removeExtra(EXTRA_AUTO_PICK);
+            openImagePicker();
+        }
     }
 
     private void initView() {
@@ -243,7 +252,7 @@ public class CreateWorkActivity extends AppCompatActivity {
         prompt.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)}); panel.addView(prompt);
         EditText audience = new EditText(this); audience.setHint("目标读者（可选）");
         audience.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(64)}); panel.addView(audience);
-        assistDialog = new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("AI 辅助创作")
+        assistDialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("AI 辅助创作")
                 .setMessage("将草稿文字和写作要求发送给 DeepSeek，生成后由你选择是否采用。")
                 .setView(panel).setNegativeButton("取消", null).setPositiveButton("生成建议", (d,w) -> {
                     captureText();
@@ -282,7 +291,7 @@ public class CreateWorkActivity extends AppCompatActivity {
         tags.setText("将话题加入正文：" + android.text.TextUtils.join(" ", value.tag_suggestions));
         tags.setVisibility(value.tag_suggestions.isEmpty() ? View.GONE : View.VISIBLE); panel.addView(tags);
         android.widget.ScrollView scroll = new android.widget.ScrollView(this); scroll.addView(panel);
-        assistDialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+        assistDialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("rules".equals(value.provider) ? "规则建议（未启用模型）" : "DeepSeek 建议")
                 .setView(scroll).setNegativeButton("继续编辑", null).setPositiveButton("确认填入草稿", null).create();
         assistDialog.setOnShowListener(d -> assistDialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener(v -> {
@@ -333,6 +342,25 @@ public class CreateWorkActivity extends AppCompatActivity {
                     handleSelectedMedia(result.getData());
                 }
             });
+
+    /** 首页「拍摄新作品」带入的初始图片：并入草稿媒体区 */
+    private void applyInitialMedia() {
+        ArrayList<String> uris = getIntent().getStringArrayListExtra(EXTRA_INITIAL_URIS);
+        if (uris == null || uris.isEmpty()) return;
+        getIntent().removeExtra(EXTRA_INITIAL_URIS);
+        if (!model.editable()) return;
+        for (String value : uris) {
+            if (value == null) continue;
+            Uri uri = Uri.parse(value);
+            if (!containsUri(uri) && media.size() < 9) {
+                persistUri(uri);
+                media.add(new MediaEntry(uri.toString(), null, null));
+            }
+        }
+        updateMediaPreviews();
+        updateMediaCount();
+        updateSaveButtonState();
+    }
 
     private void handleSelectedMedia(Intent data) {
         if (!model.editable()) return;
@@ -504,7 +532,7 @@ public class CreateWorkActivity extends AppCompatActivity {
         String title = etTitle.getText().toString().trim();
         String description = etDescription.getText().toString().trim();
         if (!title.isEmpty() || !description.isEmpty() || !media.isEmpty()) {
-            new androidx.appcompat.app.AlertDialog.Builder(this)
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                     .setTitle("放弃编辑")
                     .setMessage("您有未保存的内容，确定要退出吗？")
                     .setPositiveButton("确定", (dialog, which) -> { model.discard(); finish(); })

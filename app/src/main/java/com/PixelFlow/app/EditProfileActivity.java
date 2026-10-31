@@ -70,7 +70,7 @@ public class EditProfileActivity extends AppCompatActivity {
     private void leave() {
         if (model.saving) { Toast.makeText(this, "正在保存，请稍候", Toast.LENGTH_SHORT).show(); return; }
         if (!model.dirty()) { finish(); return; }
-        new AlertDialog.Builder(this).setTitle(R.string.profile_discard_title).setMessage(R.string.profile_discard_message)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle(R.string.profile_discard_title).setMessage(R.string.profile_discard_message)
                 .setNegativeButton(R.string.profile_keep_editing, null).setPositiveButton(R.string.profile_discard, (d, w) -> finish()).show();
     }
 }
