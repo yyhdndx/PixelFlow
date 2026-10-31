@@ -60,7 +60,7 @@ class PostLifecycleHttpTest {
             port=application.getWebServer().getPort(); db=application.getBean(JdbcTemplate.class);
             usernames.add("admin");
             try {
-                assertEquals(List.of("1","2","3","4","5","6","7","9"),db.queryForList(
+                assertEquals(List.of("1","2","3","4","5","6","7","9","10"),db.queryForList(
                         "SELECT version FROM flyway_schema_history WHERE success=TRUE AND version IS NOT NULL ORDER BY installed_rank",String.class));
                 author=register("a","作者甲"); visitor=register("b","访问者乙"); admin=login("admin");
                 authorId=body(send("GET","/api/users/me",author,null,null),200).get("id").asText();
