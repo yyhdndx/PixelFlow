@@ -8,6 +8,83 @@ servers:
 security:
   - bearerAuth: []
 paths:
+  /api/agent/create-assist:
+    post:
+      summary: 为编辑器草稿生成候选及内容风险建议
+      description: 需要登录。接收尚未保存的文字快照；不创建或修改作品。服务端调用 DeepSeek（未配置时 provider=rules），校验候选并检查原稿与候选的内容风险。返回的 suggestion_id 绑定当前用户和原稿，有效期 24 小时。Android 确认后填入本地编辑器，再由普通保存/提交接口持久化。模型失败返回 503，不自动覆盖原稿。客户端应允许至少 55 秒并提供取消。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [draft, goal]
+              properties:
+                draft:
+                  type: object
+                  required: [title, content]
+                  properties:
+                    title: {type: string, maxLength: 120}
+                    content: {type: string, maxLength: 5000}
+                    tags: {type: array, maxItems: 20, items: {type: string, maxLength: 32}}
+                goal: {type: string, enum: [all, improve_title, suggest_tags, polish_content, write_content]}
+                prompt: {type: string, maxLength: 200}
+                audience: {type: string, maxLength: 64}
+      responses:
+        '200':
+          description: 候选预览；Cache-Control 为 no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [suggestion_id, provider, title_candidates, content_candidates, tag_suggestions, edit_suggestions, safety]
+                properties:
+                  suggestion_id: {type: string, format: uuid}
+                  trace_id: {type: string}
+                  user_id: {type: string}
+                  goal: {type: string}
+                  provider: {type: string, enum: [deepseek, rules]}
+                  policy_version: {type: string}
+                  title_candidates: {type: array, items: {type: string, maxLength: 120}}
+                  content_candidates: {type: array, items: {type: string, maxLength: 5000}}
+                  tag_suggestions: {type: array, items: {type: string}}
+                  edit_suggestions: {type: array, items: {type: string}}
+                  safety:
+                    type: object
+                    properties:
+                      risk_level: {type: string, enum: [low, medium, high, unknown]}
+                      rule_hits: {type: array, items: {type: string}}
+                      suggestions: {type: array, items: {type: string}}
+                      requires_human_review: {type: boolean}
+        '400': {description: 参数无效}
+        '401': {description: 登录失效}
+        '502': {description: 上游响应不完整}
+        '503': {description: 模型超时、不可用、输出无效或服务繁忙；保留原稿，可重试或跳过}
+  /api/posts/{id}/assist-application:
+    post:
+      summary: 将已生成候选直接采纳到已保存草稿
+      description: 可选的服务端采纳路径。校验建议归属、有效期、原稿快照、候选成员、作品归属和 expected_version。每个 suggestion_id 只能采纳一次；完全相同的重试返回保存的原始响应，不再次增加版本。相同建议换用其他候选或作品返回 409。话题在 Android 确认时显式加入正文，当前作品没有独立标签字段。
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, format: int64}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [suggestion_id, expected_version, title, content]
+              properties:
+                suggestion_id: {type: string, format: uuid}
+                expected_version: {type: integer, format: int64, minimum: 0}
+                title: {type: string, maxLength: 120}
+                content: {type: string, maxLength: 5000}
+      responses:
+        '200': {description: 作品详情，含递增后的 content_version；重复采纳返回原始响应}
+        '400': {description: 非候选文本或缺少必填字段}
+        '401': {description: 未登录}
+        '403': {description: 不是作品作者}
+        '404': {description: 建议不存在或不属于当前用户}
+        '409': {description: 版本冲突、原稿变化、建议过期、已采纳不同选择或作品状态不允许编辑}
   /api/users/{id}/posts:
     get:
       summary: 分页查询启用用户的公开作品（需登录）

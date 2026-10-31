@@ -9,6 +9,8 @@ class Settings:
     java_url: str = "http://127.0.0.1:8080"
     export_token: str = field(default="", repr=False)
     sync_token: str = field(default="", repr=False)
+    deepseek_api_key: str = field(default="", repr=False)
+    deepseek_model: str = "deepseek-flash"
 
     def __post_init__(self):
         url = urlsplit(self.java_url)
@@ -28,4 +30,6 @@ class Settings:
             java_url=os.getenv("JAVA_BASE_URL", "http://127.0.0.1:8080"),
             export_token=os.getenv("PIXELFLOW_ANALYTICS_EXPORT_TOKEN", ""),
             sync_token=os.getenv("PIXELFLOW_INTELLIGENCE_TOKEN", ""),
+            deepseek_api_key=os.getenv("DEEPSEEK_API_KEY", ""),
+            deepseek_model=os.getenv("DEEPSEEK_MODEL", "deepseek-flash"),
         )

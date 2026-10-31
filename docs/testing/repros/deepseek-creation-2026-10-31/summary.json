@@ -1,0 +1,30 @@
+{
+  "python": {
+    "passed": 242,
+    "skipped": 6
+  },
+  "java": {
+    "passed": 137,
+    "skipped": 99,
+    "failures": 0,
+    "errors": 0
+  },
+  "android_jvm": {
+    "passed": 68
+  },
+  "android_device": {
+    "new_assist": 6,
+    "existing_creation": 9
+  },
+  "live_provider": {
+    "model": "deepseek-flash",
+    "successful_calls": 1,
+    "elapsed_seconds": 2.06
+  },
+  "deployment": "not deployed",
+  "apk_sha256": "66c6afbb8c302854d74f6c58e81698f73c569f347ca298c9f73b402673ffd100",
+  "lint": {
+    "errors": 0,
+    "warnings": 282
+  }
+}
