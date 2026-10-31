@@ -116,4 +116,28 @@ $env:PIXELFLOW_MAINTENANCE_URL='http://127.0.0.1:8001'
 结束后删除本次创建的库。可在 CI 中复用同一命令（`--artifacts-dir` 指定唯一产物目录）。
 环境、断言与限制见 [画像历史偏好真实链路验收](../docs/testing/画像历史偏好真实链路验收.md)。
 
-实现参考 [FastAPI 安全依赖说明](https://fastapi.tiangolo.com/tutorial/security/first-steps/)和 [Python SQLite 事务文档](https://docs.python.org/3/library/sqlite3.html)。当前为本地课程实现，不是可直接公网部署的生产服务。
+## MCP 创作者服务
+
+`pixelflow_intelligence.mcp` 把"创作者"能力封装为 MCP 工具，供外部 Agent（Claude Desktop、Cherry Studio、
+Cursor、Trae 等）调用；规划与多轮对话在客户端，服务端只提供受控、可审计的写操作。
+
+远程服务使用 **OAuth 2.1**：客户端连接后打开浏览器，用户用自己的 PixelFlow 账号登录，之后每个工具调用
+都以该用户身份执行。没有 stdio 入口，也没有共享的服务账号 token。
+
+```powershell
+cd intelligence
+uv pip install -e ".[mcp]"
+$env:PIXELFLOW_MCP_JAVA_URL='http://127.0.0.1:8080'
+$env:PIXELFLOW_MCP_PUBLIC_URL='http://127.0.0.1:8765'
+$env:PIXELFLOW_MCP_AUDIT_LOG='server/target/mcp-audit.jsonl'
+.\.venv\Scripts\python.exe -m pixelflow_intelligence.mcp --host 127.0.0.1 --port 8765
+```
+
+六个工具：`upload_media`、`create_post_draft`、`update_post_draft`、`submit_post_for_review`、
+`withdraw_post`、`list_my_posts`。提交后仅进入 `PENDING`，仍需管理员审核才会公开；OAuth 端点、scope、
+审计字段与错误码见 [MCP 工具契约](../contracts/mcp/README.md)，验收记录见
+[MCP 创作者工具验收](../docs/testing/MCP创作者工具验收.md)。
+
+实现参考 [FastAPI 安全依赖说明](https://fastapi.tiangolo.com/tutorial/security/first-steps/)和
+[Python SQLite 事务文档](https://docs.python.org/3/library/sqlite3.html)。当前为本地课程实现，
+不是可直接公网部署的生产服务。
