@@ -1,4 +1,7 @@
 import secrets
+import time
+import uuid
+from typing import Literal
 from ..analytics.database import DATABASE_ERRORS
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -7,7 +10,8 @@ from ..common.settings import Settings
 from ..clients.java import JavaClient, UpstreamError, AuthenticationError
 from ..analytics.store import Store
 from ..recommendation.preview import preview
-from ..skills import SkillError
+from ..skills import Context, SkillError, create_registry
+from ..skills.models import DraftSnapshot
 
 
 class ProfileRefreshInput(BaseModel):
@@ -41,6 +45,14 @@ class ProfileHistoryPage(BaseModel):
     items: list[ProfileHistoryItem]
     has_more: bool
     next_cursor: str | None = None
+
+
+class CreateAssistRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    draft: DraftSnapshot
+    goal: Literal["improve_title", "suggest_tags", "polish_content", "write_content", "all"]
+    prompt: str = Field(default="", max_length=200)
+    audience: str = Field(default="", max_length=64)
 
 
 HISTORY_COUNT_DEFAULT = 20
@@ -213,5 +225,40 @@ def create_app(settings=None, upstream=None):
             raise HTTPException(503, "Java recommendation source unavailable") from None
         except (SkillError, TimeoutError, *DATABASE_ERRORS):
             raise HTTPException(503, "Recommendation preview unavailable") from None
+
+    @app.post("/agent/create-assist")
+    def create_assist(body: CreateAssistRequest, response: Response,
+                      credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        response.headers["Cache-Control"] = "no-store"
+        if credentials is None:
+            raise HTTPException(401, "User authentication required")
+        try:
+            user = upstream.me(credentials.credentials)
+        except AuthenticationError:
+            raise HTTPException(401, "Invalid or disabled user session") from None
+        except UpstreamError:
+            raise HTTPException(503, "Java identity service unavailable") from None
+        try:
+            registry = create_registry()
+            context = Context(user, frozenset({"content:check", "content:assist"}),
+                              int(time.time()), time.monotonic() + 10)
+            assist = registry.invoke("creator_assist", {
+                "user_id": user, "draft": body.draft.model_dump(), "goal": body.goal,
+                "prompt": body.prompt, "audience": body.audience}, context)["output"]
+            safety = registry.invoke("content_safety", {
+                "user_id": user, "title": body.draft.title, "content": body.draft.content,
+                "tags": body.draft.tags}, context)["output"]
+            return {
+                "user_id": user, "trace_id": context.trace_id,
+                "suggestion_id": str(uuid.uuid4()), "goal": body.goal,
+                "title_candidates": assist["title_candidates"],
+                "tag_suggestions": assist["tag_suggestions"],
+                "edit_suggestions": assist["edit_suggestions"],
+                "content_candidates": assist["content_candidates"],
+                "policy_version": assist["policy_version"],
+                "safety": safety,
+            }
+        except (SkillError, TimeoutError, ValidationError):
+            raise HTTPException(503, "Creation assist unavailable") from None
 
     return app

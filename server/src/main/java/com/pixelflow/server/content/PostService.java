@@ -69,9 +69,20 @@ public class PostService {
         if (!List.of("DRAFT","REJECTED","WITHDRAWN").contains(post.get("status")))
             throw new ApiException(409,"INVALID_STATE","请先下架作品再编辑");
         var clips=resolve(actor,draft);
-        db.update("UPDATE posts SET title=?,content=?,clips_json=?,has_video=?,status='DRAFT' WHERE id=?",
+        db.update("UPDATE posts SET title=?,content=?,clips_json=?,has_video=?,status='DRAFT',content_version=content_version+1 WHERE id=?",
                 draft.title(),draft.content(),encode(clips),clips.stream().anyMatch(c -> c.type()==1),id);
         media.attach(id,draft.mediaIds());
+        return detail(id,actor);
+    }
+
+    @Transactional
+    public Map<String,Object> applyAssist(long id,Actor actor,String title,String content,long expectedVersion) {
+        var post=owned(id,actor);
+        if (!List.of("DRAFT","REJECTED","WITHDRAWN").contains(post.get("status")))
+            throw new ApiException(409,"INVALID_STATE","请先下架作品再应用建议");
+        if (((Number)post.get("content_version")).longValue()!=expectedVersion)
+            throw new ApiException(409,"VERSION_CONFLICT","草稿已被修改，请刷新后重试");
+        db.update("UPDATE posts SET title=?,content=?,content_version=content_version+1 WHERE id=?",title,content,id);
         return detail(id,actor);
     }
 
@@ -102,7 +113,11 @@ public class PostService {
         var row=rows.get(0);
         if ((!"PUBLISHED".equals(row.get("status")) || !Boolean.TRUE.equals(row.get("enabled")))
                 && (actor==null || (!actor.id().equals(row.get("author_id")) && !actor.role().equals("ADMIN")))) throw missing();
-        return withViewerState(view(row),actor);
+        var result=withViewerState(view(row),actor);
+        // 仅作者本人可见内容版本，用于建议采纳的乐观并发控制；公开卡片不暴露。
+        if (actor!=null && actor.id().equals(row.get("author_id")))
+            result.put("content_version",((Number)row.get("content_version")).intValue());
+        return result;
     }
 
     public Map<String,Object> feed(int count,Long cursor,boolean video) {

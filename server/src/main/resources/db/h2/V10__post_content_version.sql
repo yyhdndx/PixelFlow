@@ -1,0 +1,1 @@
+ALTER TABLE posts ADD COLUMN content_version INT NOT NULL DEFAULT 0;

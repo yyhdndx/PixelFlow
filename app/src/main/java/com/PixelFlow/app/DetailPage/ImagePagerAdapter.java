@@ -1,788 +1,339 @@
 package com.PixelFlow.app.DetailPage;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
-import android.net.Uri;
+import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
-
+import com.PixelFlow.app.MainActivity;
 import com.PixelFlow.app.R;
 import com.PixelFlow.app.Streams.WorkItem;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.GlideException;
-import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.Target;
-import com.google.android.exoplayer2.DefaultLoadControl;
+import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.ExoPlayer;
-import com.google.android.exoplayer2.LoadControl;
 import com.google.android.exoplayer2.MediaItem;
-import com.google.android.exoplayer2.PlaybackException;
 import com.google.android.exoplayer2.Player;
-import com.google.android.exoplayer2.upstream.DefaultDataSource;
+import com.google.android.exoplayer2.audio.AudioAttributes;
 import com.google.android.exoplayer2.ui.PlayerView;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/** Only the selected page owns a player. Preparing an offscreen page cannot start audio. */
 public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+    /** Reports whether the currently shown video clip is actively playing. */
+    public interface VideoPlaybackListener {
+        void onVideoPlaybackChanged(boolean playing);
+    }
 
-    // 视图类型常量
-    private static final int VIEW_TYPE_IMAGE = 0;
-    private static final int VIEW_TYPE_VIDEO = 1;
-
-    // 预加载配置
-    private static final int PRELOAD_LIMIT = 2; // 前后各预加载的页面数
-    private static final int MAX_PLAYER_POOL_SIZE = 3; // 最大播放器池大小
-    private static final int PRELOAD_WINDOW = 2; // 预加载窗口大小
+    public interface ImageClickListener {
+        void onImageClick(String url);
+    }
 
     private final Context context;
     private final List<WorkItem.Clip> mediaItems;
-    private final LayoutInflater inflater;
-
-    // 播放器缓存池
-    private final Map<Integer, ExoPlayer> playerPool = new HashMap<>();
-    private final Map<Integer, Boolean> videoPreloaded = new HashMap<>();
-    private final Map<Integer, String> playerCurrentUrl = new HashMap<>(); // 记录播放器当前播放的URL
-
-    // 当前播放状态
+    private final Map<Integer, Long> positions = new HashMap<>();
+    private final Map<Integer, VideoViewHolder> holders = new HashMap<>();
     private ExoPlayer currentPlayer;
-    private int currentPlayingPosition = -1;
     private int currentPagePosition = -1;
-
-    // 监听器接口
-    public interface MediaPlaybackListener {
-        void onVideoStarted(int position);
-        void onVideoPaused(int position);
-        void onVideoCompleted(int position);
-        void onVideoBuffering(int position, boolean buffering);
-    }
-
-    private MediaPlaybackListener playbackListener;
-
-    // 数据源工厂，用于复用
-    private final DefaultDataSource.Factory dataSourceFactory;
+    private boolean hostResumed;
+    private boolean playRequested = true;
+    private VideoPlaybackListener playbackListener;
+    private ImageClickListener imageClickListener;
+    private FullScreenVideoDialog fullscreenDialog;
+    private boolean restoreFullscreen;
 
     public ImagePagerAdapter(Context context, List<WorkItem.Clip> mediaItems) {
         this.context = context;
         this.mediaItems = mediaItems;
-        this.inflater = LayoutInflater.from(context);
-        this.dataSourceFactory = new DefaultDataSource.Factory(context);
     }
 
-    public void setPlaybackListener(MediaPlaybackListener listener) {
+    public void setVideoPlaybackListener(VideoPlaybackListener listener) {
         this.playbackListener = listener;
     }
 
-    @Override
-    public int getItemViewType(int position) {
-        if (mediaItems != null && position < mediaItems.size()) {
-            WorkItem.Clip clip = mediaItems.get(position);
-            return clip.getType() == 1 ? VIEW_TYPE_VIDEO : VIEW_TYPE_IMAGE;
-        }
-        return VIEW_TYPE_IMAGE;
+    public void setImageClickListener(ImageClickListener listener) {
+        imageClickListener = listener;
     }
 
-    @NonNull
-    @Override
-    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        if (viewType == VIEW_TYPE_VIDEO) {
-            View view = inflater.inflate(R.layout.item_detail_video, parent, false);
-            return new VideoViewHolder(view);
-        } else {
-            View view = inflater.inflate(R.layout.item_detail_image, parent, false);
-            return new ImageViewHolder(view);
-        }
+    public void restorePlayback(Bundle state) {
+        if (state == null) return;
+        currentPagePosition = state.getInt("page", -1);
+        positions.put(currentPagePosition, state.getLong("position", 0));
+        playRequested = state.getBoolean("playing", true);
+        restoreFullscreen = state.getBoolean("fullscreen", false);
     }
 
-    @Override
-    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
-        if (holder instanceof ImageViewHolder) {
-            ((ImageViewHolder) holder).bind(mediaItems.get(position));
-        } else if (holder instanceof VideoViewHolder) {
-            ((VideoViewHolder) holder).bind(mediaItems.get(position), position);
-        }
-
-        // 智能预加载：当绑定ViewHolder时预加载相邻的视频
-        preloadAdjacentVideos(position);
+    public Bundle savePlayback() {
+        Bundle state = new Bundle();
+        state.putInt("page", currentPagePosition);
+        state.putLong("position", currentPlayer == null
+                ? positions.getOrDefault(currentPagePosition, 0L) : currentPlayer.getCurrentPosition());
+        state.putBoolean("playing", playRequested);
+        state.putBoolean("fullscreen", fullscreenDialog != null || restoreFullscreen);
+        return state;
     }
 
-    @Override
-    public int getItemCount() {
-        return mediaItems != null ? mediaItems.size() : 0;
+    @Override public int getItemCount() { return mediaItems.size(); }
+    @Override public int getItemViewType(int position) { return mediaItems.get(position).getType() == 1 ? 1 : 0; }
+
+    @NonNull @Override public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int type) {
+        LayoutInflater inflater = LayoutInflater.from(parent.getContext());
+        return type == 1 ? new VideoViewHolder(inflater.inflate(R.layout.item_detail_video, parent, false))
+                : new ImageViewHolder(inflater.inflate(R.layout.item_detail_image, parent, false));
     }
 
-    /**
-     * 预加载相邻的视频
-     */
-    private void preloadAdjacentVideos(int currentPosition) {
-        int start = Math.max(0, currentPosition - PRELOAD_LIMIT);
-        int end = Math.min(mediaItems.size() - 1, currentPosition + PRELOAD_LIMIT);
-
-        for (int i = start; i <= end; i++) {
-            if (i == currentPosition) continue;
-
-            WorkItem.Clip clip = mediaItems.get(i);
-            if (clip.getType() == 1 && !Boolean.TRUE.equals(videoPreloaded.get(i))) {
-                preloadVideo(i, clip.getUrl());
-            }
-        }
-
-        cleanupPreloadedVideos(start, end);
+    @Override public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+        if (holder instanceof ImageViewHolder) ((ImageViewHolder) holder).bind(mediaItems.get(position));
+        else ((VideoViewHolder) holder).bind(position);
     }
 
-    /**
-     * 预加载视频 - 修复版：确保预加载完成后再标记
-     */
-    private void preloadVideo(int position, String videoUrl) {
-        if (Boolean.TRUE.equals(videoPreloaded.get(position))) {
-            return;
+    public void onPageChanged(int position) {
+        if (position < 0 || position >= getItemCount()) return;
+        if (position != currentPagePosition) {
+            releasePlayer();
+            currentPagePosition = position;
+            playRequested = true;
         }
+        ensurePlayer();
+        renderVideos();
+    }
 
-        ExoPlayer player = obtainPlayerForPosition(position, videoUrl);
-        if (player == null) {
-            return;
+    public void resumeCurrentVideo() {
+        hostResumed = true;
+        ensurePlayer();
+        if (currentPlayer != null) {
+            currentPlayer.setVolume(MainActivity.isGlobalMuted() ? 0f : 1f);
+            currentPlayer.setPlayWhenReady(playRequested);
         }
+        renderVideos();
+    }
 
-        // 检查是否已经是相同URL
-        String currentUrl = playerCurrentUrl.get(position);
-        if (currentUrl != null && currentUrl.equals(videoUrl) &&
-                player.getPlaybackState() != Player.STATE_IDLE) {
-            // 已经是同一个URL且已经准备，标记为预加载完成
-            videoPreloaded.put(position, true);
-            return;
-        }
+    public void pauseCurrentVideo() {
+        // Clear foreground permission even while buffering; no READY callback may restart playback.
+        hostResumed = false;
+        if (currentPlayer != null) currentPlayer.pause();
+        renderVideos();
+    }
 
-        // 准备媒体但不播放
-        MediaItem mediaItem = MediaItem.fromUri(Uri.parse(videoUrl));
-        player.setMediaItem(mediaItem);
-        player.prepare();
-
-        // 关键修复：监听准备完成后再标记为预加载完成
+    private void ensurePlayer() {
+        if (!hostResumed || currentPlayer != null || currentPagePosition < 0
+                || currentPagePosition >= getItemCount() || getItemViewType(currentPagePosition) != 1) return;
+        ExoPlayer player = new ExoPlayer.Builder(context).build();
+        currentPlayer = player;
+        player.setAudioAttributes(new AudioAttributes.Builder().setUsage(C.USAGE_MEDIA)
+                .setContentType(C.CONTENT_TYPE_MOVIE).build(), true);
+        player.setVolume(MainActivity.isGlobalMuted() ? 0f : 1f);
         player.addListener(new Player.Listener() {
-            @Override
-            public void onPlaybackStateChanged(int playbackState) {
-                if (playbackState == Player.STATE_READY) {
-                    // 准备完成后标记为预加载完成
-                    videoPreloaded.put(position, true);
-                    playerCurrentUrl.put(position, videoUrl);
-
-                    // 移除监听器避免内存泄漏
-                    player.removeListener(this);
-
-                    // 确保不是当前页面时暂停
-                    if (position != currentPagePosition) {
-                        player.setPlayWhenReady(false);
-                    }
+            @Override public void onEvents(Player source, Player.Events events) {
+                if (currentPlayer == source) renderVideos();
+            }
+            @Override public void onPlayWhenReadyChanged(boolean value, int reason) {
+                if (currentPlayer == player && hostResumed) playRequested = value;
+            }
+            @Override public void onIsPlayingChanged(boolean isPlaying) {
+                if (currentPlayer == player && playbackListener != null) {
+                    playbackListener.onVideoPlaybackChanged(isPlaying);
                 }
             }
         });
-
-        player.setPlayWhenReady(false);
-        playerPool.put(position, player);
+        player.setMediaItem(MediaItem.fromUri(mediaItems.get(currentPagePosition).getUrl()));
+        player.seekTo(positions.getOrDefault(currentPagePosition, 0L));
+        player.prepare();
+        player.setPlayWhenReady(playRequested);
     }
 
-    /**
-     * 为指定位置获取或创建播放器
-     */
-    private ExoPlayer obtainPlayerForPosition(int position, String url) {
-        ExoPlayer player = playerPool.get(position);
-        if (player == null) {
-            player = createLightweightPlayer();
+    private void playOrRetry(int position) {
+        if (!hostResumed || position != currentPagePosition) return;
+        ensurePlayer();
+        if (currentPlayer == null) return;
+        playRequested = true;
+        if (currentPlayer.getPlayerError() != null || currentPlayer.getPlaybackState() == Player.STATE_IDLE)
+            currentPlayer.prepare();
+        if (currentPlayer.getPlaybackState() == Player.STATE_ENDED) currentPlayer.seekTo(0);
+        currentPlayer.play();
+        renderVideos();
+    }
 
-            // 如果池子满了，清理最远的播放器
-            if (playerPool.size() >= MAX_PLAYER_POOL_SIZE) {
-                Integer toRemove = null;
-                int maxDist = -1;
-                for (int posKey : playerPool.keySet()) {
-                    if (posKey == position) continue;
-                    int dist = Math.abs(posKey - position);
-                    if (dist > maxDist) {
-                        maxDist = dist;
-                        toRemove = posKey;
-                    }
-                }
-                if (toRemove != null) {
-                    ExoPlayer oldPlayer = playerPool.remove(toRemove);
-                    playerCurrentUrl.remove(toRemove);
-                    videoPreloaded.remove(toRemove);
-                    if (oldPlayer != null && oldPlayer != currentPlayer) {
-                        try {
-                            oldPlayer.release();
-                        } catch (Exception ignored) {}
-                    }
-                }
+    private void renderVideos() {
+        for (VideoViewHolder holder : holders.values()) holder.render();
+        if (restoreFullscreen && hostResumed && holders.containsKey(currentPagePosition)) {
+            restoreFullscreen = false;
+            openFullscreen(currentPagePosition);
+        }
+    }
+
+    private void openFullscreen(int position) {
+        if (!hostResumed || position != currentPagePosition || fullscreenDialog != null) return;
+        ensurePlayer();
+        VideoViewHolder holder = holders.get(position);
+        if (currentPlayer == null || holder == null) return;
+        FullScreenVideoDialog dialog = new FullScreenVideoDialog(context, currentPlayer,
+                holder.playerView, () -> playOrRetry(position));
+        fullscreenDialog = dialog;
+        dialog.setOnDismissListener(ignored -> {
+            // An old Dialog can deliver its dismissal after a new one was opened.
+            if (fullscreenDialog == dialog) {
+                fullscreenDialog = null;
+                renderVideos();
             }
-        }
-        return player;
+        });
+        dialog.show();
     }
 
-    /**
-     * 创建轻量级播放器 - 恢复原始缓冲策略
-     */
-    private ExoPlayer createLightweightPlayer() {
-        LoadControl loadControl = new DefaultLoadControl.Builder()
-                .setBufferDurationsMs(
-                        1500,    // 最小缓冲时间
-                        5000,   // 最大缓冲时间
-                        500,     // 播放开始缓冲时间
-                        1500     // 恢复播放缓冲时间
-                )
-                .build();
-
-        return new ExoPlayer.Builder(context)
-                .setLoadControl(loadControl)
-                .build();
-    }
-
-    /**
-     * 清理超出预加载范围的视频 - 修复版：不要清理当前页面附近的播放器
-     */
-    private void cleanupPreloadedVideos(int start, int end) {
-        // 扩展清理范围，避免误清理即将使用的播放器
-        int expandedStart = Math.max(0, start - 1);
-        int expandedEnd = Math.min(mediaItems.size() - 1, end + 1);
-
-        for (int position : playerPool.keySet().toArray(new Integer[0])) {
-            if (position < expandedStart || position > expandedEnd) {
-                // 如果不是当前播放的播放器，才清理
-                if (position != currentPlayingPosition) {
-                    ExoPlayer player = playerPool.remove(position);
-                    playerCurrentUrl.remove(position);
-                    videoPreloaded.remove(position);
-                    if (player != null && player != currentPlayer) {
-                        try {
-                            player.release();
-                        } catch (Exception ignored) {}
-                    }
-                }
-            }
+    private void dismissFullscreen() {
+        if (fullscreenDialog != null) {
+            FullScreenVideoDialog old = fullscreenDialog;
+            fullscreenDialog = null;
+            old.dismiss();
         }
     }
 
-    /**
-     * 准备媒体（如果需要）- 这是给ViewHolder调用的
-     */
-    private void prepareMediaIfNeeded(ExoPlayer player, int position, String url) {
-        String currentUrl = playerCurrentUrl.get(position);
-        if (currentUrl == null || !currentUrl.equals(url) || player.getPlaybackState() == Player.STATE_IDLE) {
-            MediaItem mediaItem = MediaItem.fromUri(Uri.parse(url));
-            player.setMediaItem(mediaItem);
-            player.prepare();
-            playerCurrentUrl.put(position, url);
-        }
-    }
-
-    /**
-     * 页面切换时调用
-     */
-    public void onPageChanged(int newPosition) {
-        int oldPosition = currentPagePosition;
-        this.currentPagePosition = newPosition;
-
-        // 暂停旧位置的视频
-        if (oldPosition >= 0 && oldPosition < getItemCount()) {
-            if (currentPlayer != null && currentPlayingPosition == oldPosition) {
-                currentPlayer.pause();
-            }
-
-            // 对于非当前播放的预加载视频，也暂停
-            ExoPlayer oldPlayer = playerPool.get(oldPosition);
-            if (oldPlayer != null && oldPlayer.isPlaying()) {
-                oldPlayer.pause();
-            }
-        }
-
-        // 播放新位置的视频（如果是视频类型）
-        if (newPosition >= 0 && newPosition < getItemCount()) {
-            WorkItem.Clip clip = mediaItems.get(newPosition);
-            if (clip.getType() == 1) {
-                ExoPlayer player = playerPool.get(newPosition);
-                if (player != null) {
-                    // 关键修复：确保播放器已准备好
-                    if (player.getPlaybackState() == Player.STATE_IDLE) {
-                        // 如果还没准备好，重新准备
-                        prepareMediaIfNeeded(player, newPosition, clip.getUrl());
-
-                        // 监听准备完成
-                        ExoPlayer finalPlayer = player;
-                        player.addListener(new Player.Listener() {
-                            @Override
-                            public void onPlaybackStateChanged(int playbackState) {
-                                if (playbackState == Player.STATE_READY) {
-                                    finalPlayer.setPlayWhenReady(true);
-                                    finalPlayer.play();
-                                    currentPlayer = finalPlayer;
-                                    currentPlayingPosition = newPosition;
-                                    finalPlayer.removeListener(this);
-                                }
-                            }
-                        });
-                    } else {
-                        // 已经准备好，直接播放
-                        player.setPlayWhenReady(true);
-                        player.play();
-                        currentPlayer = player;
-                        currentPlayingPosition = newPosition;
-                    }
-                } else {
-                    // 没有预加载的播放器，创建并准备
-                    player = obtainPlayerForPosition(newPosition, clip.getUrl());
-                    prepareMediaIfNeeded(player, newPosition, clip.getUrl());
-
-                    // 监听准备完成
-                    ExoPlayer finalPlayer1 = player;
-                    player.addListener(new Player.Listener() {
-                        @Override
-                        public void onPlaybackStateChanged(int playbackState) {
-                            if (playbackState == Player.STATE_READY) {
-                                finalPlayer1.setPlayWhenReady(true);
-                                finalPlayer1.play();
-                                currentPlayer = finalPlayer1;
-                                currentPlayingPosition = newPosition;
-                                finalPlayer1.removeListener(this);
-                            }
-                        }
-                    });
-                }
-            }
-
-            // 通知UI更新
-            notifyItemChanged(newPosition);
-        }
-
-        // 也更新旧位置的UI
-        if (oldPosition >= 0 && oldPosition < getItemCount()) {
-            notifyItemChanged(oldPosition);
-        }
-    }
-
-    /**
-     * 暂停当前正在播放的视频
-     */
-    public void pauseCurrentVideo() {
-        if (currentPlayer != null && currentPlayer.isPlaying()) {
-            currentPlayer.pause();
-            if (playbackListener != null) {
-                playbackListener.onVideoPaused(currentPlayingPosition);
-            }
-        }
-    }
-
-    /**
-     * 释放所有资源
-     */
-    public void releaseAllPlayers() {
-        java.util.Set<ExoPlayer> players = new java.util.HashSet<>(playerPool.values());
-        if (currentPlayer != null) players.add(currentPlayer);
+    private void releasePlayer() {
+        dismissFullscreen();
+        ExoPlayer old = currentPlayer;
+        if (old == null) return;
+        positions.put(currentPagePosition, old.getCurrentPosition());
         currentPlayer = null;
-        for (ExoPlayer player : players) {
-            if (player != null) {
-                try {
-                    player.release();
-                } catch (Exception ignored) {}
-            }
-        }
-        playerPool.clear();
-        playerCurrentUrl.clear();
-        videoPreloaded.clear();
-
-        currentPlayingPosition = -1;
+        for (VideoViewHolder holder : holders.values()) holder.playerView.setPlayer(null);
+        old.release();
+        if (playbackListener != null) playbackListener.onVideoPlaybackChanged(false);
     }
 
-    // 图片ViewHolder
-    static class ImageViewHolder extends RecyclerView.ViewHolder {
-        ImageView imageView;
-        ProgressBar progressBar;
+    public void releaseAllPlayers() {
+        hostResumed = false;
+        releasePlayer();
+    }
 
-        ImageViewHolder(@NonNull View itemView) {
-            super(itemView);
-            imageView = itemView.findViewById(R.id.detail_image);
-            progressBar = itemView.findViewById(R.id.image_loading);
+    class ImageViewHolder extends RecyclerView.ViewHolder {
+        final ImageView imageView;
+        final ProgressBar progressBar;
+        ImageViewHolder(View view) {
+            super(view);
+            imageView = view.findViewById(R.id.detail_image);
+            progressBar = view.findViewById(R.id.image_loading);
         }
-
         void bind(WorkItem.Clip clip) {
+            imageView.setOnClickListener(v -> {
+                if (imageClickListener != null) imageClickListener.onImageClick(clip.getUrl());
+            });
             progressBar.setVisibility(View.VISIBLE);
-
-            Glide.with(itemView.getContext())
-                    .load(clip.getUrl())
-                    .placeholder(R.drawable.ic_image_placeholder)
-                    .error(R.drawable.ic_image_error)
-                    .transition(DrawableTransitionOptions.withCrossFade())
-                    .dontTransform()
-                    .addListener(new RequestListener<android.graphics.drawable.Drawable>() {
-                        @Override
-                        public boolean onLoadFailed(@Nullable GlideException e, Object model,
-                                                    Target<android.graphics.drawable.Drawable> target,
-                                                    boolean isFirstResource) {
+            Glide.with(itemView).load(clip.getUrl()).placeholder(R.drawable.ic_image_placeholder)
+                    .error(R.drawable.ic_image_error).dontTransform()
+                    .listener(new RequestListener<android.graphics.drawable.Drawable>() {
+                        @Override public boolean onLoadFailed(@Nullable GlideException error, Object model,
+                                Target<android.graphics.drawable.Drawable> target, boolean first) {
                             progressBar.setVisibility(View.GONE);
                             return false;
                         }
-
-                        @Override
-                        public boolean onResourceReady(android.graphics.drawable.Drawable resource, Object model,
-                                                       Target<android.graphics.drawable.Drawable> target,
-                                                       DataSource dataSource, boolean isFirstResource) {
+                        @Override public boolean onResourceReady(android.graphics.drawable.Drawable resource,
+                                Object model, Target<android.graphics.drawable.Drawable> target,
+                                DataSource source, boolean first) {
                             progressBar.setVisibility(View.GONE);
                             return false;
                         }
-                    })
-                    .into(imageView);
+                    }).into(imageView);
         }
     }
 
-    // 视频ViewHolder
     class VideoViewHolder extends RecyclerView.ViewHolder {
-        PlayerView playerView;
-        ImageView videoCover;
-        ImageView playButton;
-        ProgressBar loadingProgress;
-        FrameLayout videoContainer;
-
-        private int viewHolderPosition = -1;
-        // 关键：添加自己的监听器实例
-        private final Player.Listener viewHolderPlayerListener = new Player.Listener() {
-            @Override
-            public void onPlaybackStateChanged(int playbackState) {
-                itemView.post(() -> {
-                    ExoPlayer player = (ExoPlayer) playerView.getPlayer();
-                    if (player == null) return;
-
-                    switch (playbackState) {
-                        case Player.STATE_BUFFERING:
-                            // 只有在播放或尝试播放时才显示加载
-                            if (player.isPlaying() || player.getPlayWhenReady()) {
-                                loadingProgress.setVisibility(View.VISIBLE);
-                            }
-                            break;
-
-                        case Player.STATE_READY:
-                            loadingProgress.setVisibility(View.GONE);
-
-                            // 如果这是当前页面且设置了自动播放，但现在才准备好
-                            if (viewHolderPosition == currentPagePosition &&
-                                    player.getPlayWhenReady() &&
-                                    !player.isPlaying()) {
-                                player.play();
-                            }
-                            break;
-
-                        case Player.STATE_ENDED:
-                            loadingProgress.setVisibility(View.GONE);
-                            // 播放结束：显示封面和重播按钮
-                            playerView.setVisibility(View.GONE);
-                            videoCover.setVisibility(View.VISIBLE);
-                            playButton.setVisibility(View.VISIBLE);
-                            playButton.setImageResource(R.drawable.ic_replay);
-                            break;
-
-                        case Player.STATE_IDLE:
-                            loadingProgress.setVisibility(View.GONE);
-                            // 闲置状态：显示封面
-                            if (!player.isPlaying()) {
-                                playerView.setVisibility(View.GONE);
-                                videoCover.setVisibility(View.VISIBLE);
-                            }
-                            break;
-                    }
-                });
-            }
-
-            @Override
-            public void onIsPlayingChanged(boolean isPlaying) {
-                itemView.post(() -> {
-                    ExoPlayer player = (ExoPlayer) playerView.getPlayer();
-                    if (player == null) return;
-
-                    if (isPlaying) {
-                        // 开始播放时隐藏封面和按钮，显示视频
-                        loadingProgress.setVisibility(View.GONE);
-                        videoCover.setVisibility(View.GONE);
-                        playButton.setVisibility(View.GONE);
-                        playerView.setVisibility(View.VISIBLE);
-                    } else {
-                        // 暂停：根据当前页面状态决定UI
-                        if (viewHolderPosition == currentPagePosition) {
-                            // 是当前页面但暂停了：隐藏视频，显示封面，不显示播放按钮
-                            playerView.setVisibility(View.GONE);
-                            videoCover.setVisibility(View.VISIBLE);
-                            playButton.setVisibility(View.GONE); // 不显示按钮，点击封面继续播放
-                        } else {
-                            // 不是当前页面：隐藏视频，显示封面和播放按钮
-                            playerView.setVisibility(View.GONE);
-                            videoCover.setVisibility(View.VISIBLE);
-                            playButton.setVisibility(View.VISIBLE);
-                        }
-                    }
-                });
-            }
-        };
-
-        VideoViewHolder(@NonNull View itemView) {
-            super(itemView);
-            playerView = itemView.findViewById(R.id.video_player_view);
-            videoCover = itemView.findViewById(R.id.video_cover);
-            playButton = itemView.findViewById(R.id.video_play_button);
-            loadingProgress = itemView.findViewById(R.id.video_loading);
-            videoContainer = itemView.findViewById(R.id.video_container);
-
-            // 初始化播放器视图 - 关键修复：彻底隐藏内置缓冲指示器
-            setupPlayerView();
-        }
-
-        private void setupPlayerView() {
-            playerView.setUseController(false);
+        final PlayerView playerView;
+        final ImageView cover, playButton;
+        final View retry;
+        final ProgressBar loading;
+        final View fullscreenButton;
+        float touchX, touchY;
+        boolean tapPossible;
+        int position = -1;
+        VideoViewHolder(View view) {
+            super(view);
+            playerView = view.findViewById(R.id.video_player_view);
+            cover = view.findViewById(R.id.video_cover);
+            playButton = view.findViewById(R.id.video_play_button);
+            loading = view.findViewById(R.id.video_loading);
+            retry = view.findViewById(R.id.video_retry);
+            fullscreenButton = view.findViewById(R.id.video_fullscreen_button);
+            playerView.setUseController(true);
+            playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER);
             playerView.setControllerAutoShow(true);
-            playerView.setControllerHideOnTouch(true);
-            playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER); // 完全隐藏内置缓冲
-            playerView.setControllerHideDuringAds(false);
-            playerView.setKeepContentOnPlayerReset(true);
-
-            // 进一步确保隐藏任何内置缓冲视图
-            try {
-                // 尝试查找并隐藏ExoPlayer内置的缓冲视图
-                View bufferingView = playerView.findViewById(
-                        com.google.android.exoplayer2.ui.R.id.exo_buffering
-                );
-                if (bufferingView != null) {
-                    bufferingView.setVisibility(View.GONE);
+            playButton.setOnClickListener(v -> playOrRetry(position));
+            retry.setOnClickListener(v -> playOrRetry(position));
+            fullscreenButton.setOnClickListener(v -> openFullscreen(position));
+            cover.setOnClickListener(v -> openFullscreen(position));
+            playerView.setOnClickListener(v -> openFullscreen(position));
+            int slop = ViewConfiguration.get(context).getScaledTouchSlop();
+            // PlayerView 2.16 treats every DOWN/UP as a click. A drag must not open a dialog.
+            playerView.setOnTouchListener((v, event) -> {
+                if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                    touchX = event.getX(); touchY = event.getY(); tapPossible = true;
+                } else if (event.getActionMasked() == MotionEvent.ACTION_MOVE) {
+                    if (Math.abs(event.getX() - touchX) > slop || Math.abs(event.getY() - touchY) > slop)
+                        tapPossible = false;
+                } else if (event.getActionMasked() == MotionEvent.ACTION_CANCEL
+                        || event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN) {
+                    tapPossible = false;
+                } else if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                    if (tapPossible) v.performClick();
+                    tapPossible = false;
+                    return true;
                 }
-            } catch (Exception ignored) {}
+                return false;
+            });
         }
-
-        void bind(WorkItem.Clip clip, int position) {
-            this.viewHolderPosition = position;
-
-            // 重置视图状态
-            resetViewState();
-
-            // 加载封面
-            Glide.with(context)
-                    .load(getVideoCoverUrl(clip))
-                    .placeholder(R.drawable.ic_video_placeholder)
-                    .error(R.drawable.ic_image_error)
-                    .dontTransform()
-                    .into(videoCover);
-
-            // 如果是视频类型
-            if (clip.getType() == 1) {
-                // 获取播放器
-                ExoPlayer player = obtainPlayerForPosition(position, clip.getUrl());
-
-                // 确保媒体已准备
-                prepareMediaIfNeeded(player, position, clip.getUrl());
-
-                // 绑定播放器到视图
-                attachPlayerToView(player, position);
-
-                // 设置点击监听器
-                setupClickListeners(position, clip.getUrl());
-
-                // 如果是当前页面
-                if (position == currentPagePosition) {
-
-                    // 先禁止立即播放，避免未 prepare 完造成“回到视频开头”
-                    player.setPlayWhenReady(false);
-
-                    // 如果已准备好 → 直接播放
-                    if (player.getPlaybackState() == Player.STATE_READY) {
-
-                        player.play();
-                        playButton.setVisibility(View.GONE);
-                        videoCover.setVisibility(View.GONE);
-
-                    } else {
-                        // 等 READY 后再播放，避免 seekTo(0) 或跳头问题
-                        player.addListener(new Player.Listener() {
-                            @Override
-                            public void onPlaybackStateChanged(int state) {
-                                if (state == Player.STATE_READY) {
-                                    player.play();
-                                    playButton.setVisibility(View.GONE);
-                                    videoCover.setVisibility(View.GONE);
-                                    // 播放一次即可移除监听
-                                    player.removeListener(this);
-                                }
-                            }
-                        });
-                    }
-                }
-
-            }
+        void bind(int nextPosition) {
+            detach();
+            position = nextPosition;
+            holders.put(position, this);
+            // The service puts a poster before its video. Do not download an MP4 just to show its cover.
+            String poster = position > 0 && mediaItems.get(position - 1).getType() == 0
+                    ? mediaItems.get(position - 1).getUrl() : null;
+            Glide.with(itemView).load(poster).placeholder(R.drawable.ic_video_placeholder)
+                    .error(R.drawable.ic_video_placeholder).into(cover);
+            render();
+            if (restoreFullscreen) renderVideos();
         }
-
-        private void resetViewState() {
-            // 重置时：如果是当前页面，只显示封面；否则显示封面和播放按钮
-            playerView.setVisibility(View.GONE);
-            videoCover.setVisibility(View.VISIBLE);
-
-            if (viewHolderPosition == currentPagePosition) {
-                // 当前页面：不显示播放按钮（等待自动播放或用户点击封面）
-                playButton.setVisibility(View.GONE);
-            } else {
-                // 非当前页面：显示播放按钮
-                playButton.setVisibility(View.VISIBLE);
-                playButton.setImageResource(R.drawable.ic_play);
-            }
-
-            loadingProgress.setVisibility(View.GONE);
+        void render() {
+            ExoPlayer player = position == currentPagePosition ? currentPlayer : null;
+            ExoPlayer inlinePlayer = fullscreenDialog == null ? player : null;
+            if (playerView.getPlayer() != inlinePlayer) playerView.setPlayer(inlinePlayer);
+            boolean failed = player != null && player.getPlayerError() != null;
+            boolean ended = player != null && player.getPlaybackState() == Player.STATE_ENDED;
+            playerView.setVisibility(player != null && !failed ? View.VISIBLE : View.GONE);
+            cover.setVisibility(player == null || failed ? View.VISIBLE : View.GONE);
+            retry.setVisibility(failed ? View.VISIBLE : View.GONE);
+            playButton.setVisibility(!failed && (player == null || ended) ? View.VISIBLE : View.GONE);
+            playButton.setImageResource(ended ? R.drawable.ic_replay : R.drawable.ic_play_circle);
+            playButton.setContentDescription(context.getString(ended ? R.string.video_replay : R.string.play_video));
+            loading.setVisibility(player != null && !failed && hostResumed
+                    && player.getPlaybackState() == Player.STATE_BUFFERING ? View.VISIBLE : View.GONE);
+            itemView.setKeepScreenOn(player != null && hostResumed && player.isPlaying());
         }
-
-        private void setupClickListeners(int position, String videoUrl) {
-            // 清除旧的监听器避免重复绑定
-            playButton.setOnClickListener(null);
-            videoCover.setOnClickListener(null);
-            videoContainer.setOnClickListener(null);
-
-            // 统一的点击处理器
-            View.OnClickListener clickListener = v -> {
-                onMediaClicked(position, videoUrl);
-            };
-
-            playButton.setOnClickListener(clickListener);
-            videoCover.setOnClickListener(clickListener);
-            videoContainer.setOnClickListener(clickListener);
-        }
-
-        private void onMediaClicked(int position, String videoUrl) {
-            // 如果点击的是当前正在播放的视频
-            if (currentPlayingPosition == position && currentPlayer != null) {
-                if (currentPlayer.isPlaying()) {
-                    // 如果正在播放，点击暂停
-                    currentPlayer.pause();
-                    // UI更新由监听器处理
-                } else {
-                    // 如果已暂停，点击恢复播放
-                    currentPlayer.setPlayWhenReady(true);
-                    currentPlayer.play();
-                    // 立即更新UI
-                    playerView.setVisibility(View.VISIBLE);
-                    videoCover.setVisibility(View.GONE);
-                    playButton.setVisibility(View.GONE);
-                }
-                return;
-            }
-
-            // 播放新视频
-            playVideo(position, videoUrl);
-        }
-
-        private void playVideo(int position, String videoUrl) {
-            // 暂停之前的播放器
-            if (currentPlayer != null && currentPlayingPosition != position) {
-                currentPlayer.pause();
-                // 隐藏之前的视频
-                // 这里可以通过notifyItemChanged来更新UI，或者让监听器处理
-            }
-
-            // 获取或创建播放器
-            ExoPlayer player = obtainPlayerForPosition(position, videoUrl);
-
-            // 清理旧的监听器，添加新的
-            player.removeListener(viewHolderPlayerListener);
-            player.addListener(viewHolderPlayerListener);
-
-            // 准备媒体
-            prepareMediaIfNeeded(player, position, videoUrl);
-
-            // 绑定到视图
-            attachPlayerToView(player, position);
-
-            // 开始播放
-            player.setPlayWhenReady(true);
-            player.play();
-
-            // 更新全局状态
-            currentPlayer = player;
-            currentPlayingPosition = position;
-
-            // 立即更新UI状态：显示视频，隐藏封面和按钮
-            playerView.setVisibility(View.VISIBLE);
-            playButton.setVisibility(View.GONE);
-            videoCover.setVisibility(View.GONE);
-        }
-
-
-        private void attachPlayerToView(ExoPlayer player, int position) {
-            // 移除旧的播放器
-            Player oldPlayer = playerView.getPlayer();
-            if (oldPlayer != null && oldPlayer != player) {
-                playerView.setPlayer(null);
-            }
-
-            // 绑定新播放器
-            playerView.setPlayer(player);
-
-            // 重要：初始状态先隐藏视频，等待播放时才显示
-            playerView.setVisibility(View.GONE);
-            videoCover.setVisibility(View.VISIBLE);
-
-            // 根据播放状态更新UI
-            if (player.isPlaying()) {
-                playerView.setVisibility(View.VISIBLE);
-                videoCover.setVisibility(View.GONE);
-                playButton.setVisibility(View.GONE);
-                loadingProgress.setVisibility(
-                        player.getPlaybackState() == Player.STATE_BUFFERING ?
-                                View.VISIBLE : View.GONE
-                );
-            } else {
-                playerView.setVisibility(View.GONE);
-                playButton.setVisibility(View.VISIBLE);
-                videoCover.setVisibility(View.VISIBLE);
-                loadingProgress.setVisibility(View.GONE);
-            }
-
-            // 确保监听器已添加
-            player.removeListener(viewHolderPlayerListener);
-            player.addListener(viewHolderPlayerListener);
-        }
-
-        private String getVideoCoverUrl(WorkItem.Clip clip) {
-            return clip.getUrl();
-        }
-
-        public void releasePlayer() {
-            if (playerView != null) {
-                playerView.setPlayer(null);
-            }
-        }
-
-        // 添加缺失的方法
-        public void releaseViewHolder() {
-            releasePlayer();
+        void detach() {
+            if (holders.get(position) == this) holders.remove(position);
+            playerView.setPlayer(null);
+            itemView.setKeepScreenOn(false);
         }
     }
 
-    @Override
-    public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+    @Override public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+        if (holder instanceof VideoViewHolder) ((VideoViewHolder) holder).detach();
         super.onViewRecycled(holder);
-
-        if (holder instanceof VideoViewHolder) {
-            VideoViewHolder videoHolder = (VideoViewHolder) holder;
-
-            // 如果不是当前播放的视频，释放播放器视图
-            if (videoHolder.viewHolderPosition != currentPlayingPosition) {
-                videoHolder.releasePlayer();
-            }
-
-            // 调用新增的方法
-            videoHolder.releaseViewHolder();
-        }
     }
 
-    @Override
-    public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
-        super.onDetachedFromRecyclerView(recyclerView);
+    @Override public void onDetachedFromRecyclerView(@NonNull RecyclerView view) {
         releaseAllPlayers();
+        holders.clear();
+        super.onDetachedFromRecyclerView(view);
     }
 }

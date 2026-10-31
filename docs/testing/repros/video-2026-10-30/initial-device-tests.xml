@@ -1,0 +1,54 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.PixelFlow.app.API.AvatarRecommendationFlowTest" tests="38" failures="1" errors="0" skipped="0" time="166.971" timestamp="2026-10-30T04:35:09" hostname="localhost">
+  <properties>
+    <property name="device" value="Pixel_2_API_36(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="accountChangeAfterUploadDoesNotSetAvatarOrAcceptOldPicker" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="3.561" />
+  <testcase name="failedRecommendationMustNotDisplayCommunityItems" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="1.352" />
+  <testcase name="uploadFinishesAfterTabNavigationAndReturningProfileReadsIt" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="1.748" />
+  <testcase name="pickerResultBeforeOnResumeMustStillUpload" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="2.178" />
+  <testcase name="confirmedClearMustSurviveLeavingPage" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="46.773" />
+  <testcase name="uploadSurvivesRotationAndReconcilesNewView" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="2.02" />
+  <testcase name="accountChangeDuringCompressionDoesNotStartUpload" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="1.283" />
+  <testcase name="committedWriteErrorReReadsAvatarAndAllowsNextOperation" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="2.556" />
+  <testcase name="emptyRecommendationShowsEmptyStateWithoutRepeatedAutoLoads" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="1.175" />
+  <testcase name="recommendationRetryShowsResultsAndCommunityFailureDoesNotKeepThem" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="1.434" />
+  <testcase name="avatarWorksWhileProfileRemainsResumed_control" classname="com.PixelFlow.app.API.AvatarRecommendationFlowTest" time="1.363" />
+  <testcase name="statisticsFailureKeepsUnknownAndLogoutDoesNotLeakPreviousProfile" classname="com.PixelFlow.app.API.ProfileFlowTest" time="4.91" />
+  <testcase name="loginEditRotateSaveAndReenterReadsServer" classname="com.PixelFlow.app.API.ProfileFlowTest" time="6.427" />
+  <testcase name="lostWriteResponseIsConfirmedWithoutDuplicatePut" classname="com.PixelFlow.app.API.ProfileFlowTest" time="4.783" />
+  <testcase name="failedSaveKeepsDraftAndVerifiesBeforeRetry" classname="com.PixelFlow.app.API.ProfileFlowTest" time="5.934" />
+  <testcase name="completedVideoCanReplay" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="5.582" />
+  <testcase name="failedVideoShowsRetryAndRecoversWithRealMedia" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="4.713" />
+  <testcase name="posterFirstPostOpensVideoAndSupportsPauseSeekAndRecreation" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="3.376" />
+  <testcase name="bufferedResponseCannotStartPlaybackInBackground" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="2.946" />
+  <testcase name="switchingToImageStopsVideoAndReturningResumesIt" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="2.303" />
+  <testcase name="homeIdentifiesVideoWithoutStartingOffscreenPlayback" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="1.482" />
+  <testcase name="failedReconciliationOnlyAllowsReadRetryBeforeAnotherWrite" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="1.724" />
+  <testcase name="writeResponseFailureReconcilesCommittedStateWithoutResubmitting" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="1.26" />
+  <testcase name="leavingDetailMustNotDiscardQueuedFavoriteWrite" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="1.64" />
+  <testcase name="backgroundReturnWaitsForInflightWriteAndDoesNotDuplicateIt" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="2.297" />
+  <testcase name="switchingAccountsDiscardsTheOldWriteCallback" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="2.601" />
+  <testcase name="favoritesListDetailRemoveAndImmediateReturnReadsUpdatedList" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="11.539">
+    <failure>java.lang.AssertionError
+at org.junit.Assert.fail(Assert.java:87)
+at org.junit.Assert.assertTrue(Assert.java:42)
+at org.junit.Assert.assertTrue(Assert.java:53)
+at com.PixelFlow.app.API.FavoriteDetailReviewTest$Gate.awaitEntry(FavoriteDetailReviewTest.java:44)
+at com.PixelFlow.app.API.FavoriteDetailReviewTest.favoritesListDetailRemoveAndImmediateReturnReadsUpdatedList(FavoriteDetailReviewTest.java:248)
+</failure>
+  </testcase>
+  <testcase name="stoppedReadRestartsWithoutShowingTheOldFavoriteState" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="3.082" />
+  <testcase name="ordinaryFavoriteWriteReadsServerState" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="4.038" />
+  <testcase name="recreationPreservesTheQueuedWriteAndReadsItsResult" classname="com.PixelFlow.app.API.FavoriteDetailReviewTest" time="2.251" />
+  <testcase name="emptyCommunityIsDistinctFromFailure" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="2.291" />
+  <testcase name="recreationPreservesRecommendationSource" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="3.067" />
+  <testcase name="changedAccountDuringRequestReloadsWithoutOldViewerState" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="2.779" />
+  <testcase name="stoppedRequestResumesWithoutStuckSpinner" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="8.42" />
+  <testcase name="unavailableRecommendationExplainsItAndCommunityStillWorks" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="2.513" />
+  <testcase name="failedRefreshRetainsCardsAndRetryStartsAtFirstPage" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="2.774" />
+  <testcase name="failedPaginationRetainsCardsAndRetriesTheSameCursorOnlyOnRequest" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="2.659" />
+  <testcase name="firstPageFailureHasExplicitRetryAndOnlyTwoActualSources" classname="com.PixelFlow.app.API.HomeFeedFlowTest" time="2.475" />
+</testsuite>

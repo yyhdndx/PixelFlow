@@ -76,7 +76,7 @@ def test_profile_aggregates_and_normalizes_does_not_mutate_input():
 def test_registry_metadata_and_unknown_permissions_identity():
     registry = create_registry()
     metadata = registry.describe()
-    assert [s["name"] for s in metadata] == ["profile_insight", "candidate_recall", "feed_rank"]
+    assert [s["name"] for s in metadata] == ["profile_insight", "candidate_recall", "feed_rank", "content_safety", "creator_assist"]
     assert all(s["read_only"] and s["input_schema"]["additionalProperties"] is False for s in metadata)
     for name, payload, ctx, expected in [
         ("missing", {}, context(), "UNKNOWN_SKILL"),
@@ -193,7 +193,7 @@ def test_constructed_model_does_not_bypass_output_validation():
 def test_catalog_is_json_serializable_with_input_and_output_schemas():
     import json
     catalog = json.loads(json.dumps(create_registry().describe()))
-    assert len(catalog) == 3
+    assert len(catalog) == 5
     for entry in catalog:
         assert entry["version"] == "1.0.0"
         assert "user_id" in entry["input_schema"]["required"]

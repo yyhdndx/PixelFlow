@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.PixelFlow.app.API.VideoPlaybackFlowTest" tests="12" failures="0" errors="0" skipped="0" time="47.9" timestamp="2026-10-30T16:14:44" hostname="localhost">
+  <properties>
+    <property name="device" value="Pixel_2_API_36(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="completedVideoCanReplay" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="6.363" />
+  <testcase name="backgroundMusicFollowsVideoPlayback" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="2.75" />
+  <testcase name="failedVideoShowsRetryAndRecoversWithRealMedia" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="5.4" />
+  <testcase name="posterFirstPostOpensVideoAndSupportsPauseSeekAndRecreation" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="3.569" />
+  <testcase name="bufferedResponseCannotStartPlaybackInBackground" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="3.334" />
+  <testcase name="fullscreenBufferingCannotPlayInBackgroundAndDestroyReleasesPlayer" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="3.914" />
+  <testcase name="switchingToImageStopsVideoAndReturningResumesIt" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="3.513" />
+  <testcase name="tappingVideoOpensFullscreen" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="4.771" />
+  <testcase name="homeIdentifiesVideoWithoutStartingOffscreenPlayback" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="2.466" />
+  <testcase name="mixedMediaImageAfterVideoOpensItsOwnUrl" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="2.775" />
+  <testcase name="fullscreenKeepsPauseSeekAndStateAcrossRecreation" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="5.844" />
+  <testcase name="unhandledVideoDragCannotTiltOrDismissDetail" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="2.13" />
+</testsuite>

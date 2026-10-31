@@ -1,0 +1,6 @@
+# Dataset rows and resource-level results must not be redistributed through Git.
+*.jsonl
+resource-checks*.json
+demo-dimensions*.json
+records*.json
+private-data/

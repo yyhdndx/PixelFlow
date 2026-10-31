@@ -1,7 +1,6 @@
 package com.PixelFlow.app.Streams;
 
 import android.app.Activity;
-import android.app.ActivityOptions;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -219,7 +218,21 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     public void handleDetailResult(int resultCode, Intent data) {
-        // HomeFragment re-fetches the server on resume; never restore global local like records.
+        // 仅更新详情页返回的单条卡片点赞状态，保留滚动位置与列表顺序。
+        if (released || data == null) return;
+        String workId = data.getStringExtra("work_id");
+        if (workId == null) return;
+        boolean liked = data.getBooleanExtra("is_liked", false);
+        int likeCount = data.getIntExtra("like_count", -1);
+        for (int i = 0; i < workItems.size(); i++) {
+            WorkItem item = workItems.get(i);
+            if (workId.equals(item.getId())) {
+                item.setLiked(liked);
+                if (likeCount >= 0) item.setLikeCount(likeCount);
+                notifyItemChanged(i);
+                return;
+            }
+        }
     }
 
     // 作品ViewHolder
@@ -316,6 +329,11 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
 
         void bind(WorkItem workItem, int position) {
+            boolean hasVideo = workItem.getFirstVideoPosition() >= 0;
+            itemView.findViewById(R.id.work_video_badge).setVisibility(hasVideo ? View.VISIBLE : View.GONE);
+            coverImage.setContentDescription(hasVideo
+                    ? context.getString(R.string.video_work_description, workItem.getTitle())
+                    : workItem.getTitle());
             // 计算图片尺寸
             DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
             int screenWidth = displayMetrics.widthPixels;
@@ -387,40 +405,24 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
 
         private void openDetailPageWithAnimation(WorkItem workItem, int position) {
-            // 获取屏幕位置
-            int[] location = new int[2];
-            coverImage.getLocationOnScreen(location);
-
-            // 创建详情页Intent
+            // 创建详情页Intent（改用淡入淡出，不传共享元素与截图位置）
             Intent intent = new Intent(context, WorkDetailActivity.class);
             intent.putExtra("work_item", workItem);
-            intent.putExtra("transition_name", "image_" + workItem.getId());
-            intent.putExtra("start_left", location[0]);
-            intent.putExtra("start_top", location[1]);
-            intent.putExtra("start_width", coverImage.getWidth());
-            intent.putExtra("start_height", coverImage.getHeight());
-
-            // 创建共享元素动画
-            Bundle options = null;
-            coverImage.setTransitionName("image_" + workItem.getId());
-            options = ActivityOptions.makeSceneTransitionAnimation(
-                    (Activity) context,
-                    coverImage,
-                    "image_" + workItem.getId()
-            ).toBundle();
 
             // 通过监听器启动Activity
             if (onStartActivityListener != null) {
-                onStartActivityListener.onStartActivityForResult(intent, WaterfallAdapter.REQUEST_CODE_DETAIL, options);
+                onStartActivityListener.onStartActivityForResult(intent, WaterfallAdapter.REQUEST_CODE_DETAIL, null);
             } else {
-                context.startActivity(intent, options);
+                context.startActivity(intent);
+            }
+            if (context instanceof Activity) {
+                ((Activity) context).overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
             }
 
             if (context instanceof MainActivity) {
                 MainActivity activity = (MainActivity) context;
                 activity.preloadForDetailPage(workItem);
             }
-
         }
     }
 

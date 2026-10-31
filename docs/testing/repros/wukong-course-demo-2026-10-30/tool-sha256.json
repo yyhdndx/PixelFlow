@@ -1,0 +1,13 @@
+{
+  "check_resources.py": "45683047c8005f3c499ee1596259462ceffb4c50580542b67b2217e51885761e",
+  "corpus_schema.sql": "edfb778c7547ce3d256502355175d253c3387999a1554b5fb9e089daa9512ac1",
+  "import_corpus.py": "1b61301ec87f533ef07508f15a7d73b3b438702185cf09af958c6bae15de1346",
+  "prepare_demo_feed.py": "940fcd059a32b7036094af572e3258ba0fdec8836923101e336ac022b50be62f",
+  "publish_course_demo.py": "0edf31eba4e9a074213ab9235e70b22987c493bdc7fe28ad4c43b7651426adf7",
+  "README.md": "ff1212f34b2854f42c61ddb4e9c0aaf9778e16c9f9bffbc911fbe75ea2d3f626",
+  "test_course_demo.py": "192be354a9268a5e99b3bafe243443aabb69b1495749a587d818c234f4922a75",
+  "test_wukong_corpus.py": "75b575b57e209f754667a3856d7f788ce8598687c1ef0ba7b32f08dd77e200fb",
+  "verify_course_mysql.py": "d6d65848915aeabdbb7ca82df5f521dfc0f336c4b01ef675ec3802af08dce36d",
+  "verify_mysql.py": "91e6fed207e350b69a05ee8705d131fe5c7775af458ee31b27d165b9e27e325b",
+  "wukong_corpus.py": "44e97fb33f4a8fb4b9d18758d151025d0bbe097085c303c5f1d7dacfa247307f"
+}

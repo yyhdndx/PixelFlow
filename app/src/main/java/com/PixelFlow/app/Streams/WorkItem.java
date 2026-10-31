@@ -321,6 +321,15 @@ public class WorkItem implements Serializable {
         return (int) (targetWidth / clampedAspectRatio);
     }
 
+    // 详情页媒体显示高度：保留更宽的比例范围（1:2 ~ 2:1），让视频按真实宽高比填满，避免裁切或留白
+    public int getDetailDisplayHeight(int targetWidth) {
+        float aspectRatio = imageHeight > 0 ? (float) imageWidth / imageHeight : 1f;
+        float minAspectRatio = 0.5f;  // 1:2
+        float maxAspectRatio = 2.0f;  // 2:1
+        float clampedAspectRatio = Math.max(minAspectRatio, Math.min(maxAspectRatio, aspectRatio));
+        return (int) (targetWidth / clampedAspectRatio);
+    }
+
     // ============ 新增接口 ============
 
     public long getCreateTime() { return createTime; }
@@ -386,6 +395,18 @@ public class WorkItem implements Serializable {
             }
         }
         return null;
+    }
+
+    /** Video posts may put a still poster before the playable clip. */
+    public int getFirstVideoPosition() {
+        if (clips != null) {
+            for (int i = 0; i < clips.size(); i++) {
+                Clip clip = clips.get(i);
+                if (clip != null && clip.getType() == 1
+                        && clip.getUrl() != null && !clip.getUrl().trim().isEmpty()) return i;
+            }
+        }
+        return -1;
     }
 
     // 在 Getters and Setters 部分添加

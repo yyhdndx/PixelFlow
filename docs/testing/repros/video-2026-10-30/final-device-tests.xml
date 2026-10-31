@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.PixelFlow.app.API.VideoPlaybackFlowTest" tests="7" failures="0" errors="0" skipped="0" time="64.465" timestamp="2026-10-30T05:00:11" hostname="localhost">
+  <properties>
+    <property name="device" value="Pixel_2_API_36(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="completedVideoCanReplay" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="15.418" />
+  <testcase name="backgroundMusicFollowsVideoPlayback" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="6.844" />
+  <testcase name="failedVideoShowsRetryAndRecoversWithRealMedia" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="7.558" />
+  <testcase name="posterFirstPostOpensVideoAndSupportsPauseSeekAndRecreation" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="9.181" />
+  <testcase name="bufferedResponseCannotStartPlaybackInBackground" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="8.493" />
+  <testcase name="switchingToImageStopsVideoAndReturningResumesIt" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="9.193" />
+  <testcase name="homeIdentifiesVideoWithoutStartingOffscreenPlayback" classname="com.PixelFlow.app.API.VideoPlaybackFlowTest" time="5.44" />
+</testsuite>

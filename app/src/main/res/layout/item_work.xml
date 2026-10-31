@@ -18,7 +18,9 @@
         android:clipChildren="true"
         android:clipToPadding="true">
 
-        <!-- 图片：铺满卡片宽度，圆角由 CardView 裁剪 -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
         <ImageView
             android:id="@+id/cover_image"
             android:layout_width="match_parent"
@@ -27,6 +29,19 @@
             android:adjustViewBounds="false"
             android:contentDescription="@string/workOutline"
             android:background="@color/gray_100" />
+
+            <ImageView
+                android:id="@+id/work_video_badge"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="8dp"
+                android:padding="7dp"
+                android:background="@drawable/video_badge_background"
+                android:src="@drawable/ic_video_play"
+                android:contentDescription="@string/play_video"
+                android:visibility="gone" />
+        </FrameLayout>
 
         <!-- 标题 + 点赞：同行排列，避免图标与文字重叠 -->
         <LinearLayout

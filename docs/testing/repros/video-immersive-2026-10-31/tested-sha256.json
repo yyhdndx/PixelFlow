@@ -1,0 +1,6 @@
+{
+  "app/src/main/java/com/PixelFlow/app/DetailPage/FullScreenVideoDialog.java": "ff1d39a533a640479b6482e23afc347f72c1e8e8a685f29077b8a68333dc1ee2",
+  "app/src/main/res/layout/dialog_fullscreen_video.xml": "160a00e15f0e4defd52b0c4714a4bfae7503a2d57d0787dffa46b2ef1f0280a8",
+  "app/src/androidTest/java/com/PixelFlow/app/API/VideoPlaybackFlowTest.java": "a0ac69169ba76e95f9bd3233f775d78be8fd4d5d4d1af00a2c41ebdb9026d881",
+  "app/build/outputs/apk/debug/app-debug.apk": "1b79131e56557f4cc0c527f25db5aa4cb375e869e1d85e274b7a6c481982d410"
+}

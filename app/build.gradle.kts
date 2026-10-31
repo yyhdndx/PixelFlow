@@ -31,6 +31,8 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
+    // Reuse licensed server media for real decoder tests; excluded from the application APK.
+    sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("server/src/main/resources/static/demo-assets"))
 }
 
 dependencies {

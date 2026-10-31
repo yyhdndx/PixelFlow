@@ -20,7 +20,7 @@
         android:layout_height="match_parent"
         android:visibility="gone"
         app:use_controller="true"
-        app:controller_layout_id="@layout/exo_player_control_view"
+        app:resize_mode="fit"
         app:show_buffering="when_playing"
         app:hide_during_ads="true" />
 
@@ -42,4 +42,23 @@
         android:layout_gravity="center"
         android:visibility="gone" />
 
+    <Button
+        android:id="@+id/video_retry"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_margin="16dp"
+        android:text="@string/video_retry"
+        android:visibility="gone" />
+
+    <ImageButton
+        android:id="@+id/video_fullscreen_button"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="8dp"
+        android:padding="12dp"
+        android:background="@drawable/circle_transparent_bg"
+        android:src="@drawable/ic_video_fullscreen"
+        android:contentDescription="@string/video_enter_fullscreen" />
 </FrameLayout>

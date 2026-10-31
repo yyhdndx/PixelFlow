@@ -117,3 +117,42 @@ class RankOutput(Model):
     items: list[Ranked]
     filtered: int
     truncated_by_diversity: int
+
+
+class DraftSnapshot(Model):
+    title: str = Field(max_length=120)
+    content: str = Field(max_length=5000)
+    tags: list[str] = Field(max_length=20)
+
+
+class ContentSafetyInput(Model):
+    user_id: str = Field(min_length=1, max_length=36)
+    title: str = Field(max_length=120)
+    content: str = Field(max_length=5000)
+    tags: list[str] = Field(max_length=20)
+
+
+class ContentSafetyOutput(Model):
+    user_id: str
+    risk_level: Literal["low", "medium", "high", "unknown"]
+    rule_hits: list[str]
+    suggestions: list[str]
+    requires_human_review: bool
+    policy_version: str
+
+
+class CreateAssistInput(Model):
+    user_id: str = Field(min_length=1, max_length=36)
+    draft: DraftSnapshot
+    goal: Literal["improve_title", "suggest_tags", "polish_content", "write_content", "all"]
+    audience: str = Field(default="", max_length=64)
+    prompt: str = Field(default="", max_length=200)
+
+
+class CreateAssistOutput(Model):
+    user_id: str
+    title_candidates: list[str]
+    tag_suggestions: list[str]
+    edit_suggestions: list[str]
+    content_candidates: list[str]
+    policy_version: str

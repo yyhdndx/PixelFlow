@@ -1,0 +1,12 @@
+{
+  "app/src/main/java/com/PixelFlow/app/DetailPage/ImagePagerAdapter.java": "01b0cbbaa36aff73d6a3696a02ce85c88fee9e35b78f07d2220a898e3b9565e1",
+  "app/src/main/java/com/PixelFlow/app/DetailPage/WorkDetailActivity.java": "ada0926c5fb50838aa52dc352a695a8321778bc1fda0f18b15d6afe6062ff9e0",
+  "app/src/main/java/com/PixelFlow/app/DetailPage/FullScreenVideoDialog.java": "eccdef7440502a259d43f29520ae841817ff4b184982ec39cf00c0b431b1c37c",
+  "app/src/main/res/layout/dialog_fullscreen_video.xml": "30203545038296747ad3781c5cf67a0a5749d71f206847bef88bb62de5f43465",
+  "app/src/main/res/layout/item_detail_video.xml": "767f51de61e59f9700159a4512ca16e2fa024f17109dae5f74abc11da12aa19a",
+  "app/src/main/res/values/video_ui.xml": "8c896f5e3503ba05409fe60d5e4342e866d1d567bc0e9aec83c4c63f14f926f0",
+  "app/src/main/res/drawable/ic_video_fullscreen.xml": "9344666014783c836b43da913c8a6d53a183573c67db22947f5d10c1f2b702c4",
+  "app/src/androidTest/java/com/PixelFlow/app/API/VideoPlaybackFlowTest.java": "1617f2b426ad2366f13c972aa7d3f19fa2afdac6c3c600ba81a86fdf7fdb9610",
+  "app/build/outputs/apk/debug/app-debug.apk": "8bd844db22385bb3fbd42c64064b3df0665729c05648b47257a3b0e14d99862e",
+  "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "123c520e129f2505f608e2712f24fec426f6b433802acb292d95c3fbb5fcdf78"
+}

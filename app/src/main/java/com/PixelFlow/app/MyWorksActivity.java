@@ -143,6 +143,7 @@ public class MyWorksActivity extends AccountDataActivity {
         Intent intent = new Intent(this, WorkDetailActivity.class);
         intent.putExtra("work_item", new WorkItem(post));
         startActivity(intent);
+        overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
     }
 
     private ArrayList<String> clipUrls(PostItem post) {

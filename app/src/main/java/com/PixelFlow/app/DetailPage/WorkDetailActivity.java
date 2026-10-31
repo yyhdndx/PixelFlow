@@ -1,15 +1,7 @@
 package com.PixelFlow.app.DetailPage;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.AnimatorSet;
-import android.animation.ObjectAnimator;
-import android.animation.ValueAnimator;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
-import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.SpannableString;
@@ -22,10 +14,9 @@ import android.text.style.StyleSpan;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.Window;
 import android.view.WindowManager;
-import android.view.animation.AccelerateInterpolator;
-import android.view.animation.OvershootInterpolator;
 import android.widget.*;
 
 import androidx.annotation.NonNull;
@@ -34,7 +25,6 @@ import androidx.core.view.GestureDetectorCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 import android.view.ViewGroup;
-import android.view.animation.DecelerateInterpolator;
 
 import com.PixelFlow.app.AudioPlayer;
 import com.PixelFlow.app.DAO.PersistState.LikeStatus;
@@ -65,6 +55,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private View scrollContainer;
 
     private boolean isDragging = false;
+    private boolean dragEligible;
     private float dragStartX, dragStartY;
 
     private ImageView backButton;  // 新增：返回按钮
@@ -93,6 +84,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     // 数据
     private WorkItem workItem;
     private ImagePagerAdapter imageAdapter;
+    private Bundle restoredPlayback;
 
     // 记录点赞状态是否发生改变，用于返回
     private boolean isChanged;
@@ -116,24 +108,18 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private long viewingSession;
     private String viewingUser;
     private boolean clickTracked;
+    private FullScreenMediaDialog fullscreenImageDialog;
 
-    // 动画相关
+    // 拖拽退出相关
     private View contentLayout;
     private View bottomBar;
     private GestureDetectorCompat gestureDetector;
-    private boolean isAnimating = false;
-    private boolean isExiting = false;
-    private Rect startRect;
-
-    // 截图相关
-    private ImageView screenshotBackground;
-    private Bitmap waterfallScreenshot;
-    private boolean hasScreenshot = false;
 
     // 音乐播放相关
     private AudioPlayer audioPlayerManager;
     private ImageView musicControlButton;
     private WorkItem.Music currentMusic;
+    private boolean musicUserPaused = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -159,6 +145,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         getWindow().setExitTransition(null);
 
         super.onCreate(savedInstanceState);
+        restoredPlayback = savedInstanceState == null ? null : savedInstanceState.getBundle("media.playback");
         setContentView(R.layout.activity_detail);
 
         // 获取传递的数据
@@ -168,18 +155,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             return;
         }
 
-        // 共享元素负责封面转场，背景使用页面已有的淡入兜底，不经 Binder 传整屏图片。
-        hasScreenshot = false;
-
         initViews();
-
-        // 获取转场动画参数
-        startRect = new Rect(
-                getIntent().getIntExtra("start_left", 0),
-                getIntent().getIntExtra("start_top", 0),
-                getIntent().getIntExtra("start_left", 0) + getIntent().getIntExtra("start_width", 0),
-                getIntent().getIntExtra("start_top", 0) + getIntent().getIntExtra("start_height", 0)
-        );
 
         // 初始化手势检测
         gestureDetector = new GestureDetectorCompat(this, this);
@@ -189,443 +165,21 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         setupData();
         setupListeners();
         loadInteractionState();
-        getWindow().getDecorView().postDelayed(() -> {
-            if (!isFinishing() && !isDestroyed()) runEnterAnimation();
-        }, 20);
     }
 
-    private void runEnterAnimation() {
-        if (isAnimating || startRect.isEmpty()) return;
-
-        isAnimating = true;
-
-        // 1. 立即显示所有内容（避免闪烁）
-        scrollContainer.setAlpha(1f);
-        scrollContainer.setVisibility(View.VISIBLE);
-
-        // 2. 准备初始状态（同步进行）
-        prepareEnterInitialState();
-
-        // 3. 执行无缝入场动画
-        executeSeamlessEnterAnimation();
+    // 拖拽未达到退出阈值时回弹复位
+    private void resetDragState() {
+        imageContainer.animate().translationY(0f).alpha(1f).rotation(0f).setDuration(150).start();
+        contentLayout.animate().alpha(1f).setDuration(150).start();
+        topBar.animate().alpha(1f).setDuration(150).start();
+        bottomBar.animate().alpha(1f).setDuration(150).start();
+        backgroundOverlay.animate().alpha(0.7f).setDuration(150).start();
     }
 
-    private void prepareEnterInitialState() {
-        // 获取结束位置
-        int[] location = new int[2];
-        imageContainer.getLocationOnScreen(location);
-        Rect endRect = new Rect(
-                location[0],
-                location[1],
-                location[0] + imageContainer.getWidth(),
-                location[1] + imageContainer.getHeight()
-        );
-
-        // 计算缩放比例
-        float scaleX = (float) startRect.width() / endRect.width();
-        float scaleY = (float) startRect.height() / endRect.height();
-
-        // 设置图片容器初始状态
-        imageContainer.setScaleX(scaleX);
-        imageContainer.setScaleY(scaleY);
-        imageContainer.setTranslationX(startRect.left - endRect.left);
-        imageContainer.setTranslationY(startRect.top - endRect.top);
-        imageContainer.setAlpha(1f);
-
-        // 设置背景遮罩初始状态
-        backgroundOverlay.setAlpha(0f);
-
-        // 设置内容初始状态 - 轻微透明，但不是完全透明
-        topBar.setAlpha(0.3f);
-        topBar.setTranslationY(-10f);
-
-        contentLayout.setAlpha(0.3f);
-        contentLayout.setTranslationY(10f);
-
-        bottomBar.setAlpha(0.3f);
-        bottomBar.setTranslationY(10f);
-
-        // 设置scrollContainer可见但透明
-        scrollContainer.setAlpha(0.3f);
+    // 淡出并退出详情页（配合 overridePendingTransition 的淡入淡出）
+    private void finishWithFade() {
+        returnWithResult();
     }
-
-    private void executeSeamlessEnterAnimation() {
-        // 1. 同时执行图片放大和背景淡入（核心动画）
-        AnimatorSet coreAnimation = new AnimatorSet();
-
-        // 图片放大动画
-        ObjectAnimator scaleXAnim = ObjectAnimator.ofFloat(imageContainer, "scaleX", 1f);
-        ObjectAnimator scaleYAnim = ObjectAnimator.ofFloat(imageContainer, "scaleY", 1f);
-        ObjectAnimator transXAnim = ObjectAnimator.ofFloat(imageContainer, "translationX", 0f);
-        ObjectAnimator transYAnim = ObjectAnimator.ofFloat(imageContainer, "translationY", 0f);
-
-        // 背景淡入
-        ObjectAnimator bgAlphaAnim = ObjectAnimator.ofFloat(backgroundOverlay, "alpha", 0.7f);
-
-        // 同时执行
-        coreAnimation.playTogether(scaleXAnim, scaleYAnim, transXAnim, transYAnim, bgAlphaAnim);
-        coreAnimation.setDuration(250);
-        coreAnimation.setInterpolator(new DecelerateInterpolator());
-
-        // 2. 内容区域淡入动画（与核心动画同时开始，但稍微延迟）
-        AnimatorSet contentAnimation = new AnimatorSet();
-
-        // 顶部栏动画
-        ObjectAnimator topBarAlpha = ObjectAnimator.ofFloat(topBar, "alpha", 1f);
-        ObjectAnimator topBarTrans = ObjectAnimator.ofFloat(topBar, "translationY", 0f);
-
-        // 内容区域动画
-        ObjectAnimator contentAlpha = ObjectAnimator.ofFloat(contentLayout, "alpha", 1f);
-        ObjectAnimator contentTrans = ObjectAnimator.ofFloat(contentLayout, "translationY", 0f);
-
-        // 底部栏动画
-        ObjectAnimator bottomBarAlpha = ObjectAnimator.ofFloat(bottomBar, "alpha", 1f);
-        ObjectAnimator bottomBarTrans = ObjectAnimator.ofFloat(bottomBar, "translationY", 0f);
-
-        // scrollContainer整体淡入
-        ObjectAnimator scrollAlpha = ObjectAnimator.ofFloat(scrollContainer, "alpha", 1f);
-
-        contentAnimation.playTogether(topBarAlpha, topBarTrans, contentAlpha, contentTrans,
-                bottomBarAlpha, bottomBarTrans, scrollAlpha);
-        contentAnimation.setDuration(200);
-        contentAnimation.setStartDelay(40);
-        contentAnimation.setInterpolator(new DecelerateInterpolator());
-
-        // 3. 组合动画
-        AnimatorSet finalAnimation = new AnimatorSet();
-        finalAnimation.playTogether(coreAnimation, contentAnimation);
-        finalAnimation.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                isAnimating = false;
-            }
-        });
-
-        finalAnimation.start();
-    }
-
-    // 退场动画
-    private void runExitAnimation() {
-        if (isAnimating || isExiting) return;
-
-        isAnimating = true;
-        isExiting = true;
-
-        // 执行固定大小淡出动画
-        executeFixedSizeFadeOutAnimation();
-    }
-
-    private void executeFixedSizeFadeOutAnimation() {
-        // 获取当前位置
-        int[] location = new int[2];
-        imageContainer.getLocationOnScreen(location);
-        Rect currentRect = new Rect(
-                location[0],
-                location[1],
-                location[0] + imageContainer.getWidth(),
-                location[1] + imageContainer.getHeight()
-        );
-
-        // 计算移动到瀑布流卡片位置的偏移量
-        float targetTranslateX = startRect.left - currentRect.left;
-        float targetTranslateY = startRect.top - currentRect.top;
-
-        // 1. 准备截图背景
-        prepareScreenshotBackground();
-
-        // 2. 创建所有动画
-        AnimatorSet backgroundReveal = createScreenshotRevealAnimation();
-        AnimatorSet contentFadeOut = createContentFadeOutAnimation();
-        AnimatorSet imageAnimation = createImageReturnAnimation(targetTranslateX, targetTranslateY);
-
-        // 3. 组合动画：截图背景淡入 + 内容淡出 + 图片移动
-        AnimatorSet finalAnimation = new AnimatorSet();
-        if (hasScreenshot) {
-            // 有截图时，让截图背景逐渐显示
-            finalAnimation.playTogether(backgroundReveal, contentFadeOut, imageAnimation);
-        } else {
-            // 没有截图时，使用纯色背景淡入
-            AnimatorSet fallbackBackground = createFallbackBackgroundAnimation();
-            finalAnimation.playTogether(fallbackBackground, contentFadeOut, imageAnimation);
-        }
-
-        finalAnimation.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                returnWithResult();
-            }
-
-            @Override
-            public void onAnimationStart(Animator animation) {
-                // 确保图片在最上层
-                imageContainer.bringToFront();
-                // 重置图片的缩放
-                imageContainer.setScaleX(1f);
-                imageContainer.setScaleY(1f);
-            }
-        });
-
-        finalAnimation.start();
-    }
-
-    private void prepareScreenshotBackground() {
-        if (hasScreenshot) {
-            screenshotBackground.setVisibility(View.VISIBLE);
-            screenshotBackground.setAlpha(0f);
-            screenshotBackground.setScaleX(1.02f); // 轻微放大，增加动态感
-            screenshotBackground.setScaleY(1.02f);
-        }
-    }
-
-    private AnimatorSet createScreenshotRevealAnimation() {
-        AnimatorSet revealSet = new AnimatorSet();
-
-        // 截图背景淡入（透明度从0到1）
-        ObjectAnimator alphaAnim = ObjectAnimator.ofFloat(screenshotBackground, "alpha", 0f, 1f);
-
-        // 截图背景轻微缩小回正常大小（从1.02到1.0）
-        ObjectAnimator scaleXAnim = ObjectAnimator.ofFloat(screenshotBackground, "scaleX", 1.02f, 1f);
-        ObjectAnimator scaleYAnim = ObjectAnimator.ofFloat(screenshotBackground, "scaleY", 1.02f, 1f);
-
-        // 稍微向上移动一点点，模拟"浮现"效果
-        ObjectAnimator translateYAnim = ObjectAnimator.ofFloat(screenshotBackground, "translationY", 20f, 0f);
-
-        revealSet.playTogether(alphaAnim, scaleXAnim, scaleYAnim, translateYAnim);
-        revealSet.setDuration(400);
-        revealSet.setInterpolator(new DecelerateInterpolator());
-
-        return revealSet;
-    }
-
-    private AnimatorSet createFallbackBackgroundAnimation() {
-        // 没有截图时的备选方案：简单的白色背景淡入
-        AnimatorSet fallbackSet = new AnimatorSet();
-
-        View fallbackBackground = new View(this);
-        fallbackBackground.setBackgroundColor(Color.WHITE);
-        fallbackBackground.setAlpha(0f);
-
-        // 添加到布局中
-        ViewGroup rootLayout = findViewById(R.id.root_layout);
-        if (rootLayout != null) {
-            rootLayout.addView(fallbackBackground, 0, new ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT));
-        }
-
-        ObjectAnimator alphaAnim = ObjectAnimator.ofFloat(fallbackBackground, "alpha", 0f, 1f);
-        fallbackSet.play(alphaAnim);
-        fallbackSet.setDuration(300);
-
-        return fallbackSet;
-    }
-
-    private AnimatorSet createContentFadeOutAnimation() {
-        AnimatorSet fadeOutSet = new AnimatorSet();
-
-        // 背景遮罩淡出（从0.7到0）
-        ObjectAnimator bgFade = ObjectAnimator.ofFloat(backgroundOverlay, "alpha", 0.7f, 0f);
-
-        // 顶部栏、内容区域、底部栏同时淡出
-        ObjectAnimator topBarFade = ObjectAnimator.ofFloat(topBar, "alpha", 1f, 0f);
-        ObjectAnimator contentFade = ObjectAnimator.ofFloat(contentLayout, "alpha", 1f, 0f);
-        ObjectAnimator bottomBarFade = ObjectAnimator.ofFloat(bottomBar, "alpha", 1f, 0f);
-
-        // scrollContainer整体淡出
-        ObjectAnimator scrollFade = ObjectAnimator.ofFloat(scrollContainer, "alpha", 1f, 0f);
-
-        fadeOutSet.playTogether(bgFade, topBarFade, contentFade, bottomBarFade, scrollFade);
-        fadeOutSet.setDuration(350);
-        fadeOutSet.setInterpolator(new AccelerateInterpolator());
-
-        return fadeOutSet;
-    }
-
-    private AnimatorSet createImageReturnAnimation(float targetTranslateX, float targetTranslateY) {
-        AnimatorSet imageSet = new AnimatorSet();
-
-        // 图片淡出（透明度从1降到0.2，不完全消失）
-        ObjectAnimator imageAlphaAnim = ObjectAnimator.ofFloat(imageContainer, "alpha", 1f, 0.2f);
-
-        // 图片移动到瀑布流位置
-        ObjectAnimator imageTransXAnim = ObjectAnimator.ofFloat(imageContainer, "translationX", targetTranslateX);
-        ObjectAnimator imageTransYAnim = ObjectAnimator.ofFloat(imageContainer, "translationY", targetTranslateY);
-
-        // 图片缩放回瀑布流卡片大小
-        float startScaleX = imageContainer.getScaleX();
-        float startScaleY = imageContainer.getScaleY();
-        float targetScaleX = (float) startRect.width() / imageContainer.getWidth();
-        float targetScaleY = (float) startRect.height() / imageContainer.getHeight();
-
-        ObjectAnimator scaleXAnim = ObjectAnimator.ofFloat(imageContainer, "scaleX", startScaleX, targetScaleX);
-        ObjectAnimator scaleYAnim = ObjectAnimator.ofFloat(imageContainer, "scaleY", startScaleY, targetScaleY);
-
-        // 添加轻微旋转
-        float rotationAngle = calculateRotationAngle(targetTranslateX, targetTranslateY);
-        ObjectAnimator imageRotateAnim = ObjectAnimator.ofFloat(imageContainer, "rotation", rotationAngle);
-
-        imageSet.playTogether(imageAlphaAnim, imageTransXAnim, imageTransYAnim,
-                scaleXAnim, scaleYAnim, imageRotateAnim);
-        imageSet.setDuration(400);
-        imageSet.setInterpolator(new DecelerateInterpolator());
-
-        return imageSet;
-    }
-
-    // 辅助方法：计算轻微的旋转角度（基于移动方向）
-    private float calculateRotationAngle(float deltaX, float deltaY) {
-        // 根据移动方向计算轻微旋转角度
-        float angle = 0f;
-
-        // 如果主要是水平移动
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-            angle = deltaX > 0 ? -1.5f : 1.5f; // 非常轻微的水平旋转
-        }
-        // 如果主要是垂直移动
-        else {
-            angle = deltaY > 0 ? -1f : 1f; // 更轻微的垂直旋转
-        }
-
-        return angle;
-    }
-
-    private void runDragExitAnimation(float velocityX, float velocityY, float currentX, float currentY) {
-        if (isAnimating || isExiting) return;
-
-        isAnimating = true;
-        isExiting = true;
-
-        // 简化判断：只要开始拖拽就执行快速退出
-        executeDragExitAnimation(velocityX, velocityY, currentX, currentY);
-    }
-
-    private void executeDragExitAnimation(float velocityX, float velocityY, float currentX, float currentY) {
-        // 计算最终位置（带预测）
-        float targetX, targetY;
-        float screenWidth = getWindow().getDecorView().getWidth();
-        float screenHeight = getWindow().getDecorView().getHeight();
-
-        boolean isHorizontalExit = Math.abs(velocityX)>Math.abs(velocityY);
-
-        if (isHorizontalExit) {
-            // 水平退出
-            targetX = currentX > 0 ? screenWidth * 1.2f : -screenWidth * 1.2f;
-            targetY = currentY + (velocityY * 0.1f);
-        } else {
-            // 垂直退出
-            targetX = currentX + (velocityX * 0.1f);
-            targetY = currentY > 0 ? screenHeight * 1.2f : -screenHeight * 1.2f;
-        }
-
-        // 计算动画时长
-        float distance = (float) Math.sqrt(Math.pow(targetX - currentX, 2) + Math.pow(targetY - currentY, 2));
-        float speed = (float) Math.sqrt(Math.pow(velocityX, 2) + Math.pow(velocityY, 2));
-        long duration = Math.min(400L, Math.max(200L, (long) (distance / (speed > 0 ? speed * 0.005f : 3))));
-
-        // 准备截图背景
-        if (hasScreenshot) {
-            screenshotBackground.setVisibility(View.VISIBLE);
-            screenshotBackground.setAlpha(0f);
-        }
-
-        // 创建瀑布流背景淡入动画
-        AnimatorSet backgroundReveal = new AnimatorSet();
-        if (hasScreenshot) {
-            ObjectAnimator screenshotAlpha = ObjectAnimator.ofFloat(screenshotBackground, "alpha", 0f, 0.7f); // 只淡入到0.7
-            screenshotAlpha.setDuration(200);
-            backgroundReveal.play(screenshotAlpha);
-        }
-        backgroundReveal.setDuration(300); // 加快背景显示
-
-        // 1. 背景遮罩淡出
-        ValueAnimator bgAnimator = ValueAnimator.ofFloat(backgroundOverlay.getAlpha(), 0f);
-        bgAnimator.addUpdateListener(anim -> backgroundOverlay.setAlpha((float) anim.getAnimatedValue()));
-
-        // 2. 图片移动和淡出（保持大小不变）
-        AnimatorSet imageSet = new AnimatorSet();
-
-        // 移动（保持当前位置作为起始）
-        ValueAnimator moveX = ValueAnimator.ofFloat(currentX, targetX);
-        moveX.addUpdateListener(anim -> imageContainer.setTranslationX((float) anim.getAnimatedValue()));
-
-        ValueAnimator moveY = ValueAnimator.ofFloat(currentY, targetY);
-        moveY.addUpdateListener(anim -> imageContainer.setTranslationY((float) anim.getAnimatedValue()));
-
-        // 淡出（透明度从当前值到0）
-        ValueAnimator alphaAnim = ValueAnimator.ofFloat(imageContainer.getAlpha(), 0f);
-        alphaAnim.addUpdateListener(anim -> {
-            float alpha = (float) anim.getAnimatedValue();
-            imageContainer.setAlpha(alpha);
-            // 内容也一起淡出
-            contentLayout.setAlpha(alpha);
-            topBar.setAlpha(alpha);
-            bottomBar.setAlpha(alpha);
-        });
-
-        // 轻微旋转
-        float rotationAngle = isHorizontalExit ?
-                (currentX > 0 ? -2f : 2f) : (currentY > 0 ? -1f : 1f);
-        ValueAnimator rotateAnim = ValueAnimator.ofFloat(0f, rotationAngle);
-        rotateAnim.addUpdateListener(anim -> imageContainer.setRotation((float) anim.getAnimatedValue()));
-
-        imageSet.playTogether(moveX, moveY, alphaAnim, rotateAnim);
-        imageSet.setDuration(duration);
-        imageSet.setInterpolator(new DecelerateInterpolator());
-
-        // 组合动画
-        AnimatorSet finalAnimation = new AnimatorSet();
-        if (hasScreenshot) {
-            finalAnimation.playTogether(backgroundReveal, imageSet);
-        } else {
-            finalAnimation.play(imageSet);
-        }
-
-        finalAnimation.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                returnWithResult();
-            }
-        });
-
-        finalAnimation.start();
-    }
-
-    private void executeReturnAnimation() {
-        // 快速回弹动画（固定大小版本）
-        AnimatorSet returnAnim = new AnimatorSet();
-
-        // 图片回到原位（位置和旋转）
-        ObjectAnimator returnX = ObjectAnimator.ofFloat(imageContainer, "translationX", 0f);
-        ObjectAnimator returnY = ObjectAnimator.ofFloat(imageContainer, "translationY", 0f);
-        ObjectAnimator returnRotate = ObjectAnimator.ofFloat(imageContainer, "rotation", 0f);
-
-        // 图片透明度恢复到1
-        ObjectAnimator imageAlphaReturn = ObjectAnimator.ofFloat(imageContainer, "alpha", 1f);
-
-        // 背景和内容恢复
-        ObjectAnimator bgReturn = ObjectAnimator.ofFloat(backgroundOverlay, "alpha", 0.7f);
-        ObjectAnimator contentReturn = ObjectAnimator.ofFloat(contentLayout, "alpha", 1f);
-        ObjectAnimator topBarReturn = ObjectAnimator.ofFloat(topBar, "alpha", 1f);
-        ObjectAnimator bottomBarReturn = ObjectAnimator.ofFloat(bottomBar, "alpha", 1f);
-
-        returnAnim.playTogether(returnX, returnY, returnRotate, imageAlphaReturn,
-                bgReturn, contentReturn, topBarReturn, bottomBarReturn);
-
-        returnAnim.setDuration(150);
-        returnAnim.setInterpolator(new OvershootInterpolator(0.5f));
-
-        returnAnim.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                isAnimating = false;
-                isExiting = false;
-                isDragging = false;
-            }
-        });
-
-        returnAnim.start();
-    }
-
     private void animateMusicButtonClick() {
         // 缩放动画
         musicControlButton.animate()
@@ -674,6 +228,25 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         }
     }
 
+    /** 视频片段播放状态变化时，联动背景音乐播放/暂停；用户手动暂停后不再被自动恢复。 */
+    private void onVideoPlaybackChanged(boolean playing) {
+        if (currentMusic == null || audioPlayerManager == null) return;
+        if (playing) {
+            if (musicUserPaused) return;
+            if (!audioPlayerManager.isPlaying()) {
+                WorkItem.Music loaded = audioPlayerManager.getCurrentMusic();
+                if (loaded != null && loaded.equals(currentMusic)) {
+                    audioPlayerManager.resume();
+                } else {
+                    audioPlayerManager.playMusic(currentMusic);
+                }
+            }
+        } else {
+            audioPlayerManager.pauseMusic();
+        }
+        updateMusicButtonState();
+    }
+
     private void setupMusicButton() {
         if (currentMusic == null || audioPlayerManager == null) {
             if (musicControlButton != null) {
@@ -697,9 +270,11 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             if (playingMusic != null && playingMusic.equals(currentMusic)) {
                 // 正在播放当前音乐：切换播放/暂停
                 audioPlayerManager.togglePlayPause();
+                musicUserPaused = !audioPlayerManager.isPlaying();
             } else {
                 // 播放其他音乐或没有播放：播放当前音乐
                 audioPlayerManager.playMusic(currentMusic);
+                musicUserPaused = false;
             }
 
             // 延迟更新按钮状态，确保播放状态已经改变
@@ -709,27 +284,30 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        gestureDetector.onTouchEvent(event);
+        if (gestureDetector == null || imageContainer == null) return super.onTouchEvent(event);
+        boolean handled = gestureDetector.onTouchEvent(event);
+
+        if (event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+            if (isDragging) resetDragState();
+            isDragging = false;
+            dragEligible = false;
+        }
 
         // 处理手指抬起事件
         if (event.getAction() == MotionEvent.ACTION_UP && isDragging) {
             isDragging = false;
-            float currentX = imageContainer.getTranslationX();
             float currentY = imageContainer.getTranslationY();
 
-            // 如果没有达到退出阈值，则回弹
-            if (Math.abs(currentX) < getWindow().getDecorView().getWidth() * 0.3f &&
-                    Math.abs(currentY) < getWindow().getDecorView().getHeight() * 0.3f) {
-                executeReturnAnimation();
+            // 未达到退出阈值则回弹，否则淡出退出
+            if (Math.abs(currentY) < getWindow().getDecorView().getHeight() * 0.3f) {
+                resetDragState();
             } else {
-                // 如果达到阈值，执行退出动画
-                float velocityX = 0;
-                float velocityY = 0;
-                runDragExitAnimation(velocityX, velocityY, currentX, currentY);
+                finishWithFade();
             }
         }
 
-        return super.onTouchEvent(event);
+        if (event.getActionMasked() == MotionEvent.ACTION_UP) dragEligible = false;
+        return handled || super.onTouchEvent(event);
     }
 
     @Override
@@ -742,19 +320,21 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
     @Override
     public boolean onScroll(MotionEvent e1, @NonNull MotionEvent e2, float distanceX, float distanceY) {
-        if (isAnimating) return false;
-
-        isDragging = true;
-
+        if (!dragEligible || e2.getPointerCount() != 1) return false;
         float deltaX = e2.getRawX() - dragStartX;
         float deltaY = e2.getRawY() - dragStartY;
 
-        // 直接应用拖拽位移
+        // 水平滑动交给 ViewPager2 切页，不参与拖拽退出手势
+        if (Math.abs(deltaX) > Math.abs(deltaY)) return false;
+        if (Math.abs(deltaY) < ViewConfiguration.get(this).getScaledTouchSlop()) return false;
+
+        isDragging = true;
+
+        // 直接应用拖拽位移（仅垂直）
         imageContainer.setTranslationY(deltaY);
-        imageContainer.setTranslationX(deltaX);
 
         // 根据拖拽距离实时调整透明度
-        float dragDistance = (float) Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
+        float dragDistance = Math.abs(deltaY);
         float maxDistance = getWindow().getDecorView().getHeight() * 0.3f;
 
         // 图片透明度（越远越透明）
@@ -768,12 +348,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         bottomBar.setAlpha(Math.max(0f, contentAlpha));
         backgroundOverlay.setAlpha(Math.max(0f, 0.7f * contentAlpha));
 
-        // 根据拖拽方向添加非常轻微的旋转
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-            imageContainer.setRotation(deltaX * 0.01f); // 非常轻微的旋转
-        } else {
-            imageContainer.setRotation(deltaY * 0.005f);
-        }
+        // Media should stay level even when the image dismiss gesture is active.
+        imageContainer.setRotation(0f);
 
         return true;
     }
@@ -783,21 +359,21 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
     @Override
     public boolean onFling(MotionEvent e1, @NonNull MotionEvent e2, float velocityX, float velocityY) {
-        if (isAnimating) return false;
-
-        float currentX = imageContainer.getTranslationX();
-        float currentY = imageContainer.getTranslationY();
-
-        runDragExitAnimation(velocityX, velocityY, currentX, currentY);
-        return true;
+        // Distance is checked on UP; a short gesture must not dismiss the detail screen.
+        return false;
     }
 
     @Override
     public boolean onDown(MotionEvent e) {
+        android.graphics.Rect bounds = new android.graphics.Rect();
+        dragEligible = imageAdapter != null && imageAdapter.getItemCount() > 0
+                && imageAdapter.getItemViewType(imagePager.getCurrentItem()) == 0
+                && imageContainer.getGlobalVisibleRect(bounds)
+                && bounds.contains((int)e.getRawX(), (int)e.getRawY());
         dragStartX = e.getRawX();
         dragStartY = e.getRawY();
         isDragging = false;
-        return true;
+        return dragEligible;
     }
 
     private void loadInteractionState() {
@@ -848,33 +424,10 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         commentButton = findViewById(R.id.comment_button);  // 保持
         collectButton = findViewById(R.id.collect_button);  // 保持
         shareButton = findViewById(R.id.share_button);
-
-        // 初始化截图背景（添加到布局的最底层）
-        screenshotBackground = new ImageView(this);
-        screenshotBackground.setLayoutParams(new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
-        screenshotBackground.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        screenshotBackground.setAlpha(0f);
-        screenshotBackground.setVisibility(View.INVISIBLE);
-
-        // 将截图背景添加到布局中
-        screenshotBackground = findViewById(R.id.screenshot_background);
-
-        // 如果有截图，设置到ImageView
-        if (hasScreenshot && waterfallScreenshot != null) {
-            screenshotBackground.setImageBitmap(waterfallScreenshot);
-        }
-
     }
 
     private void setupData() {
-        backButton.setOnClickListener(v -> {
-            if (!isAnimating) {
-                runExitAnimation();
-            }
-        });
+        backButton.setOnClickListener(v -> returnWithResult());
 
         // 设置作者信息
         setupAuthorInfo();
@@ -931,14 +484,17 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             mediaItems.add(defaultClip);
         }
 
-        // 设置图片/视频高度
+        // 设置图片/视频高度（详情页按真实宽高比填满，不裁切不留白）
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
         ViewGroup.LayoutParams params = imagePager.getLayoutParams();
-        params.height = workItem.getDisplayHeight(screenWidth);
+        params.height = workItem.getDetailDisplayHeight(screenWidth);
         imagePager.setLayoutParams(params);
 
         // 设置适配器
         imageAdapter = new ImagePagerAdapter(this, mediaItems);
+        imageAdapter.setVideoPlaybackListener(this::onVideoPlaybackChanged);
+        imageAdapter.setImageClickListener(this::openFullScreenImage);
+        imageAdapter.restorePlayback(restoredPlayback);
         imagePager.setAdapter(imageAdapter);
 
         // 设置页面切换监听，管理视频播放状态
@@ -958,8 +514,12 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         // 设置预加载
         imagePager.setOffscreenPageLimit(2);
 
-        // 添加点击监听器
-        setupImageClickListener();
+        int initialPage = restoredPlayback == null ? Math.max(0, workItem.getFirstVideoPosition())
+                : restoredPlayback.getInt("page", 0);
+        initialPage = Math.max(0, Math.min(initialPage, mediaItems.size() - 1));
+        imagePager.setCurrentItem(initialPage, false);
+        imageAdapter.onPageChanged(initialPage);
+        updateProgressDots(initialPage);
     }
 
     // setupProgressIndicator 保持原样
@@ -1084,63 +644,16 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
     }
 
-    private void setupImageClickListener() {
-        // 为ViewPager2中的每个图片添加点击监听器
-        imagePager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
-            @Override
-            public void onPageSelected(int position) {
-                // 每次页面切换时，为当前页面的图片添加点击监听器
-                setupCurrentImageClickListener(position);
-            }
+    private void openFullScreenImage(String url) {
+        if (isFinishing() || isDestroyed() || fullscreenImageDialog != null) return;
+        FullScreenMediaDialog dialog = new FullScreenMediaDialog(this, url);
+        fullscreenImageDialog = dialog;
+        dialog.setOnDismissListener(ignored -> {
+            if (fullscreenImageDialog == dialog) fullscreenImageDialog = null;
         });
-
-        // 初始化第一页的点击监听器
-        setupCurrentImageClickListener(0);
-    }
-
-    private void setupCurrentImageClickListener(int position) {
-        // 延迟一小段时间，确保ViewPager已经创建了ViewHolder
-        imagePager.postDelayed(() -> {
-            RecyclerView recyclerView = (RecyclerView) imagePager.getChildAt(0);
-            if (recyclerView != null) {
-                RecyclerView.ViewHolder holder = recyclerView.findViewHolderForAdapterPosition(position);
-                if (holder instanceof ImagePagerAdapter.ImageViewHolder) {
-                    ImageView imageView = ((ImagePagerAdapter.ImageViewHolder) holder).imageView;
-                    if (imageView != null) {
-                        imageView.setOnClickListener(v -> {
-                            openFullScreenImage(position);
-                        });
-                    }
-                }
-            }
-        }, 80);
-    }
-
-    private void openFullScreenImage(int position) {
-        List<String> imageUrls = workItem.getImageUrls();
-        if (imageUrls == null || imageUrls.isEmpty()) {
-            imageUrls = new ArrayList<>();
-            imageUrls.add(workItem.getCoverUrl());
-        }
-
-        // 获取当前点击的图片URL
-        if (position >= 0 && position < imageUrls.size()) {
-            String currentImageUrl = imageUrls.get(position);
-
-            // 创建并显示全屏图片对话框 - 现在只传递单个图片URL
-            FullScreenMediaDialog dialog = new FullScreenMediaDialog(
-                    WorkDetailActivity.this,
-                    currentImageUrl
-            );
-
-            // 设置对话框显示和消失的动画
-            Window window = dialog.getWindow();
-            if (window != null) {
-                window.setWindowAnimations(R.style.FullScreenDialogAnimation);
-            }
-
-            dialog.show();
-        }
+        Window window = dialog.getWindow();
+        if (window != null) window.setWindowAnimations(R.style.FullScreenDialogAnimation);
+        dialog.show();
     }
 
     private void setupListeners() {
@@ -1392,7 +905,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         // startActivity(Intent.createChooser(shareIntent, "分享到"));
     }
 
-    // 修改原有的 returnWithResult 方法，移除 finish() 调用（因为已经在 runExitAnimation 中调用了）
+    // 返回结果并淡出退出
     private void returnWithResult() {
         // 立即返回，不等待任何延迟
         Intent resultIntent = new Intent();
@@ -1415,19 +928,23 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         }
 
         finish();
-        overridePendingTransition(0, 0);
+        overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
     }
 
     @Override
     public void onBackPressed() {
-        if (!isAnimating && !isExiting) {
-            runExitAnimation();
-        }
-        // 如果正在动画中，忽略返回键
+        returnWithResult();
+    }
+
+    @Override protected void onSaveInstanceState(@NonNull Bundle outState) {
+        if (imageAdapter != null) outState.putBundle("media.playback", imageAdapter.savePlayback());
+        super.onSaveInstanceState(outState);
     }
 
     @Override
     protected void onDestroy() {
+        if (fullscreenImageDialog != null) fullscreenImageDialog.dismiss();
+        if (imageAdapter != null) imageAdapter.releaseAllPlayers();
         if (likeJob != null) likeJob.cancel();
         if (followJob != null) followJob.cancel();
         favoriteActive = false;
@@ -1440,25 +957,11 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             audioPlayerManager.release();
             audioPlayerManager = null;
         }
-
-        // 释放截图内存
-        if (waterfallScreenshot != null && !waterfallScreenshot.isRecycled()) {
-            waterfallScreenshot.recycle();
-            waterfallScreenshot = null;
-        }
     }
 
     @Override
     public void onTrimMemory(int level) {
         super.onTrimMemory(level);
-
-        // 在内存紧张时释放截图
-        if (level >= TRIM_MEMORY_BACKGROUND) {
-            if (waterfallScreenshot != null && !waterfallScreenshot.isRecycled()) {
-                waterfallScreenshot.recycle();
-                waterfallScreenshot = null;
-            }
-        }
     }
 
     @Override
@@ -1481,7 +984,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             resumeFavorite();
         }
         if (imageAdapter != null) {
-            imageAdapter.pauseCurrentVideo();
+            imageAdapter.resumeCurrentVideo();
         }
 
         // 注册音频播放器到MainActivity（如果需要）

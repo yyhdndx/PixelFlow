@@ -1,0 +1,7 @@
+<resources>
+    <string name="video_retry">视频加载失败，点击重试</string>
+    <string name="video_replay">重新播放</string>
+    <string name="video_work_description">视频：%1$s，点击播放</string>
+    <string name="video_enter_fullscreen">全屏播放</string>
+    <string name="video_exit_fullscreen">退出全屏</string>
+</resources>

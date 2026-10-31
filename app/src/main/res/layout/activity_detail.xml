@@ -7,16 +7,7 @@
     android:layout_height="match_parent"
     android:background="@color/white">
 
-    <!-- 截图背景（最底层） -->
-    <ImageView
-        android:id="@+id/screenshot_background"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scaleType="centerCrop"
-        android:alpha="0"
-        android:visibility="invisible" />
-
-    <!-- 背景遮罩层（用于动画） -->
+    <!-- 背景遮罩层（用于拖拽退出的淡出） -->
     <View
         android:id="@+id/background_overlay"
         android:layout_width="match_parent"

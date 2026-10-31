@@ -1,0 +1,34 @@
+{
+  "dataset": "noah-wukong-100m",
+  "source_url": "https://wukong-dataset.github.io/wukong-dataset/download.html",
+  "archive_url": "https://drive.usercontent.google.com/download?id=15778VALmEHoC6SSpqaHiQU-VSkD7aXZV&export=download&confirm=t",
+  "terms_url": "https://wukong-dataset.github.io/wukong-dataset/terms_of_use.html",
+  "license": "CC-BY-NC-SA-4.0 + WuKong additional terms (research only; no redistribution)",
+  "sample_rule": "First valid unique captions matching the project's seven topic rules from four evenly spaced CSV shards; not a random or representative evaluation set",
+  "rule_version": "wukong-caption-v1",
+  "requested": 1000,
+  "accepted": 1000,
+  "scanned": 21802,
+  "archive_size": 12272590529,
+  "downloaded_bytes": 3202754,
+  "source_files": [
+    "wukong_release/wukong_100m_0.csv",
+    "wukong_release/wukong_100m_64.csv",
+    "wukong_release/wukong_100m_128.csv",
+    "wukong_release/wukong_100m_192.csv"
+  ],
+  "records_sha256": "c563af6bbcbb862d25c24ff31c25134ab837976b9d899a07b72c304e172c9c37",
+  "created_at": 1793352104,
+  "topics": {
+    "运动": 217,
+    "宠物": 45,
+    "阅读": 139,
+    "美食": 152,
+    "旅行": 218,
+    "数码": 158,
+    "园艺": 95
+  },
+  "image_downloads": 0,
+  "resources_verified": 0,
+  "public_posts_created": 0
+}

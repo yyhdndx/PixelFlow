@@ -954,6 +954,7 @@ components:
         content: {type: string}
         create_time: {type: integer, format: int64}
         status: {type: string, enum: [DRAFT, PENDING, PUBLISHED, REJECTED, WITHDRAWN]}
+        content_version: {type: integer, description: 草稿内容版本，建议采纳的乐观并发控制用；默认 0，每次编辑或采纳递增}
         author:
           type: object
           properties:

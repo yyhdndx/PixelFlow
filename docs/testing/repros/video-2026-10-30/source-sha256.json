@@ -1,0 +1,17 @@
+{
+  "note": "Workspace snapshot after device tests; concurrent music edits mean these hashes are NOT a complete manifest of the tested sources. Device test XML identifies the executed tests.",
+  "files": {
+    "app/build.gradle.kts": "f8845ee8cde3d58215177b740a509c1cf5b967848c77097339a88e1f8d7fdfaf",
+    "app/src/main/java/com/PixelFlow/app/DetailPage/ImagePagerAdapter.java": "0a88658c5b5d513b62f87ab8e1eb169e07e7448e92317307b7ed1189355c4692",
+    "app/src/main/java/com/PixelFlow/app/DetailPage/WorkDetailActivity.java": "f5b2c6c109c84f40fe80b096326288947ac68ffa3baa32a46abba48ce081318e",
+    "app/src/main/java/com/PixelFlow/app/Streams/WaterfallAdapter.java": "622b882c7c5aa89d372ca000bc071eb35fb6895b95fc2d5d4a5d3a402c9c2e25",
+    "app/src/main/java/com/PixelFlow/app/Streams/WorkItem.java": "5da8ad1f42e7716f9c17b0f19a4939eb4cbc75f83111824a6586d5b3f88d15a0",
+    "app/src/main/res/layout/item_work.xml": "a025b2104d26e56b8b31a003aae13c769b662cd2bf1cc63e8688ec7e5682c7fa",
+    "app/src/main/res/layout/item_detail_video.xml": "6c3fefecacb3aa502e893c417a8574ea0e6eced50248042990a69ec3441e907c",
+    "app/src/androidTest/java/com/PixelFlow/app/API/VideoPlaybackFlowTest.java": "d9b56fadf6620128704ce29899f431a8f8ed692ce03c8a80314910fc324a72f8",
+    "app/src/main/res/drawable/ic_video_play.xml": "ee65a033c8a3d384f4341bad2e15318e5e2f294aade662c5f2d4905be6409a5d",
+    "app/src/main/res/drawable/video_badge_background.xml": "67cddf11ba2eef75952c510d90139703f03f0cc6f97708e95893998dd7725ace",
+    "app/src/main/res/values/video_ui.xml": "327818cb9d15b8c6dee5f87d0dce34d6f4ea654a89e90e9b7a10456944102f23",
+    "app/build/outputs/apk/debug/app-debug.apk": "98ddd64c7075e822dd292ffcd9ce32e129449ac23a9eff3f182d5799fd02b67e"
+  }
+}

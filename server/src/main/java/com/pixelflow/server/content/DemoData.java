@@ -33,7 +33,8 @@ public class DemoData implements ApplicationRunner {
         if (!adminPassword.isBlank() && db.queryForObject("SELECT COUNT(*) FROM users WHERE username='admin'",Integer.class)==0)
             db.update("INSERT INTO users(id,username,password_hash,nickname,role) VALUES(?,?,?,?,?)",
                     UUID.randomUUID().toString(),"admin",auth.passwordHash(adminPassword),"管理员","ADMIN");
-        if (!seed || (hasBatch("community-assets-v1") && hasBatch("community-assets-v2") && hasBatch("community-assets-v3"))) return;
+        if (!seed || (hasBatch("community-assets-v1") && hasBatch("community-assets-v2")
+                && hasBatch("community-assets-v3") && hasBatch("community-assets-v4"))) return;
         Map<String,JsonNode> assets=new HashMap<>();
         try (var input=new ClassPathResource("static/demo-assets/catalog.json").getInputStream()) {
             for (JsonNode asset:json.readTree(input).path("assets")) {
@@ -46,6 +47,7 @@ public class DemoData implements ApplicationRunner {
         if (!hasBatch("community-assets-v1")) seedV1(assets);
         if (!hasBatch("community-assets-v2")) seedV2(assets);
         if (!hasBatch("community-assets-v3")) seedV3(assets);
+        if (!hasBatch("community-assets-v4")) seedV4(assets);
     }
     private boolean hasBatch(String name) {
         return db.queryForObject("SELECT COUNT(*) FROM seed_batches WHERE name=?",Integer.class,name)>0;
@@ -59,6 +61,7 @@ public class DemoData implements ApplicationRunner {
         }
         String[] files={"coffee.jpg","bread.jpg","oahu.jpg","cat-couch.jpg","cat-standing.jpg","cat-home.jpg","flowers.mp4","waterfall.mp4"};
         String[] titles={"给午后留一杯咖啡","面包的日常","山海之间的风景","沙发上的猫咪","今天的猫咪观察","家里的安静角落","公园花丛短片","山间瀑布短片"};
+        String[] copy={"一杯手冲，给午后的自己放个假。","刚出炉的面包，配一杯热茶刚刚好。","远处的山和海，值得停下来看一看。","它又霸占了沙发最舒服的位置。","今天的它有点好奇，一直在窗边张望。","角落里的安静时光，最难得。","公园里的花，开得正好。","山间的小瀑布，水声很治愈。"};
         int[] authors={1,2,3,4,4,4,5,6};
         for (int i=0;i<24;i++) {
             int topic=i%files.length;
@@ -67,12 +70,8 @@ public class DemoData implements ApplicationRunner {
             List<PostService.Clip> clips=new ArrayList<>();
             if (video) clips.add(clip(assets.get(files[topic].replace(".mp4","-poster.jpg")),0));
             clips.add(clip(asset,video ? 1 : 0));
-            String credit="【课程演示素材，第 "+(i/8+1)+" 组】\n素材作者："+asset.path("author").asText()
-                    +"；许可："+asset.path("license").asText()+"\n来源："+asset.path("source").asText()
-                    +"\n许可链接："+asset.path("licenseUrl").asText()
-                    +"\n处理："+asset.path("changes").asText()+"\n本账号为虚构演示身份，素材作者不代表社区用户。完整署名："+assetUrl("CREDITS.txt");
             db.update("INSERT INTO posts(author_id,title,content,clips_json,has_video,status,create_time) VALUES(?,?,?,?,?,'PUBLISHED',?)",
-                    "demo-media-author-"+authors[topic],titles[topic]+" · "+(i/8+1),credit,posts.encode(clips),video,Instant.now().getEpochSecond()-i*60);
+                    "demo-media-author-"+authors[topic],titles[topic],copy[topic],posts.encode(clips),video,Instant.now().getEpochSecond()-i*60);
         }
         db.update("INSERT INTO seed_batches(name,created_at) VALUES('community-assets-v1',?)",Instant.now().getEpochSecond());
     }
@@ -80,19 +79,30 @@ public class DemoData implements ApplicationRunner {
         String[][] groups={{"library.jpg"},{"bicycle.jpg"},{"strawberries.jpg"},{"sunset.mp4"},
                 {"coffee.jpg","bread.jpg","strawberries.jpg"},{"cat-home.jpg","cat-couch.jpg","cat-standing.jpg"}};
         String[] titles={"图书馆里的阅读时光","街角车轮观察","一盘新鲜草莓","日落延时短片","早餐三图记","猫咪的三个日常角落"};
+        String[] copy={"安静的午后，翻开一本书。","街角的自行车，有些年头了。","刚洗好的草莓，很甜。","记录一场完整的日落。","今天的早餐，简单但满足。","它喜欢在三个地方轮流打盹。"};
         int[] authors={5,3,2,3,1,4};
-        seedCollection(assets,"community-assets-v2","扩展素材 · ",groups,titles,authors);
+        seedCollection(assets,"community-assets-v2",groups,titles,copy,authors);
     }
     private void seedV3(Map<String,JsonNode> assets) {
-        seedCollection(assets,"community-assets-v3","生活素材 · ",
+        seedCollection(assets,"community-assets-v3",
                 new String[][]{{"succulent.jpg"},{"keyboard.jpg"},{"basketball-court.jpg"}},
-                new String[]{"多肉植物的绿色纹理","键盘细节特写","晴天的校园篮球场"},new int[]{5,1,3});
+                new String[]{"多肉植物的绿色纹理","键盘细节特写","晴天的校园篮球场"},
+                new String[]{"多肉的纹理，越看越喜欢。","键盘的特写，细节满满。","晴天的球场，很适合打球。"},
+                new int[]{5,1,3});
     }
-    private void seedCollection(Map<String,JsonNode> assets,String batch,String titlePrefix,
-            String[][] groups,String[] titles,int[] authors) {
+    private void seedV4(Map<String,JsonNode> assets) {
+        String[] titles={"今日份的随手拍","生活的小确幸","分享此刻","日常记录","路过的一瞬","随手一拍","留住这一刻",
+                "今天的天空","安静的角落","光影之间","周末时光","简单的美好","路过风景","记录当下"};
+        String[] copy={"今天天气不错，随手记录一下。","生活里的小确幸，值得收藏。","把这一刻分享给你。","日常的点滴，慢慢攒起来。","路过时随手拍的一张。","简单的一拍，记录当下。","留住这一刻的小美好。","今天的天空很蓝。","安静的角落，让人放松。","光影交错，很好看。","周末的悠闲时光。","简单的小美好。","路过的风景，随手记录。","记录当下的心情。"};
+        String[][] groups=new String[14][1];
+        int[] authors=new int[14];
+        for (int i=0;i<14;i++) { groups[i][0]="moment-"+(i+1)+".jpg"; authors[i]=i%6+1; }
+        seedCollection(assets,"community-assets-v4",groups,titles,copy,authors);
+    }
+    private void seedCollection(Map<String,JsonNode> assets,String batch,
+            String[][] groups,String[] titles,String[] copy,int[] authors) {
         for (int i=0;i<groups.length;i++) {
             List<PostService.Clip> clips=new ArrayList<>();
-            StringBuilder content=new StringBuilder("【课程演示素材扩展】本账号为虚构身份，素材作者不代表社区用户。\n");
             boolean video=false;
             for (String file:groups[i]) {
                 JsonNode asset=assets.get(file);
@@ -100,15 +110,9 @@ public class DemoData implements ApplicationRunner {
                 if (isVideo) clips.add(clip(assets.get(file.replace(".mp4","-poster.jpg")),0));
                 clips.add(clip(asset,isVideo ? 1 : 0));
                 video|=isVideo;
-                content.append("\n素材：").append(file).append("；作者：").append(asset.path("author").asText())
-                        .append("；许可：").append(asset.path("license").asText())
-                        .append("\n来源：").append(asset.path("source").asText())
-                        .append("\n许可链接：").append(asset.path("licenseUrl").asText())
-                        .append("\n处理：").append(asset.path("changes").asText()).append("\n");
             }
-            content.append("完整署名：").append(assetUrl("CREDITS.txt"));
             db.update("INSERT INTO posts(author_id,title,content,clips_json,has_video,status,create_time) VALUES(?,?,?,?,?,'PUBLISHED',?)",
-                    "demo-media-author-"+authors[i],titlePrefix+titles[i],content.toString(),posts.encode(clips),video,Instant.now().getEpochSecond()-i*60);
+                    "demo-media-author-"+authors[i],titles[i],copy[i],posts.encode(clips),video,Instant.now().getEpochSecond()-i*60);
         }
         db.update("INSERT INTO seed_batches(name,created_at) VALUES(?,?)",batch,Instant.now().getEpochSecond());
     }

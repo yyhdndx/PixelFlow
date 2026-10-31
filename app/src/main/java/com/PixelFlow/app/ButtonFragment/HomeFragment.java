@@ -15,6 +15,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.animation.AnimationUtils;
+import android.view.animation.LayoutAnimationController;
 import android.widget.Button;
 import android.widget.TextView;
 
@@ -159,6 +161,10 @@ public class HomeFragment extends Fragment {
         // 创建适配器
         adapter = new WaterfallAdapter(requireContext());
         recyclerView.setAdapter(adapter);
+        // 刷新后的卡片入场动画（下滑淡入）
+        LayoutAnimationController layoutAnimation = AnimationUtils.loadLayoutAnimation(
+                requireContext(), R.anim.layout_animation_slide_up);
+        recyclerView.setLayoutAnimation(layoutAnimation);
 
         // 设置统一的回调监听器
         adapter.setOnWorkActionListener(new WaterfallAdapter.OnWorkActionListener() {
@@ -372,7 +378,7 @@ public class HomeFragment extends Fragment {
         else adapter.setLoading(true);
 
         final String requestedCursor = isRefresh ? null : nextCursor;
-        activeFeedCall = ApiClient.getInstance(requireContext()).getFeed(12, requestedCursor,
+        activeFeedCall = ApiClient.getInstance(requireContext()).getFeed(50, requestedCursor,
                 new CommunityClient.Callback<ApiResponse>() {
             @Override
             public void onSuccess(ApiResponse response) {
@@ -385,6 +391,8 @@ public class HomeFragment extends Fragment {
                     }
                     List<WorkItem> unique = FeedItems.unique(incoming,
                             isRefresh ? Collections.emptyList() : adapter.getData());
+                    // 刷新后打乱卡片顺序，让每次下拉都呈现不同排布
+                    if (isRefresh) Collections.shuffle(unique);
                     finishFeedRequest();
                     nextCursor = response.getNextCursor();
                     hasMoreData = response.getHasMore() == 1 && nextCursor != null
@@ -392,6 +400,7 @@ public class HomeFragment extends Fragment {
                     if (isRefresh) {
                         adapter.setData(unique);
                         currentPage = 1;
+                        recyclerView.scheduleLayoutAnimation();
                     } else {
                         adapter.addData(unique);
                         currentPage++;
@@ -757,8 +766,8 @@ public class HomeFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        // Reconcile after account changes or a detail-page write, including uncertain timeouts.
-        if (adapter != null && (!requestInFlight || !accountKey().equals(displayedAccount))) loadData(true);
+        // 仅账户变化时刷新；从详情页返回时保留滚动位置，卡片状态由 handleDetailResult 更新。
+        if (adapter != null && !accountKey().equals(displayedAccount)) loadData(true);
     }
 
     @Override

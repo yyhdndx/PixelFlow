@@ -55,6 +55,15 @@ public class AudioPlayer {
         notifyPlaybackStateChanged(false);
     }
 
+    /** 恢复已暂停的背景音乐；若已播完则从头重播。没有当前音乐时不操作。 */
+    public void resume() {
+        if (exoPlayer == null || currentMusic == null) return;
+        if (exoPlayer.getPlaybackState() == Player.STATE_ENDED) exoPlayer.seekTo(0);
+        exoPlayer.setPlayWhenReady(true);
+        isPlaying = true;
+        notifyPlaybackStateChanged(true);
+    }
+
     private void initExoPlayer() {
         Log.d(TAG, "初始化ExoPlayer");
 
@@ -64,11 +73,12 @@ public class AudioPlayer {
                     .setUsage(C.USAGE_MEDIA)
                     .build();
 
-            // 构建ExoPlayer实例
+            // 构建ExoPlayer实例；背景音乐不抢占视频的音频焦点，避免二者互相暂停。
             exoPlayer = new ExoPlayer.Builder(context)
-                    .setAudioAttributes(audioAttributes, true) // 处理音频焦点
+                    .setAudioAttributes(audioAttributes, false)
                     .setHandleAudioBecomingNoisy(true) // 耳机拔出时暂停
                     .build();
+            exoPlayer.setRepeatMode(Player.REPEAT_MODE_ALL); // 背景音乐循环播放
 
             // 设置监听器
             exoPlayer.addListener(new Player.Listener() {
