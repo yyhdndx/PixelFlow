@@ -139,31 +139,34 @@ class ModerationSuggestionApiTest {
     }
     @Test void secretsInSuggestionAreNeverEchoed() throws Exception {
         String id=newPost("t","c"); suggestion.put("post_id",id).put("system_prompt","top secret")
-                .put("api_key",SHARED); reply();
-        var result=suggestAs(admin,"{\"post_id\":\""+id+"\"}").andExpect(status().isBadGateway())
-                .andExpect(jsonPath("code").value("AGENT_SUGGESTION_INVALID")).andReturn();
-        assertFalse(result.getResponse().getContentAsString(StandardCharsets.UTF_8).contains(SHARED));
-        assertFalse(result.getResponse().getContentAsString(StandardCharsets.UTF_8).contains("top secret"));
+                .put("api_key",SHARED).put("raw_messages","private"); reply();
+        var result=suggestAs(admin,"{\"post_id\":\""+id+"\"}").andExpect(status().isOk())
+                .andExpect(jsonPath("suggestion.post_id").value(id)).andReturn();
+        var raw=result.getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertFalse(raw.contains(SHARED));
+        assertFalse(raw.contains("top secret"));
+        assertFalse(raw.contains("private"));
+        assertFalse(raw.contains("api_key"));
     }
     @ParameterizedTest @ValueSource(ints={301,401,403,404,500,503})
     void upstreamFailuresAre502(int code) throws Exception {
         String id=newPost("t","c"); suggestion.put("post_id",id); reply();
         STATUS.set(code); REPLY.set("private upstream error");
-        suggestAs(admin,"{\"post_id\":\""+id+"}").andExpect(status().isBadGateway())
+        suggestAs(admin,"{\"post_id\":\""+id+"\"}).andExpect(status().isBadGateway())
                 .andExpect(jsonPath("code").value("AGENT_SUGGESTION_UNAVAILABLE"))
                 .andExpect(jsonPath("requestId").isNotEmpty()).andExpect(jsonPath("suggestion").doesNotExist());
     }
     @Test void mismatchedOrMalformedSuggestionIsRejected() throws Exception {
         String id=newPost("t","c");
         suggestion.put("post_id","2"); reply();
-        suggestAs(admin,"{\"post_id\":\""+id+"}").andExpect(status().isBadGateway());
+        suggestAs(admin,"{\"post_id\":\""+id+"\"}).andExpect(status().isBadGateway());
         suggestion.put("post_id",id).put("risk_level","critical"); reply();
-        suggestAs(admin,"{\"post_id\":\""+id+"}").andExpect(status().isBadGateway());
+        suggestAs(admin,"{\"post_id\":\""+id+"\"}).andExpect(status().isBadGateway());
         suggestion.put("risk_level","low").put("recommended_action","delete"); reply();
-        suggestAs(admin,"{\"post_id\":\""+id+"}").andExpect(status().isBadGateway());
+        suggestAs(admin,"{\"post_id\":\""+id+"\"}).andExpect(status().isBadGateway());
         suggestion.put("recommended_action","approve").put("reason",""); reply();
-        suggestAs(admin,"{\"post_id\":\""+id+"}").andExpect(status().isBadGateway());
+        suggestAs(admin,"{\"post_id\":\""+id+"\"}).andExpect(status().isBadGateway());
         suggestion.put("reason","ok").withArray("rule_hits").add("BAD CODE"); reply();
-        suggestAs(admin,"{\"post_id\":\""+id+"}").andExpect(status().isBadGateway());
+        suggestAs(admin,"{\"post_id\":\""+id+"\"}).andExpect(status().isBadGateway());
     }
 }

@@ -69,7 +69,8 @@ public class ModerationSuggestionController {
         CompletableFuture<HttpResponse<String>> pending=null;
         try {
             var snapshot=json.createObjectNode().put("post_id",postId).put("title",title)
-                    .put("content",content).putArray("tags");
+                    .put("content",content);
+            snapshot.putArray("tags");
             var request=HttpRequest.newBuilder(origin.resolve("/internal/moderation-suggestion"))
                     .timeout(budget).header("Authorization","Bearer "+serviceToken)
                     .header("Accept","application/json").header("Content-Type","application/json")
