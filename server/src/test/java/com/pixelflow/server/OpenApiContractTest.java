@@ -38,6 +38,11 @@ class OpenApiContractTest {
         assertEquals(60,userBio.get("x-utf16-maxLength"));
         assertFalse(userBio.containsKey("maxLength"));
         var paths=(Map<?,?>)document.get("paths");
+        for (String tracePath:List.of("/api/admin/agent/traces","/api/admin/agent/traces/{trace_id}")) {
+            var traceOperation=(Map<?,?>)((Map<?,?>)paths.get(tracePath)).get("get");
+            var traceResponses=(Map<?,?>)traceOperation.get("responses");
+            assertTrue(traceResponses.keySet().containsAll(List.of("200","400","401","403","502")));
+        }
         var agent=(Map<?,?>)((Map<?,?>)paths.get("/api/agent/search")).get("post");
         var agentResponses=(Map<?,?>)agent.get("responses");
         assertTrue(agentResponses.keySet().containsAll(List.of("200","400","401","502")));

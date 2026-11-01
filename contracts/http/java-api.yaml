@@ -757,6 +757,48 @@ paths:
       responses:
         '200': {description: 更新后的本人偏好，同推荐偏好形状}
         default: {$ref: '#/components/responses/Error'}
+  /api/admin/agent/traces:
+    get:
+      summary: 管理员分页查看 Agent 执行轨迹
+      description: 仅 ADMIN，可跨用户查询审计轨迹。转发 Python GET /internal/traces，内部使用 PIXELFLOW_INTELLIGENCE_TOKEN，不转发用户令牌。按自增 id 倒序，下一页 id 小于 cursor；省略 count 默认 20。显式空值、重复参数或非法值返回 400，允许十进制前导零。Java 不读取 analytics 库。上游完整响应等待最多 10 秒；成功响应 no-store。
+      parameters:
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+        - {name: cursor, in: query, schema: {type: string, pattern: '^[0-9]+$'}, description: 正整数 long 范围的自增 id，第一页省略}
+      responses:
+        '200':
+          description: 轨迹摘要；空列表或末页 next_cursor 为 null
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/AgentTracePage'}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '502': {$ref: '#/components/responses/AgentTraceFailure'}
+  /api/admin/agent/traces/{trace_id}:
+    get:
+      summary: 管理员查看单次 Agent 执行详情
+      description: 仅 ADMIN。转发 Python GET /internal/traces/{trace_id}。仅输出约定字段，不透传密钥、原始系统提示或未知扩展字段；上游 404 映射 TRACE_NOT_FOUND，其余上游故障或无效响应为 502。普通用户不能读取任何人的轨迹，管理员可查看跨用户审计信息。历史 sources 作为执行记录展示，不授予公开读取作品的权限。
+      parameters:
+        - {name: trace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: 轨迹详情
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status_code, trace]
+                properties:
+                  status_code: {type: integer, enum: [0]}
+                  trace: {$ref: '#/components/schemas/AgentTraceDetail'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '502': {$ref: '#/components/responses/AgentTraceFailure'}
   /api/admin/posts:
     get:
       description: 仅 ADMIN
@@ -903,6 +945,9 @@ components:
           schema: {$ref: '#/components/schemas/Draft'}
           example: {title: 我的作品, content: 正文, clips: [{type: 0, width: 600, height: 800, url: 'https://example.com/image.png'}]}
   responses:
+    AgentTraceFailure:
+      description: 502 AGENT_TRACE_UNAVAILABLE（未配置、网络、超时、上游鉴权/服务失败）或 INVALID_AGENT_TRACE_RESPONSE（结构/字段无效）；不透传上游错误正文。
+      content: {application/json: {schema: {$ref: '#/components/schemas/AgentSearchError'}}}
     RateLimited:
       description: 启用 Redis 限流后超出固定窗口额度；所有到达的尝试计数，成功不重置，超限不续期。Redis 故障时 fail-open。登录按 IP 总量及 IP/小写账号分别计数；注册按 IP；上传按认证用户。
       headers:
@@ -961,6 +1006,67 @@ components:
     Posts: {description: 作品列表，续页取末项 post_id；空数组表示结束, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Post'}}}}}
     PostStatus: {description: 作品状态, content: {application/json: {schema: {type: object, properties: {postId: {type: string}, status: {type: string}}}}}}
   schemas:
+    AgentTracePage:
+      type: object
+      additionalProperties: false
+      required: [status_code, traces, next_cursor]
+      properties:
+        status_code: {type: integer, enum: [0]}
+        traces: {type: array, maxItems: 50, items: {$ref: '#/components/schemas/AgentTraceSummary'}}
+        next_cursor: {type: string, nullable: true, pattern: '^[1-9][0-9]*$'}
+    AgentTraceSummary:
+      type: object
+      additionalProperties: false
+      required: [trace_id, user_id, question, created_at, latency_ms, degraded, source_count, provider]
+      properties:
+        trace_id: {type: string, format: uuid}
+        user_id: {type: string, minLength: 1, maxLength: 36}
+        question: {type: string, maxLength: 80, description: 按 Unicode 字符截断，不追加省略号}
+        created_at: {type: integer, format: int64, minimum: 0, description: Unix 秒}
+        latency_ms: {type: integer, format: int64, minimum: 0}
+        degraded: {type: integer, enum: [0, 1]}
+        source_count: {type: integer, minimum: 0, maximum: 5}
+        provider: {type: string, maxLength: 64}
+    AgentTraceDetail:
+      type: object
+      additionalProperties: false
+      required: [trace_id, user_id, session_id, question, created_at, latency_ms, degraded, degraded_reason, provider, retrieval, llm, answer, sources]
+      properties:
+        trace_id: {type: string, format: uuid}
+        user_id: {type: string, minLength: 1, maxLength: 36}
+        session_id: {type: string, maxLength: 36, description: UUID 或空字符串}
+        question: {type: string, maxLength: 200}
+        created_at: {type: integer, format: int64, minimum: 0}
+        latency_ms: {type: integer, format: int64, minimum: 0}
+        degraded: {type: integer, enum: [0, 1]}
+        degraded_reason: {type: string, maxLength: 500}
+        provider: {type: string, maxLength: 64}
+        retrieval:
+          type: object
+          additionalProperties: false
+          required: [query, candidate_count, selected_ids]
+          properties:
+            query: {type: string, maxLength: 200}
+            candidate_count: {type: integer, minimum: 0}
+            selected_ids: {type: array, maxItems: 5, items: {type: string, pattern: '^[1-9][0-9]{0,17}$'}}
+        llm:
+          type: object
+          additionalProperties: false
+          required: [model, latency_ms]
+          properties:
+            model: {type: string, maxLength: 64}
+            latency_ms: {type: integer, format: int64, minimum: 0}
+        answer: {type: string, maxLength: 1500}
+        sources:
+          type: array
+          maxItems: 5
+          items:
+            type: object
+            additionalProperties: false
+            required: [post_id, title]
+            properties:
+              post_id: {type: string, pattern: '^[1-9][0-9]{0,17}$'}
+              title: {type: string, maxLength: 120}
     AgentSearchError:
       type: object
       required: [status_code, code, message, requestId]
