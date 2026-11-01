@@ -382,12 +382,19 @@ paths:
     get:
       summary: 按关键词搜索公开作品
       description: |
-        关键词匹配标题与话题标签，仅返回 PUBLISHED 且对当前用户可见的作品；游客可用。
-        实现约束（4GB 演示服务器）：SQL LIKE 前缀匹配 + 时间倒序 + 游标分页即可，
-        不引入 Elasticsearch 等额外组件；q 为 1–60 字，前后空白忽略。
+        仅返回 PUBLISHED 且作者存在并启用的作品；游客可用，无效令牌沿用 401。
+        q 去除首尾空白后为 1–60 个 UTF-16 代码单元；可去掉一个开头 #，剩余话题不能为空。
+        大小写不敏感，整体短语不拆词：标题前缀或正文中 # 后的前缀命中即可；普通正文不匹配。
+        输入中的 %、_ 为字面字符。图片和视频均返回；点赞、收藏状态属于当前访问者，游客均为 false。
+        最新优先指作品数字 ID 倒序，cursor 为上页 next_cursor，按 id < cursor 续页；末页为 null。
+        title(30) 索引不加速正文话题条件，完整 OR 查询可能扫描；不引入 ES、全文索引或缓存。
       security: []
       parameters:
-        - {name: q, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 60}}
+        - name: q
+          in: query
+          required: true
+          schema: {type: string, x-utf16-minLength: 1, x-utf16-maxLength: 60}
+          example: 摄影
         - {$ref: '#/components/parameters/Count'}
         - {$ref: '#/components/parameters/Cursor'}
       responses:
@@ -403,6 +410,9 @@ paths:
                   has_more: {type: integer, enum: [0, 1]}
                   next_cursor: {type: string, nullable: true}
                   post_list: {type: array, items: {$ref: '#/components/schemas/Post'}}
+              example: {status_code: 0, has_more: 0, next_cursor: null, post_list: []}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
         default: {$ref: '#/components/responses/Error'}
   /api/posts:
     get:

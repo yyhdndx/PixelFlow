@@ -31,7 +31,7 @@ public class SecurityConfig {
                 .requestCache(c -> c.disable()).formLogin(c -> c.disable()).httpBasic(c -> c.disable())
                 .authorizeHttpRequests(r -> r
                         .requestMatchers(HttpMethod.POST,"/api/auth/register","/api/auth/login","/api/auth/refresh").permitAll()
-                        .requestMatchers(HttpMethod.GET,"/health","/feed/","/api/posts/*","/demo-media/**","/demo-assets/**","/api/media/*/content").permitAll()
+                        .requestMatchers(HttpMethod.GET,"/health","/feed/","/api/search/posts","/api/posts/*","/demo-media/**","/demo-assets/**","/api/media/*/content").permitAll()
                         .requestMatchers(HttpMethod.HEAD,"/demo-assets/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
