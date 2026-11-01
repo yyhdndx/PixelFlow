@@ -194,3 +194,14 @@ mvn -B -ntp -f server/pom.xml -Dtest=UserPostsApiTest,UserPostsHttpTest,OpenApiC
 `GET /api/media?unusedOnly=true` 只返回没有作品引用的图片，便于挑选需要清理的上传内容。usedCount 仍是本人全部上传数量。列表仅为当前查询结果，最终删除会在事务内重新校验。
 
 `DELETE /api/media/{mediaId}` 删除本人未引用的图片，成功返回 204 并释放一个上传名额；此操作没有回收站，客户端执行前应让用户确认。已删除或不属于本人的 ID 返回 404，不能用管理员身份代删；仍被任何草稿、待审、公开、驳回或下架作品引用时返回 409 MEDIA_IN_USE。先从所有相关作品移除引用再删除，单纯下架不会移除引用。数据库文件不保证立即缩小，已做备份和已下载副本也不会随之消失。
+
+
+## 管理员 Agent 轨迹查询（任务 22）
+
+Java 提供 `GET /api/admin/agent/traces?count=20` 和 `GET /api/admin/agent/traces/{trace_id}`，仅 ADMIN 可调用；普通用户不能查询自己的或他人的轨迹。管理员用于跨用户审计，不按当前管理员 user_id 过滤。
+
+Java 复用 `PIXELFLOW_INTELLIGENCE_BASE_URL` 指向 Python，并从私有运行环境读取 `PIXELFLOW_INTELLIGENCE_TOKEN`，与 Python 内部接口共享。该令牌须至少 32 个无空白可打印 ASCII 字符；不要写入前端、仓库或请求查询参数。网关只向内部 Python 地址发送服务令牌，不转发浏览器的管理员 Bearer。
+
+Python 需要提供 `GET /internal/traces?count=...&cursor=...` 和 `GET /internal/traces/{trace_id}`。当前 dev 基线尚未提供这些端点，真实联调及管理页面接线仍需协调方完成。字段与边界见 OpenAPI 和 [任务22验收记录](../docs/testing/Issue22-Agent轨迹查询接口验收.md)。
+
+count 省略默认 20，取值 1–50；cursor 为正整数 long，第一页省略。显式空值、重复参数、未知参数或非法 UUID 为 400；详情不存在为 404；未配置内部服务、上游故障或响应无效为 502。完整上游响应等待预算 10 秒，响应体上限 64 KiB。Java 不直连 analytics 库，不新增表，不改搜索接口。

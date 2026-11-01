@@ -1,6 +1,6 @@
 # [Java][P1] Agent 轨迹查询接口（激活管理端「Agent 轨迹」占位页）
 
-负责人：yyhSEU（Gitee: @yyhSEU）。状态：2026-11-01 新建。
+负责人：yyhSEU（Gitee: @yyhSEU）。状态：2026-11-01 Java 已在 feature/issue-22-agent-trace-api 实现，待 Python 联调与云端验收。
 `22` 是仓库任务编号，线上 Gitee Issue：https://gitee.com/yyhSEU/pixel-flow/issues/IKS2NZ
 前置：任务21（`/api/agent/search` 全链路）已合并 dev 并云端部署，E2E 通过。
 
@@ -92,7 +92,9 @@
 
 ## 验收标准
 
-- [ ] 契约与实现一致，OpenAPI yaml 与代码同步更新。
-- [ ] 越权验证：游客 401、普通用户 403；无任何途径读到他人视角外的数据。
+- [x] 契约与实现一致，OpenAPI yaml 与代码同步更新。
+- [x] 越权验证：游客 401、普通用户 403；无任何途径读到他人视角外的数据。
 - [ ] 云端部署后管理端「Agent 轨迹」页可查到真实 trace（用任务21联调产生的 trace_id 验证）。
-- [ ] 相关 JVM 测试通过。
+- [x] 相关 JVM 测试通过。
+
+Java 实现及测试范围见 [任务22验收记录](../testing/Issue22-Agent轨迹查询接口验收.md)。Python 查询端点与管理页云端验证尚未完成，不据本地替身测试关闭整项任务。
