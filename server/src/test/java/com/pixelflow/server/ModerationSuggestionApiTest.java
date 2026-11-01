@@ -152,21 +152,21 @@ class ModerationSuggestionApiTest {
     void upstreamFailuresAre502(int code) throws Exception {
         String id=newPost("t","c"); suggestion.put("post_id",id); reply();
         STATUS.set(code); REPLY.set("private upstream error");
-        suggestAs(admin,"{\"post_id\":\""+id+"\"}).andExpect(status().isBadGateway())
+        suggestAs(admin,"{\"post_id\":\""+id+"\"}").andExpect(status().isBadGateway())
                 .andExpect(jsonPath("code").value("AGENT_SUGGESTION_UNAVAILABLE"))
                 .andExpect(jsonPath("requestId").isNotEmpty()).andExpect(jsonPath("suggestion").doesNotExist());
     }
     @Test void mismatchedOrMalformedSuggestionIsRejected() throws Exception {
         String id=newPost("t","c");
         suggestion.put("post_id","2"); reply();
-        suggestAs(admin,"{\"post_id\":\""+id+"\"}).andExpect(status().isBadGateway());
+        suggestAs(admin,"{\"post_id\":\""+id+"\"}").andExpect(status().isBadGateway());
         suggestion.put("post_id",id).put("risk_level","critical"); reply();
-        suggestAs(admin,"{\"post_id\":\""+id+"\"}).andExpect(status().isBadGateway());
+        suggestAs(admin,"{\"post_id\":\""+id+"\"}").andExpect(status().isBadGateway());
         suggestion.put("risk_level","low").put("recommended_action","delete"); reply();
-        suggestAs(admin,"{\"post_id\":\""+id+"\"}).andExpect(status().isBadGateway());
+        suggestAs(admin,"{\"post_id\":\""+id+"\"}").andExpect(status().isBadGateway());
         suggestion.put("recommended_action","approve").put("reason",""); reply();
-        suggestAs(admin,"{\"post_id\":\""+id+"\"}).andExpect(status().isBadGateway());
+        suggestAs(admin,"{\"post_id\":\""+id+"\"}").andExpect(status().isBadGateway());
         suggestion.put("reason","ok").withArray("rule_hits").add("BAD CODE"); reply();
-        suggestAs(admin,"{\"post_id\":\""+id+"\"}).andExpect(status().isBadGateway());
+        suggestAs(admin,"{\"post_id\":\""+id+"\"}").andExpect(status().isBadGateway());
     }
 }
