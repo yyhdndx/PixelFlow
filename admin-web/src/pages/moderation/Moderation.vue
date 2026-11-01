@@ -63,8 +63,7 @@ onMounted(() => { load(); audit() })
     <div v-for="post in posts" :key="post.post_id" class="post-row">
       <PostMedia :clips="post.clips" compact />
       <div class="post-copy"><h3>{{ post.title || '未命名作品' }}</h3><p>{{ post.author.nickname || '未设置昵称' }}</p><p class="muted fine">作品 {{ post.post_id }} · 提交时间 —</p></div>
-      <button class="secondary" :disabled="saving" @click="open(post)">查看并审核</button>
-    </div>
+      <button class="secondary" :disabled="saving" @click="open(post)">查看并审核</button>    </div>
     <button v-if="more" class="secondary" :disabled="loading" @click="load(true)">加载更多作品</button>
   </section>
   <section v-if="selected" class="panel review-panel" aria-label="审核作品">

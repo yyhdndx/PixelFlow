@@ -39,8 +39,8 @@ onMounted(() => load())
         <td>{{ question(trace.question) }}</td>
         <td>{{ date(trace.created_at) }}</td>
         <td>{{ trace.latency_ms }} ms</td>
-        <td><span class="badge">{{ trace.provider || '—' }}</span></td>
-        <td><span class="badge" :class="trace.degraded ? 'warn' : 'ok'">{{ trace.degraded ? '规则降级' : '模型回答' }}</span></td>
+        <td><span class="badge brand">{{ trace.provider || '—' }}</span></td>
+        <td><span :class="['badge', trace.degraded ? 'pending' : '']">{{ trace.degraded ? '规则降级' : '模型回答' }}</span></td>
         <td>{{ trace.source_count }} 帖</td>
       </tr>
     </tbody></table></div>
@@ -67,8 +67,5 @@ onMounted(() => load())
 </template>
 <style scoped>
 .trace-row { cursor: pointer; }
-.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--line, #e5e7eb); font-size: 12px; }
-.badge.ok { background: #dcfce7; color: #166534; }
-.badge.warn { background: #fef9c3; color: #854d0e; }
 .source-list { margin: 0; padding-left: 20px; }
 </style>
