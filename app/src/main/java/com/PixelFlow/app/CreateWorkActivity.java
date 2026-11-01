@@ -60,7 +60,7 @@ public class CreateWorkActivity extends AppCompatActivity {
     private TextView operationStatus;
     private Button checkState, myWorks;
     private boolean binding;
-    private androidx.appcompat.app.AlertDialog assistDialog;
+    private android.app.Dialog assistDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -235,75 +235,144 @@ public class CreateWorkActivity extends AppCompatActivity {
         else tvCharCount.setTextColor(getResources().getColor(R.color.profile_muted));
     }
 
-    private LinearLayout assistPanel() {
-        LinearLayout panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL);
-        int padding = dpToPx(20); panel.setPadding(padding, padding, padding, padding);
-        return panel;
+    /** 组装一个圆角白底、宽度近贴边的 AI 弹窗 */
+    private android.app.Dialog aiDialog(View content) {
+        android.app.Dialog dialog = new android.app.Dialog(this);
+        dialog.setContentView(content);
+        dialog.setOnShowListener(d -> {
+            android.view.Window w = dialog.getWindow();
+            if (w == null) return;
+            w.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            android.view.WindowManager.LayoutParams lp = w.getAttributes();
+            lp.width = getResources().getDisplayMetrics().widthPixels - dpToPx(44);
+            lp.dimAmount = 0.55f;
+            w.setAttributes(lp);
+        });
+        return dialog;
     }
+
+    private static final int[] GOAL_CHIP_IDS = {
+            R.id.chip_goal_all, R.id.chip_goal_title, R.id.chip_goal_content, R.id.chip_goal_write, R.id.chip_goal_tags };
+    private static final String[] GOAL_KEYS =
+            {"all", "improve_title", "polish_content", "write_content", "suggest_tags"};
+
     private void showAssistRequest() {
         if (!model.editable() || model.assistBusy) return;
         captureText();
-        LinearLayout panel = assistPanel();
-        android.widget.Spinner goal = new android.widget.Spinner(this);
-        goal.setAdapter(new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item,
-                new String[]{"综合优化", "优化标题", "润色正文", "根据主题写文案", "推荐话题"}));
-        panel.addView(goal);
-        EditText prompt = new EditText(this); prompt.setHint("主题或写作要求（可选）");
-        prompt.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)}); panel.addView(prompt);
-        EditText audience = new EditText(this); audience.setHint("目标读者（可选）");
-        audience.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(64)}); panel.addView(audience);
-        assistDialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("AI 辅助创作")
-                .setMessage("将草稿文字和写作要求发送给 DeepSeek，生成后由你选择是否采用。")
-                .setView(panel).setNegativeButton("取消", null).setPositiveButton("生成建议", (d,w) -> {
-                    captureText();
-                    model.requestAssist(new String[]{"all","improve_title","polish_content","write_content","suggest_tags"}[goal.getSelectedItemPosition()],
-                            prompt.getText().toString().trim(), audience.getText().toString().trim());
-                }).create();
+        View view = getLayoutInflater().inflate(R.layout.dialog_ai_assist_request, null);
+        com.google.android.material.chip.ChipGroup goals = view.findViewById(R.id.cg_goals);
+        EditText prompt = view.findViewById(R.id.et_ai_prompt);
+        prompt.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)});
+        EditText audience = view.findViewById(R.id.et_ai_audience);
+        audience.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(64)});
+        view.findViewById(R.id.btn_ai_cancel).setOnClickListener(v -> assistDialog.dismiss());
+        view.findViewById(R.id.btn_ai_generate).setOnClickListener(v -> {
+            int checked = goals.getCheckedChipId();
+            String goal = GOAL_KEYS[0];
+            for (int i = 0; i < GOAL_CHIP_IDS.length; i++)
+                if (GOAL_CHIP_IDS[i] == checked) { goal = GOAL_KEYS[i]; break; }
+            captureText();
+            model.requestAssist(goal, prompt.getText().toString().trim(), audience.getText().toString().trim());
+            assistDialog.dismiss();
+        });
+        assistDialog = aiDialog(view);
         assistDialog.show();
     }
-    private android.widget.RadioGroup candidateChoices(LinearLayout panel, String label, List<String> candidates) {
-        TextView heading = new TextView(this); heading.setText(label); panel.addView(heading);
-        android.widget.RadioGroup group = new android.widget.RadioGroup(this);
-        android.widget.RadioButton keep = new android.widget.RadioButton(this); keep.setId(View.generateViewId());
-        keep.setText("保留原文"); group.addView(keep); group.check(keep.getId());
-        for (String candidate : candidates) {
-            android.widget.RadioButton option = new android.widget.RadioButton(this);
-            option.setId(View.generateViewId()); option.setText(candidate); option.setTag(candidate); group.addView(option);
+
+    /** 候选项卡片：同组点击单选；tag 为 null 表示「保留原文」 */
+    private View candidateCard(LinearLayout parent, String label, String tag) {
+        View card = getLayoutInflater().inflate(R.layout.item_ai_candidate, parent, false);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, 0, 0, dpToPx(8));
+        card.setLayoutParams(params);
+        ((TextView) card.findViewById(R.id.candidate_text)).setText(label);
+        card.setTag(tag);
+        card.setOnClickListener(v -> {
+            for (int i = 0; i < parent.getChildCount(); i++) {
+                View child = parent.getChildAt(i);
+                boolean on = child == v;
+                child.setSelected(on);
+                child.findViewById(R.id.candidate_dot).setSelected(on);
+            }
+        });
+        return card;
+    }
+
+    private static String selectedCandidate(LinearLayout parent) {
+        for (int i = 0; i < parent.getChildCount(); i++) {
+            View child = parent.getChildAt(i);
+            if (child.isSelected()) return (String) child.getTag();
         }
-        panel.addView(group); return group;
+        return null;
     }
-    private String selectedCandidate(android.widget.RadioGroup group) {
-        View selected = group.findViewById(group.getCheckedRadioButtonId());
-        return selected == null ? null : (String) selected.getTag();
+
+    /** 候选组：首项为默认选中的「保留原文」 */
+    private void fillCandidates(LinearLayout container, List<String> candidates) {
+        View keep = candidateCard(container, getString(R.string.ai_creation_keep_original), null);
+        container.addView(keep);
+        if (candidates != null) for (String candidate : candidates) container.addView(candidateCard(container, candidate, candidate));
+        keep.setSelected(true);
+        keep.findViewById(R.id.candidate_dot).setSelected(true);
     }
+
     private void showAssistPreview() {
         com.PixelFlow.app.API.CreationSuggestion value = model.suggestion;
         if (value == null || !model.editable()) return;
-        LinearLayout panel = assistPanel();
-        TextView notes = new TextView(this);
-        String risk = "low".equals(value.safety.risk_level) ? "未发现规则风险" : "请留意内容风险";
-        notes.setText(risk + "\n" + android.text.TextUtils.join("\n", value.safety.suggestions)
-                + "\n" + android.text.TextUtils.join("\n", value.edit_suggestions));
-        panel.addView(notes);
-        android.widget.RadioGroup titles = candidateChoices(panel, "标题", value.title_candidates);
-        android.widget.RadioGroup copies = candidateChoices(panel, "正文", value.content_candidates);
-        android.widget.CheckBox tags = new android.widget.CheckBox(this);
-        tags.setText("将话题加入正文：" + android.text.TextUtils.join(" ", value.tag_suggestions));
-        tags.setVisibility(value.tag_suggestions.isEmpty() ? View.GONE : View.VISIBLE); panel.addView(tags);
-        android.widget.ScrollView scroll = new android.widget.ScrollView(this); scroll.addView(panel);
-        assistDialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle("rules".equals(value.provider) ? "规则建议（未启用模型）" : "DeepSeek 建议")
-                .setView(scroll).setNegativeButton("继续编辑", null).setPositiveButton("确认填入草稿", null).create();
-        assistDialog.setOnShowListener(d -> assistDialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener(v -> {
+        View view = getLayoutInflater().inflate(R.layout.dialog_ai_assist_preview, null);
+        boolean rules = "rules".equals(value.provider);
+        ((TextView) view.findViewById(R.id.tv_preview_badge)).setText(
+                rules ? R.string.ai_creation_badge_rules : R.string.ai_creation_badge_model);
+
+        boolean low = "low".equals(value.safety.risk_level);
+        TextView tvRisk = view.findViewById(R.id.tv_risk);
+        tvRisk.setText(low ? R.string.ai_creation_risk_ok : R.string.ai_creation_risk_warn);
+        tvRisk.setTextColor(getResources().getColor(low ? R.color.green_500 : R.color.profile_error));
+        view.findViewById(R.id.v_risk_dot).setBackgroundResource(low ? R.drawable.bg_ai_dot_on : R.drawable.bg_ai_dot_warn);
+
+        List<String> notes = new ArrayList<>();
+        if (value.safety.suggestions != null) notes.addAll(value.safety.suggestions);
+        if (value.edit_suggestions != null) notes.addAll(value.edit_suggestions);
+        TextView tvNotes = view.findViewById(R.id.tv_ai_notes);
+        if (notes.isEmpty()) tvNotes.setVisibility(View.GONE);
+        else {
+            tvNotes.setText(android.text.TextUtils.join("\n", notes));
+            tvNotes.setVisibility(View.VISIBLE);
+        }
+
+        final LinearLayout titles = view.findViewById(R.id.container_titles);
+        fillCandidates(titles, value.title_candidates);
+        final LinearLayout copies = view.findViewById(R.id.container_copies);
+        fillCandidates(copies, value.content_candidates);
+
+        final com.google.android.material.chip.Chip chipTags = view.findViewById(R.id.chip_tags);
+        boolean hasTags = value.tag_suggestions != null && !value.tag_suggestions.isEmpty();
+        if (hasTags) {
+            chipTags.setText(getString(R.string.ai_creation_section_tags) + "："
+                    + android.text.TextUtils.join("  ", value.tag_suggestions));
+        }
+        chipTags.setVisibility(hasTags ? View.VISIBLE : View.GONE);
+        view.findViewById(R.id.tv_tags_label).setVisibility(hasTags ? View.VISIBLE : View.GONE);
+
+        view.findViewById(R.id.btn_ai_edit).setOnClickListener(v -> assistDialog.dismiss());
+        view.findViewById(R.id.btn_ai_apply).setOnClickListener(v -> {
             captureText();
-            if (selectedCandidate(titles) == null && selectedCandidate(copies) == null && !tags.isChecked()) {
-                Toast.makeText(this, "请先选择要采用的建议", Toast.LENGTH_SHORT).show(); return;
+            String pickedTitle = selectedCandidate(titles);
+            String pickedCopy = selectedCandidate(copies);
+            if (pickedTitle == null && pickedCopy == null && !chipTags.isChecked()) {
+                Toast.makeText(this, R.string.ai_creation_pick_first, Toast.LENGTH_SHORT).show();
+                return;
             }
-            if (model.acceptAssist(selectedCandidate(titles), selectedCandidate(copies), tags.isChecked())) {
-                binding = true; etTitle.setText(model.state.title); etDescription.setText(model.state.content); binding = false;
-                updateSaveButtonState(); assistDialog.dismiss();
+            if (model.acceptAssist(pickedTitle, pickedCopy, chipTags.isChecked())) {
+                binding = true;
+                etTitle.setText(model.state.title);
+                etDescription.setText(model.state.content);
+                binding = false;
+                updateSaveButtonState();
+                assistDialog.dismiss();
             } else Toast.makeText(this, model.assistMessage, Toast.LENGTH_LONG).show();
-        }));
+        });
+        assistDialog = aiDialog(view);
         assistDialog.show();
     }
 

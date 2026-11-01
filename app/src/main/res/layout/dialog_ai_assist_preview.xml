@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AI 辅助创作 · 建议预览弹窗 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_ai_dialog">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@drawable/bg_ai_dialog_header"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="18dp"
+        android:paddingBottom="18dp">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_sparkle"
+            android:contentDescription="@string/ai_creation_preview_title"
+            android:background="@drawable/bg_ai_icon_circle"
+            android:padding="10dp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="14dp">
+
+            <TextView
+                android:id="@+id/tv_preview_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/ai_creation_preview_title"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/white" />
+
+            <TextView
+                android:id="@+id/tv_preview_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="@string/ai_creation_badge_model"
+                android:textSize="12.5sp"
+                android:textColor="#E3E1FF" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="360dp"
+        android:overScrollMode="never">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_ai_info_card"
+                android:padding="14dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <View
+                        android:id="@+id/v_risk_dot"
+                        android:layout_width="8dp"
+                        android:layout_height="8dp"
+                        android:background="@drawable/bg_ai_dot_on" />
+
+                    <TextView
+                        android:id="@+id/tv_risk"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="@string/ai_creation_risk_ok"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/green_500" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tv_ai_notes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textSize="13sp"
+                    android:lineSpacingExtra="3dp"
+                    android:textColor="@color/profile_muted"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="10dp"
+                android:text="@string/ai_creation_section_titles"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/profile_ink" />
+
+            <LinearLayout
+                android:id="@+id/container_titles"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="10dp"
+                android:text="@string/ai_creation_section_copies"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/profile_ink" />
+
+            <LinearLayout
+                android:id="@+id/container_copies"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <TextView
+                android:id="@+id/tv_tags_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="10dp"
+                android:text="@string/ai_creation_section_tags"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/profile_ink"
+                android:visibility="gone" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_tags"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:textSize="13.5sp"
+                app:chipBackgroundColor="@color/bg_ai_chip_tint"
+                android:textColor="@color/fg_ai_chip"
+                app:chipStrokeWidth="0dp"
+                app:chipMinTouchTargetSize="40dp"
+                android:visibility="gone" />
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="18dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_ai_edit"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:text="@string/ai_creation_keep_editing"
+            android:textAllCaps="false"
+            android:textColor="@color/profile_muted"
+            android:textSize="14.5sp"
+            android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_ai_apply"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1.8"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_ai_button"
+            app:backgroundTint="@null"
+            android:gravity="center"
+            android:text="@string/ai_creation_apply"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white"
+            android:textSize="14.5sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

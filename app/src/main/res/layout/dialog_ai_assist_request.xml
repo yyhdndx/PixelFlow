@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AI 辅助创作 · 请求弹窗 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_ai_dialog">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@drawable/bg_ai_dialog_header"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="18dp"
+        android:paddingBottom="18dp">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_sparkle"
+            android:contentDescription="@string/ai_creation_title"
+            android:background="@drawable/bg_ai_icon_circle"
+            android:padding="10dp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="14dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/ai_creation_title"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/white" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="@string/ai_creation_request_subtitle"
+                android:textSize="12.5sp"
+                android:textColor="#E3E1FF" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="18dp"
+        android:paddingBottom="18dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/ai_creation_goal_label"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/profile_ink"
+            android:layout_marginBottom="10dp" />
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/cg_goals"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:singleSelection="true"
+            app:chipSpacingHorizontal="8dp"
+            app:chipSpacingVertical="8dp"
+            app:checkedChip="@+id/chip_goal_all">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_goal_all"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="@string/ai_creation_goal_all"
+                android:textSize="13.5sp"
+                app:chipBackgroundColor="@color/bg_ai_chip_tint"
+                android:textColor="@color/fg_ai_chip"
+                app:chipStrokeWidth="0dp"
+                app:chipMinTouchTargetSize="40dp" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_goal_title"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="@string/ai_creation_goal_title"
+                android:textSize="13.5sp"
+                app:chipBackgroundColor="@color/bg_ai_chip_tint"
+                android:textColor="@color/fg_ai_chip"
+                app:chipStrokeWidth="0dp"
+                app:chipMinTouchTargetSize="40dp" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_goal_content"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="@string/ai_creation_goal_content"
+                android:textSize="13.5sp"
+                app:chipBackgroundColor="@color/bg_ai_chip_tint"
+                android:textColor="@color/fg_ai_chip"
+                app:chipStrokeWidth="0dp"
+                app:chipMinTouchTargetSize="40dp" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_goal_write"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="@string/ai_creation_goal_write"
+                android:textSize="13.5sp"
+                app:chipBackgroundColor="@color/bg_ai_chip_tint"
+                android:textColor="@color/fg_ai_chip"
+                app:chipStrokeWidth="0dp"
+                app:chipMinTouchTargetSize="40dp" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_goal_tags"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="@string/ai_creation_goal_tags"
+                android:textSize="13.5sp"
+                app:chipBackgroundColor="@color/bg_ai_chip_tint"
+                android:textColor="@color/fg_ai_chip"
+                app:chipStrokeWidth="0dp"
+                app:chipMinTouchTargetSize="40dp" />
+        </com.google.android.material.chip.ChipGroup>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            app:hintEnabled="false"
+            app:boxBackgroundColor="@color/profile_surface"
+            app:boxStrokeColor="@color/profile_border"
+            app:boxStrokeWidth="1dp"
+            app:boxCornerRadiusTopStart="14dp"
+            app:boxCornerRadiusTopEnd="14dp"
+            app:boxCornerRadiusBottomStart="14dp"
+            app:boxCornerRadiusBottomEnd="14dp">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_ai_prompt"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/ai_creation_prompt_hint"
+                android:textColor="@color/profile_ink"
+                android:textSize="14.5sp"
+                android:maxLines="3"
+                android:inputType="textMultiLine" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            app:hintEnabled="false"
+            app:boxBackgroundColor="@color/profile_surface"
+            app:boxStrokeColor="@color/profile_border"
+            app:boxStrokeWidth="1dp"
+            app:boxCornerRadiusTopStart="14dp"
+            app:boxCornerRadiusTopEnd="14dp"
+            app:boxCornerRadiusBottomStart="14dp"
+            app:boxCornerRadiusBottomEnd="14dp">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_ai_audience"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/ai_creation_audience_hint"
+                android:textColor="@color/profile_ink"
+                android:textSize="14.5sp"
+                android:maxLines="1"
+                android:singleLine="true" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="20dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_ai_cancel"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:text="@string/ai_creation_cancel"
+                android:textAllCaps="false"
+                android:textColor="@color/profile_muted"
+                android:textSize="14.5sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_ai_generate"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1.8"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_ai_button"
+                app:backgroundTint="@null"
+                app:icon="@drawable/ic_sparkle"
+                app:iconTint="@android:color/white"
+                app:iconGravity="textStart"
+                app:iconPadding="8dp"
+                android:gravity="center"
+                android:text="@string/ai_creation_generate"
+                android:textAllCaps="false"
+                android:textColor="@android:color/white"
+                android:textSize="14.5sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
