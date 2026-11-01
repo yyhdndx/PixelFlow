@@ -75,7 +75,7 @@ class ModerationSuggestionApiTest {
         reply();
     }
     void reply() { REPLY.set(JSON.createObjectNode().put("status_code",0).set("suggestion",suggestion).toString()); }
-    String post(String title,String content) {
+    String newPost(String title,String content) {
         db.update("INSERT INTO posts (author_id,title,content,clips_json,has_video,status,create_time) VALUES (?,?,?,'[]',FALSE,'PENDING',0)",
                 owner,title,content);
         return db.queryForObject("SELECT MAX(id) FROM posts WHERE author_id=?",String.class,owner);
@@ -102,7 +102,7 @@ class ModerationSuggestionApiTest {
         assertEquals(0,CALLS.get());
     }
     @Test void happyPathForwardsSnapshotWithServiceToken() throws Exception {
-        String id=post("风景随拍","今天的晚霞真美");
+        String id=newPost("风景随拍","今天的晚霞真美");
         suggestion.put("post_id",id); reply();
         var result=suggestAs(admin,"{\"post_id\":\""+id+"\"}").andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control","no-store"))
@@ -121,7 +121,7 @@ class ModerationSuggestionApiTest {
         assertFalse(result.getResponse().getContentAsString(StandardCharsets.UTF_8).contains(SHARED));
     }
     @Test void allThreeRiskTiersPassThrough() throws Exception {
-        String id=post("标题","正文");
+        String id=newPost("标题","正文");
         for (String[] tier:new String[][]{{"low","approve"},{"medium","review"},{"high","reject"}}) {
             suggestion.put("post_id",id).put("risk_level",tier[0]).put("recommended_action",tier[1]);
             var hits=suggestion.putArray("rule_hits");
@@ -138,7 +138,7 @@ class ModerationSuggestionApiTest {
         assertEquals(0,CALLS.get());
     }
     @Test void secretsInSuggestionAreNeverEchoed() throws Exception {
-        String id=post("t","c"); suggestion.put("post_id",id).put("system_prompt","top secret")
+        String id=newPost("t","c"); suggestion.put("post_id",id).put("system_prompt","top secret")
                 .put("api_key",SHARED); reply();
         var result=suggestAs(admin,"{\"post_id\":\""+id+"\"}").andExpect(status().isBadGateway())
                 .andExpect(jsonPath("code").value("AGENT_SUGGESTION_INVALID")).andReturn();
@@ -147,14 +147,14 @@ class ModerationSuggestionApiTest {
     }
     @ParameterizedTest @ValueSource(ints={301,401,403,404,500,503})
     void upstreamFailuresAre502(int code) throws Exception {
-        String id=post("t","c"); suggestion.put("post_id",id); reply();
+        String id=newPost("t","c"); suggestion.put("post_id",id); reply();
         STATUS.set(code); REPLY.set("private upstream error");
         suggestAs(admin,"{\"post_id\":\""+id+"}").andExpect(status().isBadGateway())
                 .andExpect(jsonPath("code").value("AGENT_SUGGESTION_UNAVAILABLE"))
                 .andExpect(jsonPath("requestId").isNotEmpty()).andExpect(jsonPath("suggestion").doesNotExist());
     }
     @Test void mismatchedOrMalformedSuggestionIsRejected() throws Exception {
-        String id=post("t","c");
+        String id=newPost("t","c");
         suggestion.put("post_id","2"); reply();
         suggestAs(admin,"{\"post_id\":\""+id+"}").andExpect(status().isBadGateway());
         suggestion.put("post_id",id).put("risk_level","critical"); reply();
