@@ -1,6 +1,6 @@
 # [Java][P1] Agent 智能搜索与多帖总结接口（Android AI 卡片待此接口）
 
-负责人：yyhSEU（Gitee: @yyhSEU）。状态：2026-11-01 新建。
+负责人：yyhSEU（Gitee: @yyhSEU）。状态：2026-11-01 已在本地 feature/issue-21-agent-search-api 实现并完成专项验收，待审查合入。
 `21` 是仓库任务编号，线上 Gitee Issue：https://gitee.com/yyhSEU/pixel-flow/issues/IKS0Z3
 
 对应验收：Agent 侧「智能搜索与多帖总结」主线；US-02 人机交互加分项。
@@ -69,7 +69,9 @@ Agent 侧产品需求把「智能搜索与多帖总结」定为演示主线：�
 
 ## 验收标准
 
-- [ ] 契约与实现一致，OpenAPI yaml 与代码同步更新。
-- [ ] 三类场景联调通过：正常、零结果明确说明、Python 故障 502 且普通搜索不受影响。
-- [ ] 越权验证：未登录 401；无任何途径让回答引用非 PUBLISHED 作品。
-- [ ] 相关 JVM 测试通过（不影响 create-assist 现有行为）。
+- [x] 契约与实现一致，OpenAPI yaml 与代码同步更新。
+- [x] 三类场景联调通过：正常、零结果明确说明、Python 故障 502 且普通搜索不受影响。
+- [x] 越权验证：未登录 401；无任何途径让回答引用非 PUBLISHED 作品。
+- [x] 相关 JVM 测试通过（不影响 create-assist 现有行为）。
+
+本地验收证据见 [Issue21-Agent智能搜索接口验收](../testing/Issue21-Agent智能搜索接口验收.md)：43 项专项测试通过，包含真实 Python 服务的正常/无结果/停止三类联调；模型使用替身，未部署或进行手机验收。
