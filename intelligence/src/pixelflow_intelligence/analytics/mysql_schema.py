@@ -16,6 +16,19 @@ CREATE TABLE IF NOT EXISTS profiles (
 CREATE TABLE IF NOT EXISTS maintenance_state (
  operation VARCHAR(32) PRIMARY KEY, completed_at BIGINT NOT NULL, has_more INTEGER NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_bin;
+"""),
+(2, """
+CREATE TABLE IF NOT EXISTS agent_traces (
+ trace_id VARCHAR(36) PRIMARY KEY, user_id VARCHAR(36) NOT NULL,
+ question VARCHAR(200) NOT NULL, answer TEXT NOT NULL,
+ source_count INTEGER NOT NULL, degraded INTEGER NOT NULL,
+ steps LONGTEXT NOT NULL, created_at BIGINT NOT NULL,
+ INDEX agent_traces_user(user_id,created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_bin;
+CREATE TABLE IF NOT EXISTS agent_sessions (
+ session_id VARCHAR(36) PRIMARY KEY, user_id VARCHAR(36) NOT NULL,
+ turns LONGTEXT NOT NULL, created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_bin;
 """)]
 
 
