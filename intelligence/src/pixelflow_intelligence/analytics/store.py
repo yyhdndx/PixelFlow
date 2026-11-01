@@ -65,6 +65,14 @@ class Store:
                     PRIMARY KEY(user_id,version));
                 CREATE TABLE IF NOT EXISTS maintenance_state (
                     operation TEXT PRIMARY KEY, completed_at BIGINT NOT NULL, has_more INTEGER NOT NULL);
+                CREATE TABLE IF NOT EXISTS agent_traces (
+                    trace_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, question TEXT NOT NULL,
+                    answer TEXT NOT NULL, source_count INTEGER NOT NULL, degraded INTEGER NOT NULL,
+                    steps TEXT NOT NULL, created_at BIGINT NOT NULL);
+                CREATE INDEX IF NOT EXISTS agent_traces_user ON agent_traces(user_id,created_at);
+                CREATE TABLE IF NOT EXISTS agent_sessions (
+                    session_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, turns TEXT NOT NULL,
+                    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL);
             """)
 
     def connect(self):
@@ -186,6 +194,54 @@ class Store:
                "DO UPDATE SET completed_at=excluded.completed_at,has_more=excluded.has_more")
         db.execute(sql,
             (operation, now, int(more)))
+
+    def save_agent_trace(self, *, trace_id, user_id, question, answer, source_count,
+                         degraded, steps, created_at):
+        if type(trace_id) is not str or not 1 <= len(trace_id) <= 36 \
+                or type(user_id) is not str or not 1 <= len(user_id) <= 36 \
+                or type(question) is not str or not 1 <= len(question) <= 200 \
+                or type(answer) is not str or not 1 <= len(answer) <= 1500 \
+                or type(source_count) is not int or not 0 <= source_count <= 20 \
+                or degraded not in (0, 1) or type(created_at) is not int:
+            raise ValueError("Invalid agent trace")
+        with closing(self.connect()) as db, db:
+            db.execute("INSERT INTO agent_traces VALUES(?,?,?,?,?,?,?,?)", (
+                trace_id, user_id, question, answer, source_count, int(degraded),
+                json.dumps(steps, ensure_ascii=False), created_at))
+
+    def load_agent_session(self, session_id, user_id):
+        """Return the session's turns for this user, or None if not found/owner mismatch."""
+        if type(session_id) is not str or not 1 <= len(session_id) <= 36 \
+                or type(user_id) is not str or not 1 <= len(user_id) <= 36:
+            raise ValueError("Invalid agent session lookup")
+        with closing(self.connect()) as db:
+            row = db.execute("SELECT user_id,turns FROM agent_sessions WHERE session_id=?",
+                             (session_id,)).fetchone()
+        if row is None or row["user_id"] != user_id:
+            return None
+        turns = json.loads(row["turns"])
+        if not isinstance(turns, list):
+            raise ValueError("Corrupt agent session")
+        return {"turns": turns[-10:]}
+
+    def save_agent_session(self, session_id, user_id, turns, now=None):
+        now = int(time.time()) if now is None else now
+        if type(session_id) is not str or not 1 <= len(session_id) <= 36 \
+                or type(user_id) is not str or not 1 <= len(user_id) <= 36 \
+                or not isinstance(turns, list) or len(turns) > 10 \
+                or type(now) is not int:
+            raise ValueError("Invalid agent session")
+        document = json.dumps(turns[-10:], ensure_ascii=False)
+        sql = ("INSERT INTO agent_sessions VALUES(?,?,?,?,?) ON DUPLICATE KEY UPDATE "
+               "turns=VALUES(turns),updated_at=VALUES(updated_at)" if self.mysql else
+               "INSERT INTO agent_sessions VALUES(?,?,?,?,?) ON CONFLICT(session_id) "
+               "DO UPDATE SET turns=excluded.turns,updated_at=excluded.updated_at")
+        with closing(self.connect()) as db, db:
+            row = db.execute("SELECT created_at FROM agent_sessions WHERE session_id=?",
+                             (session_id,)).fetchone()
+            created_at = row["created_at"] if row else now
+            db.execute(sql, (session_id, user_id, document, created_at, now))
+
 
     def status(self, now=None):
         now = int(time.time()) if now is None else now

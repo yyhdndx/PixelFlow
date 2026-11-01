@@ -156,3 +156,25 @@ class CreateAssistOutput(Model):
     edit_suggestions: list[str]
     content_candidates: list[str]
     policy_version: str
+
+
+class SearchHit(Model):
+    post_id: str = Field(pattern=r"^[1-9][0-9]{0,17}$")
+    author_id: str = Field(min_length=1, max_length=36)
+    author_name: str = Field(max_length=64)
+    title: str = Field(max_length=120)
+    excerpt: str = Field(max_length=200)
+    score: float = Field(ge=0)
+
+
+class SearchPostsInput(Model):
+    user_id: str = Field(min_length=1, max_length=36)
+    question: str = Field(min_length=1, max_length=200)
+    limit: int = Field(default=20, ge=1, le=20)
+
+
+class SearchPostsOutput(Model):
+    user_id: str
+    items: list[SearchHit] = Field(max_length=20)
+    inspected: int = Field(ge=0, le=500)
+    policy_version: str = Field(max_length=64)

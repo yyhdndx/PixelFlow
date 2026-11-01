@@ -16,6 +16,12 @@
     <string name="search_load_more_failed">更多结果未能加载，请重试</string>
     <string name="search_history_cleared">已清空搜索历史</string>
     <string name="search_max_length">关键词最多 60 字</string>
+    <string name="search_ai_title">AI 综合回答</string>
+    <string name="search_ai_close">收起 AI 回答</string>
+    <string name="search_ai_loading">AI 正在检索社区作品并生成总结…</string>
+    <string name="search_ai_degraded">AI 总结暂不可用，已为你展示普通搜索结果</string>
+    <string name="search_ai_sources">参考来源（点击可查看原文）</string>
+    <string name="search_ai_no_sources">未检索到可引用的社区作品</string>
     <string-array name="search_hot_default">
         <item>风景</item>
         <item>美食</item>

@@ -74,3 +74,47 @@ class JavaClient:
             return candidates
         except (KeyError, TypeError, ValueError):
             raise UpstreamError("Invalid public candidate snapshot") from None
+
+    def public_posts(self, token, pages: int = 3):
+        """PUBLISHED 作品全文快照（title+content），游标翻页硬上限 50*pages 篇。
+
+        可见性由 Java 侧保证：/feed/ 只返回 PUBLISHED 且作者启用，游客/用户
+        看到的均为公开内容，Agent 因此无法引用草稿或待审核作品。
+        """
+        if not 1 <= pages <= 5:
+            raise UpstreamError("Invalid page count")
+        posts, seen, cursor = [], set(), None
+        try:
+            for _ in range(pages):
+                params = {"count": 50, "accept_video_clip": "true"}
+                if cursor is not None:
+                    params["cursor"] = cursor
+                result = self._get("/feed/", token, params)
+                if not isinstance(result, dict) or result.get("status_code") != 0:
+                    raise ValueError()
+                rows = result["post_list"]
+                if not isinstance(rows, list) or len(rows) > 50:
+                    raise ValueError()
+                for row in rows:
+                    if row["status"] != "PUBLISHED":
+                        raise ValueError()
+                    post_id = str(row["post_id"])
+                    if post_id in seen:
+                        raise ValueError()
+                    seen.add(post_id)
+                    author = row["author"]
+                    posts.append({
+                        "post_id": post_id, "title": str(row["title"] or ""),
+                        "content": str(row.get("content") or ""),
+                        "author_id": str(author["user_id"]),
+                        "author_name": str(author.get("nickname") or "")[:64],
+                        "create_time": int(row["create_time"]),
+                    })
+                if not result.get("has_more") or not rows:
+                    break
+                cursor = result["next_cursor"]
+                if cursor is None:
+                    break
+        except (KeyError, TypeError, ValueError):
+            raise UpstreamError("Invalid public post snapshot") from None
+        return posts

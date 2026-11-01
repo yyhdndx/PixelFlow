@@ -40,6 +40,20 @@ java -jar target/pixelflow-server-0.1.0.jar
 
 审核演示需启动前从私有配置注入 `PIXELFLOW_ADMIN_PASSWORD`，首次创建用户名 `admin` 的账号。密码至少 10 字符、UTF-8 不超过 72 字节；该变量不会重置已有账号。不要将真实密码保存到 Git、截图或共享终端历史。
 
+## 作品搜索
+
+`GET /api/search/posts?q=摄影&count=20` 游客可用；后续携带响应中的 `next_cursor`。关键词去首尾空白后为 1–60 个 UTF-16 单位，可带一个开头 `#`，整体短语不拆词，大小写不敏感地匹配标题前缀或正文 `#话题` 前缀。普通正文不参与搜索，`%` / `_` 按字面匹配。图文、视频均返回，卡片与 Feed 一致；登录时点赞/收藏状态属于当前用户。
+
+最新优先为作品数字 ID 倒序，并非严格按时间字段排序。只返回公开且作者启用的作品。V12 自动添加 MySQL `title(30)` 前缀索引，H2 添加等效索引；完整 OR 查询可能扫描，不能把索引存在当作完整查询必然使用标题索引。详见[搜索验收记录](../docs/testing/作品搜索接口验收.md)。
+
+在独占、以 `_test` 结尾的本地 MySQL 8.4 库上设置 `MYSQL_TEST_SEARCH_URL`，并从私有配置注入 `MYSQL_TEST_USER` / `MYSQL_TEST_PASSWORD`，然后执行：
+
+```powershell
+mvn -B -ntp -f server/pom.xml -Dtest=SearchPostsApiTest,MySqlSearchPostsApiTest,MySqlSearchPostsHttpTest,OpenApiContractTest test
+```
+
+专项会创建测试账号及夹具，仅用于独占测试库，不得指向业务库。未配置 URL 时 MySQL 专项会跳过，跳过不算验收通过。完整回归使用 `mvn -B -ntp -f server/pom.xml package`。
+
 ## 配置
 
 |变量|默认值|含义|

@@ -42,3 +42,6 @@ local.properties
 
 # Optional local design source (distributed separately)
 /docs/requirements/assets/*.fig
+
+# Kimi PR review artifacts
+.kimi-pr/

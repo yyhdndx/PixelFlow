@@ -1,11 +1,11 @@
 import secrets
 import time
 import uuid
-from typing import Literal
+from typing import Annotated, Literal
 from ..analytics.database import DATABASE_ERRORS
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import ValidationError, BaseModel, ConfigDict, Field
+from pydantic import ValidationError, BaseModel, ConfigDict, Field, StringConstraints
 from ..common.settings import Settings
 from ..clients.java import JavaClient, UpstreamError, AuthenticationError
 from ..analytics.store import Store
@@ -13,6 +13,7 @@ from ..recommendation.preview import preview
 from ..skills import Context, SkillError, create_registry
 from ..skills.models import DraftSnapshot
 from ..clients.deepseek import DeepSeekAssist
+from ..agents.search import answer_question
 
 
 class ProfileRefreshInput(BaseModel):
@@ -56,6 +57,15 @@ class CreateAssistRequest(BaseModel):
     audience: str = Field(default="", max_length=64)
 
 
+Question = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+
+class AgentSearchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    question: Question
+    session_id: str = Field(default="", max_length=36)
+
+
 HISTORY_COUNT_DEFAULT = 20
 MAX_BEFORE_VERSION = 9223372036854775807
 
@@ -96,7 +106,7 @@ def create_app(settings=None, upstream=None):
     @app.middleware("http")
     async def private_no_cache(request, call_next):
         response = await call_next(request)
-        if request.url.path.startswith(("/recommendations/", "/profiles/", "/internal/")):
+        if request.url.path.startswith(("/recommendations/", "/profiles/", "/internal/", "/agent/")):
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -270,5 +280,30 @@ def create_app(settings=None, upstream=None):
             }
         except (SkillError, TimeoutError, ValidationError):
             raise HTTPException(503, "Creation assist unavailable") from None
+
+    @app.post("/agent/search")
+    def agent_search(body: AgentSearchRequest, response: Response,
+                     credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        response.headers["Cache-Control"] = "no-store"
+        if credentials is None:
+            raise HTTPException(401, "User authentication required")
+        try:
+            user = upstream.me(credentials.credentials)
+        except AuthenticationError:
+            raise HTTPException(401, "Invalid or disabled user session") from None
+        except UpstreamError:
+            raise HTTPException(503, "Java identity service unavailable") from None
+        context = Context(user, frozenset({"posts:search"}), int(time.time()),
+                          time.monotonic() + 45)
+        try:
+            return answer_question(user=user, question=body.question,
+                                   session_id=body.session_id, upstream=upstream,
+                                   token=credentials.credentials, settings=settings,
+                                   store=store, context=context)
+        except (SkillError, TimeoutError, ValidationError, UpstreamError):
+            # 检索/上游失败不编造回答；Java 侧映射为 502，前端显示降级文案。
+            raise HTTPException(503, "Agent search unavailable") from None
+        except (ValueError, KeyError, TypeError, *DATABASE_ERRORS):
+            raise HTTPException(503, "Agent search store unavailable") from None
 
     return app

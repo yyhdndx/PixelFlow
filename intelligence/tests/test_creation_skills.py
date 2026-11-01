@@ -128,7 +128,8 @@ def test_assist_write_content_does_not_leak_into_all():
 
 def test_creation_skills_are_registered():
     assert [s["name"] for s in create_registry().describe()] == \
-           ["profile_insight", "candidate_recall", "feed_rank", "content_safety", "creator_assist"]
+           ["profile_insight", "candidate_recall", "feed_rank", "content_safety", "creator_assist",
+            "search_posts"]
 
 
 @pytest.mark.parametrize("name,payload,ctx,expected", [
