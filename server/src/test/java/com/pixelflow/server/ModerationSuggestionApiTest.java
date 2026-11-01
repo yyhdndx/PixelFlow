@@ -134,7 +134,7 @@ class ModerationSuggestionApiTest {
     }
     @Test void malformedBodyIsRejectedWithoutUpstream() throws Exception {
         suggestAs(admin,"{\"post_id\":\"").andExpect(status().isBadRequest());
-        suggestAs(admin,"{\"post_id\":123}").andExpect(status().isBadRequest());
+        suggestAs(admin,"{\"post_id\":true}").andExpect(status().isBadRequest());
         suggestAs(admin,"[1,2]").andExpect(status().isBadRequest());
         assertEquals(0,CALLS.get());
     }
