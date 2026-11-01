@@ -29,6 +29,17 @@ CREATE TABLE IF NOT EXISTS agent_sessions (
  session_id VARCHAR(36) PRIMARY KEY, user_id VARCHAR(36) NOT NULL,
  turns LONGTEXT NOT NULL, created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_bin;
+"""),
+(3, """
+ALTER TABLE agent_traces
+ ADD COLUMN seq BIGINT NULL,
+ ADD COLUMN session_id VARCHAR(36) NOT NULL DEFAULT '',
+ ADD COLUMN latency_ms BIGINT NOT NULL DEFAULT 0,
+ ADD COLUMN provider VARCHAR(64) NOT NULL DEFAULT '',
+ ADD COLUMN degraded_reason VARCHAR(500) NOT NULL DEFAULT '';
+SET @pixelflow_seq:=0;
+UPDATE agent_traces SET seq=(@pixelflow_seq:=@pixelflow_seq+1) ORDER BY created_at;
+ALTER TABLE agent_traces ADD UNIQUE KEY agent_traces_seq(seq);
 """)]
 
 
