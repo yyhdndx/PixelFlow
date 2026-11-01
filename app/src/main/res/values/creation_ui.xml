@@ -3,4 +3,30 @@
     <item name="account_media_binding" type="id" />
     <string name="creation_check_my_works">查看我的作品</string>
     <string name="creation_retry_read">重新核对作品状态</string>
+    <string name="ai_creation_title">AI 辅助创作</string>
+    <string name="ai_creation_entry_subtitle">标题优化 · 正文润色 · 话题推荐</string>
+    <string name="ai_creation_request_subtitle">生成建议后由你选择是否采用，不会自动改动草稿</string>
+    <string name="ai_creation_goal_label">选择优化目标</string>
+    <string name="ai_creation_goal_all">综合优化</string>
+    <string name="ai_creation_goal_title">优化标题</string>
+    <string name="ai_creation_goal_content">润色正文</string>
+    <string name="ai_creation_goal_write">根据主题写文案</string>
+    <string name="ai_creation_goal_tags">推荐话题</string>
+    <string name="ai_creation_prompt_hint">主题或写作要求（可选）</string>
+    <string name="ai_creation_audience_hint">目标读者（可选）</string>
+    <string name="ai_creation_cancel">取消</string>
+    <string name="ai_creation_generate">生成建议</string>
+    <string name="ai_creation_preview_title">AI 创作建议</string>
+    <string name="ai_creation_badge_model">由 DeepSeek 模型生成</string>
+    <string name="ai_creation_badge_rules">规则引擎（未启用模型）</string>
+    <string name="ai_creation_risk_ok">内容安全检查：未发现问题</string>
+    <string name="ai_creation_risk_warn">内容安全提示：请留意以下风险</string>
+    <string name="ai_creation_section_titles">标题建议</string>
+    <string name="ai_creation_section_copies">正文建议</string>
+    <string name="ai_creation_section_tags">话题推荐</string>
+    <string name="ai_creation_keep_original">保留原文</string>
+    <string name="ai_creation_keep_editing">继续编辑</string>
+    <string name="ai_creation_apply">确认填入草稿</string>
+    <string name="ai_creation_candidate">候选项</string>
+    <string name="ai_creation_pick_first">请先选择要采用的建议</string>
 </resources>

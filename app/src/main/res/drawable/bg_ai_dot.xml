@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AI 候选圆点选择器（按 state_selected） -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_selected="true" android:drawable="@drawable/bg_ai_dot_on" />
+    <item android:drawable="@drawable/bg_ai_dot_off" />
+</selector>
