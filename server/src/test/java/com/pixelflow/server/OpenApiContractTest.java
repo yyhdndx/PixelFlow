@@ -47,6 +47,12 @@ class OpenApiContractTest {
         var agentResponses=(Map<?,?>)agent.get("responses");
         assertTrue(agentResponses.keySet().containsAll(List.of("200","400","401","502")));
         assertTrue(agent.get("description").toString().contains("55 秒"));
+        var suggestion=(Map<?,?>)((Map<?,?>)paths.get("/api/admin/agent/moderation-suggestion")).get("post");
+        var suggestionResponses=(Map<?,?>)suggestion.get("responses");
+        assertTrue(suggestionResponses.keySet().containsAll(List.of("200","400","401","403","404","502")));
+        assertTrue(suggestion.get("description").toString().contains("15 秒"));
+        var suggestionBody=(Map<?,?>)suggestion.get("requestBody");
+        assertEquals(true,suggestionBody.get("required"));
         var search=(Map<?,?>)((Map<?,?>)paths.get("/api/search/posts")).get("get");
         assertEquals(List.of(),search.get("security"));
         assertTrue(search.get("description").toString().contains("数字 ID 倒序"));

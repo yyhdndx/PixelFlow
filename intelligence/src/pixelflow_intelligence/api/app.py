@@ -14,6 +14,7 @@ from ..skills import Context, SkillError, create_registry
 from ..skills.models import DraftSnapshot
 from ..clients.deepseek import DeepSeekAssist
 from ..agents.search import answer_question
+from ..agents.moderation import suggest_moderation
 
 
 class ProfileRefreshInput(BaseModel):
@@ -64,6 +65,14 @@ class AgentSearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     question: Question
     session_id: str = Field(default="", max_length=36)
+
+
+class ModerationSuggestionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    post_id: str = Field(min_length=1, max_length=18, pattern=r"^[1-9][0-9]*$")
+    title: str = Field(max_length=120)
+    content: str = Field(max_length=5000)
+    tags: list[str] = Field(default_factory=list, max_length=20)
 
 
 HISTORY_COUNT_DEFAULT = 20
@@ -212,6 +221,23 @@ def create_app(settings=None, upstream=None):
         if trace is None:
             raise HTTPException(404, "Agent trace not found")
         return {"trace": trace}
+
+    @app.post("/internal/moderation-suggestion")
+    def moderation_suggestion(body: ModerationSuggestionRequest,
+                              credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        verify_maintenance(credentials)
+        actor = "moderation-service"
+        context = Context(actor, frozenset({"content:check"}), int(time.time()),
+                          time.monotonic() + 12)
+        try:
+            suggestion = suggest_moderation(actor=actor, post_id=body.post_id, title=body.title,
+                                            content=body.content, tags=body.tags, settings=settings,
+                                            store=store, context=context)
+        except (SkillError, TimeoutError, ValidationError):
+            raise HTTPException(502, "Moderation suggestion unavailable") from None
+        except (ValueError, KeyError, TypeError, *DATABASE_ERRORS):
+            raise HTTPException(502, "Moderation suggestion store unavailable") from None
+        return {"suggestion": suggestion}
 
     @app.get("/profiles/me")
     def profile(response: Response, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
