@@ -1,7 +1,7 @@
 # [Java][P1] Agent 智能搜索与多帖总结接口（Android AI 卡片待此接口）
 
 负责人：yyhSEU（Gitee: @yyhSEU）。状态：2026-11-01 新建。
-`21` 是仓库任务编号，线上 Gitee Issue：（创建后回填）。
+`21` 是仓库任务编号，线上 Gitee Issue：https://gitee.com/yyhSEU/pixel-flow/issues/IKS0Z3
 
 对应验收：Agent 侧「智能搜索与多帖总结」主线；US-02 人机交互加分项。
 基线：从最新 dev 建分支；Android 搜索页前端已上线 master（`feature/search-frontend`）。
