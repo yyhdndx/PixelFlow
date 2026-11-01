@@ -119,10 +119,10 @@ public class CommunityClient implements AutoCloseable {
         if ("POST".equals(method) && "/api/posts".equals(path) && job.creationKey != null)
             builder.header("Idempotency-Key", job.creationKey);
         builder.method(method, body);
-        OkHttpClient transport = path.equals("/api/agent/create-assist")
+        OkHttpClient transport = isAgentAggregate(path)
                 ? http.newBuilder().readTimeout(50, TimeUnit.SECONDS).build() : http;
         job.call = transport.newCall(builder.build());
-        if (path.equals("/api/agent/create-assist")) job.call.timeout().timeout(55, TimeUnit.SECONDS);
+        if (isAgentAggregate(path)) job.call.timeout().timeout(55, TimeUnit.SECONDS);
         if (path.equals("/api/events")) job.call.timeout().timeout(3, TimeUnit.SECONDS);
         if (job.cancelled) job.call.cancel();
         try (Response response = job.call.execute()) {
@@ -137,6 +137,10 @@ public class CommunityClient implements AutoCloseable {
             }
             return raw;
         }
+    }
+    /** Agent 聚合类接口（LLM 综合，秒级响应），统一放宽读超时并允许 55s 整体超时。 */
+    private static boolean isAgentAggregate(String path) {
+        return path.equals("/api/agent/create-assist") || path.equals("/api/agent/search");
     }
     private String authenticated(Job job, String path, String method, Object body, long expected,
             boolean required) throws IOException {
@@ -458,6 +462,23 @@ public class CommunityClient implements AutoCloseable {
             String raw = authenticated(job, "/api/agent/create-assist", "POST", input, expected, true);
             CreationSuggestion result = gson.fromJson(raw, CreationSuggestion.class);
             if (result == null || !result.valid()) throw new ApiError(502, "建议响应不完整，请重试");
+            return result;
+        }, callback);
+    }
+
+    /** Agent 智能搜索与多帖总结；契约见 docs/issues/21-java-agent-搜索接口.md。仅登录用户，游客 401。 */
+    public Job agentSearch(String question, String sessionId, Callback<AgentSearchResult> callback) {
+        return submit((job, expected) -> {
+            if (question == null || question.trim().isEmpty() || question.trim().length() > 200)
+                throw new ApiError(400, "问题需为 1–200 字");
+            JsonObject input = new JsonObject();
+            input.addProperty("question", question.trim());
+            if (sessionId != null && !sessionId.isEmpty()) input.addProperty("session_id", sessionId);
+            AgentSearchResult result = gson.fromJson(
+                    authenticated(job, "/api/agent/search", "POST", input, expected, true),
+                    AgentSearchResult.class);
+            if (result == null || result.status_code != 0 || result.answer == null)
+                throw new ApiError(502, "AI 总结响应不完整，请重试");
             return result;
         }, callback);
     }
