@@ -12,8 +12,11 @@
 
 1. **索引与迁移的冲突——允许一个仅含索引的新迁移。**
    V1 迁移已执行，历史迁移不可改；为已有库交付 `title` 前缀索引必须通过新迁移。
-   允许新增 `V2__search_title_index.sql`（内容只有一条 `ALTER TABLE posts ADD INDEX ...`，
-   前缀长度建议 utf8mb4 下 20–30 字符）。除此之外仍禁止任何表结构变更。
+   允许新增 `V12__search_title_index.sql`（内容只有一条 `ALTER TABLE posts ADD INDEX`，
+   前缀长度 utf8mb4 下 30 字符，即 `title(30)`）。MySQL 与 H2 两个迁移目录都要有
+   同版本文件，H2 提供等效标题索引。**迁移编号以 V12 为准**（V2 已被
+   `V2__user_status_audit.sql` 占用，当前最新为 V11，合入前再次核对编号）。
+   除此之外仍禁止任何表结构变更。
 2. **「话题」无独立数据——定义为正文中的 `#话题名` 片段。**
    master 无标签字段/标签表，卡片 `hashtag` 固定为空数组，Android 将话题以文本形式追加进正文。
    匹配规则：大小写不敏感，命中两类位置之一即算匹配——
@@ -50,11 +53,11 @@ Android 搜索页前端已交付并合入待审分支：
 2. 匹配规则（v2）：大小写不敏感，命中任一类即匹配——(a) 标题前缀 `title LIKE 'kw%'`；(b) 正文话题 `content LIKE '%#kw%'`（`#` 锚定；q 以 `#` 开头则去掉后处理）；q 为 1–60 字，忽略首尾空白，整体短语不拆词；空/超长返回 400 INVALID_ARGUMENT。
 3. 可见性：仅返回 `PUBLISHED` 且作者未禁用/未注销的作品；游客可用（复用 Feed 的可见性逻辑，绝不返回草稿与待审核内容）。
 4. 排序与分页（v2）：`ORDER BY id DESC` + `id < cursor`（与 `/feed/` 完全一致的游标语义）；count 1–50，默认 20。
-5. **实现约束（4GB 演示服务器）**：匹配用 `LIKE` 即可；允许新增仅含索引的迁移 `V2__search_title_index.sql`（`title` 前缀索引，utf8mb4 前缀 20–30 字符）；**禁止引入 Elasticsearch / 全文索引**；单查询必须有 LIMIT；不为搜索加缓存层（Redis 限流已覆盖滥用场景）；对最终完整 SQL（含标题与正文话题两条件）做 EXPLAIN 并贴进 PR。
+5. **实现约束（4GB 演示服务器）**：匹配用 `LIKE` 即可；允许新增仅含索引的迁移 `V12__search_title_index.sql`（`title(30)` 前缀索引，MySQL 与 H2 两目录同版本，H2 等效索引）；**禁止引入 Elasticsearch / 全文索引**；单查询必须有 LIMIT；不为搜索加缓存层（Redis 限流已覆盖滥用场景）；对最终完整 SQL（含标题与正文话题两条件）做 EXPLAIN 并贴进 PR。
 
 ## 实现边界与协作
 
-- 只加只读接口与一条索引迁移（V2，仅 ALTER INDEX），不新增表、不改其他迁移；不改动 `/feed/` 现有行为。
+- 只加只读接口与一条索引迁移（V12，仅 ALTER INDEX），不新增表、不改其他迁移；不改动 `/feed/` 现有行为。
 - `SecurityConfig` 为 `GET /api/search/posts` 放行游客（不带 token 放行；无效 token 沿用现有规则）。
 - 热门搜索（前端目前是静态词）如后续要动态化，另立任务加只读 `hot` 接口，不在本任务内。
 - Android 端如需字段微调，先改 `contracts/http/java-api.yaml` 再同步。
