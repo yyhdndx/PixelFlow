@@ -21,7 +21,7 @@ async function load(append = false) {
 async function open(trace) {
   selected.value = trace; detailError.value = ''
   detailLoading.value = true
-  try { selected.value = await request(`/api/admin/agent/traces/${trace.trace_id}`) }
+  try { selected.value = (await request(`/api/admin/agent/traces/${trace.trace_id}`)).trace }
   catch (e) { detailError.value = e.message }
   finally { detailLoading.value = false }
 }
