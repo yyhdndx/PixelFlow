@@ -1,7 +1,7 @@
 # [Java][P1] Agent 智能审查建议接口（admin-web 审核队列「AI 建议」）
 
 负责人：yyhSEU（Gitee: @yyhSEU）。状态：2026-11-01 新建。
-`23` 是仓库任务编号，线上 Gitee Issue：（发布后回填）
+`23` 是仓库任务编号，线上 Gitee Issue：https://gitee.com/yyhSEU/pixel-flow/issues/IKS2XQ
 前置：任务21（`/api/agent/search` 网关先例）已合并部署；任务22（trace 查询）并行开发，
 **本任务的 trace 落库与任务22共用同一套 analytics trace 机制与查询出口**。
 
