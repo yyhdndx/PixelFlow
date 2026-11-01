@@ -38,6 +38,12 @@ class OpenApiContractTest {
         assertEquals(60,userBio.get("x-utf16-maxLength"));
         assertFalse(userBio.containsKey("maxLength"));
         var paths=(Map<?,?>)document.get("paths");
+        var search=(Map<?,?>)((Map<?,?>)paths.get("/api/search/posts")).get("get");
+        assertEquals(List.of(),search.get("security"));
+        assertTrue(search.get("description").toString().contains("数字 ID 倒序"));
+        var searchQuery=(Map<?,?>)((List<?>)search.get("parameters")).get(0);
+        assertEquals("q",searchQuery.get("name")); assertEquals(true,searchQuery.get("required"));
+        assertEquals(60,((Map<?,?>)searchQuery.get("schema")).get("x-utf16-maxLength"));
         var createPost=(Map<?,?>)((Map<?,?>)paths.get("/api/posts")).get("post");
         var idempotency=(Map<?,?>)((List<?>)createPost.get("parameters")).get(0);
         assertEquals("Idempotency-Key",idempotency.get("name"));

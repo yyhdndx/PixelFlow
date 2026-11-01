@@ -143,7 +143,7 @@ public class PostService {
         return db.queryForList("SELECT p.*,u.nickname,u.avatar FROM posts p JOIN users u ON p.author_id=u.id WHERE p.author_id=? AND p.id<? ORDER BY p.id DESC LIMIT ?",
                 actor.id(),cursor==null ? Long.MAX_VALUE : cursor,count).stream().map(this::view).toList();
     }
-    private Map<String,Object> withViewerState(Map<String,Object> post,Actor actor) {
+    Map<String,Object> withViewerState(Map<String,Object> post,Actor actor) {
         post.put("is_liked",actor!=null && db.queryForObject(
                 "SELECT COUNT(*) FROM interactions WHERE user_id=? AND kind='likes' AND target_id=?",
                 Integer.class,actor.id(),post.get("post_id"))>0);
