@@ -1,7 +1,7 @@
 # [Java][P1] Agent 轨迹查询接口（激活管理端「Agent 轨迹」占位页）
 
 负责人：yyhSEU（Gitee: @yyhSEU）。状态：2026-11-01 新建。
-`22` 是仓库任务编号，线上 Gitee Issue：创建后回填。
+`22` 是仓库任务编号，线上 Gitee Issue：https://gitee.com/yyhSEU/pixel-flow/issues/IKS2NZ
 前置：任务21（`/api/agent/search` 全链路）已合并 dev 并云端部署，E2E 通过。
 
 ## 背景
