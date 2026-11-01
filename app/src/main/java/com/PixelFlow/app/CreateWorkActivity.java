@@ -235,17 +235,17 @@ public class CreateWorkActivity extends AppCompatActivity {
         else tvCharCount.setTextColor(getResources().getColor(R.color.profile_muted));
     }
 
-    /** 组装一个圆角白底、宽度近贴边的 AI 弹窗 */
+    /** 组装一个圆角白底、宽度近贴边的 AI 弹窗（顶部对齐，键盘弹出也不重排） */
     private android.app.Dialog aiDialog(View content) {
-        android.app.Dialog dialog = new android.app.Dialog(this);
+        android.app.Dialog dialog = new android.app.Dialog(this, R.style.AiAssistDialog);
         dialog.setContentView(content);
         dialog.setOnShowListener(d -> {
             android.view.Window w = dialog.getWindow();
             if (w == null) return;
-            w.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
             android.view.WindowManager.LayoutParams lp = w.getAttributes();
             lp.width = getResources().getDisplayMetrics().widthPixels - dpToPx(44);
-            lp.dimAmount = 0.55f;
+            lp.gravity = android.view.Gravity.TOP;
+            lp.y = dpToPx(48);
             w.setAttributes(lp);
         });
         return dialog;
