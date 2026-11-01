@@ -68,12 +68,32 @@ class Store:
                 CREATE TABLE IF NOT EXISTS agent_traces (
                     trace_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, question TEXT NOT NULL,
                     answer TEXT NOT NULL, source_count INTEGER NOT NULL, degraded INTEGER NOT NULL,
-                    steps TEXT NOT NULL, created_at BIGINT NOT NULL);
+                    steps TEXT NOT NULL, created_at BIGINT NOT NULL,
+                    seq INTEGER, session_id TEXT NOT NULL DEFAULT '',
+                    latency_ms INTEGER NOT NULL DEFAULT 0, provider TEXT NOT NULL DEFAULT '',
+                    degraded_reason TEXT NOT NULL DEFAULT '');
                 CREATE INDEX IF NOT EXISTS agent_traces_user ON agent_traces(user_id,created_at);
                 CREATE TABLE IF NOT EXISTS agent_sessions (
                     session_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, turns TEXT NOT NULL,
                     created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL);
-            """)
+                """)
+                # 兼容升级：为既有 sqlite 文件补齐任务22新增列（重复列报错可忽略）。
+                for statement in (
+                        "ALTER TABLE agent_traces ADD COLUMN seq INTEGER",
+                        "ALTER TABLE agent_traces ADD COLUMN session_id TEXT NOT NULL DEFAULT ''",
+                        "ALTER TABLE agent_traces ADD COLUMN latency_ms INTEGER NOT NULL DEFAULT 0",
+                        "ALTER TABLE agent_traces ADD COLUMN provider TEXT NOT NULL DEFAULT ''",
+                        "ALTER TABLE agent_traces ADD COLUMN degraded_reason TEXT NOT NULL DEFAULT ''"):
+                    try:
+                        db.execute(statement)
+                    except sqlite3.OperationalError:
+                        pass
+                # 存量行按 created_at 顺序补 seq（逐行递增）。
+                seq = db.execute("SELECT COALESCE(MAX(seq),0) FROM agent_traces").fetchone()[0]
+                for row in db.execute(
+                        "SELECT trace_id FROM agent_traces WHERE seq IS NULL ORDER BY created_at"):
+                    seq += 1
+                    db.execute("UPDATE agent_traces SET seq=? WHERE trace_id=?", (seq, row[0]))
 
     def connect(self):
         if self.mysql:
@@ -196,18 +216,87 @@ class Store:
             (operation, now, int(more)))
 
     def save_agent_trace(self, *, trace_id, user_id, question, answer, source_count,
-                         degraded, steps, created_at):
+                         degraded, steps, created_at, session_id="", latency_ms=0,
+                         provider="", degraded_reason=""):
         if type(trace_id) is not str or not 1 <= len(trace_id) <= 36 \
                 or type(user_id) is not str or not 1 <= len(user_id) <= 36 \
                 or type(question) is not str or not 1 <= len(question) <= 200 \
                 or type(answer) is not str or not 1 <= len(answer) <= 1500 \
                 or type(source_count) is not int or not 0 <= source_count <= 20 \
-                or degraded not in (0, 1) or type(created_at) is not int:
+                or degraded not in (0, 1) or type(created_at) is not int \
+                or type(session_id) is not str or len(session_id) > 36 \
+                or type(latency_ms) is not int or not 0 <= latency_ms <= 3600000 \
+                or type(provider) is not str or len(provider) > 64 \
+                or type(degraded_reason) is not str or len(degraded_reason) > 500:
             raise ValueError("Invalid agent trace")
         with closing(self.connect()) as db, db:
-            db.execute("INSERT INTO agent_traces VALUES(?,?,?,?,?,?,?,?)", (
+            self._begin_write(db)
+            seq = db.execute("SELECT COALESCE(MAX(seq),0)+1 FROM agent_traces").fetchone()[0]
+            db.execute("INSERT INTO agent_traces (trace_id,user_id,question,answer,source_count,"
+                       "degraded,steps,created_at,seq,session_id,latency_ms,provider,"
+                       "degraded_reason) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", (
                 trace_id, user_id, question, answer, source_count, int(degraded),
-                json.dumps(steps, ensure_ascii=False), created_at))
+                json.dumps(steps, ensure_ascii=False), created_at, seq,
+                session_id, latency_ms, provider, degraded_reason))
+
+    @staticmethod
+    def _trace_summary(row):
+        return {"trace_id": row["trace_id"], "user_id": row["user_id"],
+                "question": row["question"], "created_at": row["created_at"],
+                "latency_ms": row["latency_ms"], "degraded": row["degraded"],
+                "source_count": row["source_count"], "provider": row["provider"]}
+
+    def agent_trace_page(self, count, before_seq=None):
+        """一页轨迹摘要，seq 倒序（最新在前）；before_seq 为上一页 next_cursor。"""
+        if type(count) is not int or not 1 <= count <= 50 \
+                or (before_seq is not None
+                    and (type(before_seq) is not int or before_seq < 1)):
+            raise ValueError("Invalid agent trace page")
+        with closing(self.connect()) as db:
+            if before_seq is None:
+                rows = db.execute("SELECT * FROM agent_traces ORDER BY seq DESC LIMIT ?",
+                                  (count + 1,)).fetchall()
+            else:
+                rows = db.execute("SELECT * FROM agent_traces WHERE seq<? ORDER BY seq DESC LIMIT ?",
+                                  (before_seq, count + 1)).fetchall()
+            selected = rows[:count]
+            cursor = str(selected[-1]["seq"]) if len(rows) > count and selected else None
+            return {"traces": [self._trace_summary(row) for row in selected],
+                    "next_cursor": cursor}
+
+    def agent_trace_detail(self, trace_id):
+        """单条轨迹详情：列表列 + steps JSON 中的检索/模型/来源细节；不存在返回 None。"""
+        if type(trace_id) is not str or not 1 <= len(trace_id) <= 36:
+            raise ValueError("Invalid agent trace lookup")
+        with closing(self.connect()) as db:
+            row = db.execute("SELECT * FROM agent_traces WHERE trace_id=?",
+                             (trace_id,)).fetchone()
+        if row is None:
+            return None
+        try:
+            steps = json.loads(row["steps"])
+        except (TypeError, json.JSONDecodeError):
+            steps = []
+        retrieve = next((s for s in steps if isinstance(s, dict) and s.get("step") == "retrieve"), {})
+        synthesize = next((s for s in steps if isinstance(s, dict) and s.get("step") == "synthesize"), {})
+        selected_ids = [str(v) for v in retrieve.get("selected_ids", [])
+                        if str(v).isdigit() and 0 < len(str(v)) <= 18][:5]
+        sources = [{"post_id": str(item["post_id"]), "title": str(item["title"])[:120]}
+                   for item in retrieve.get("sources", [])
+                   if isinstance(item, dict) and str(item.get("post_id", "")).isdigit()
+                   and isinstance(item.get("title"), str)][:5]
+        return {"trace_id": row["trace_id"], "user_id": row["user_id"],
+                "session_id": row["session_id"], "question": row["question"],
+                "created_at": row["created_at"], "latency_ms": row["latency_ms"],
+                "degraded": row["degraded"], "degraded_reason": row["degraded_reason"],
+                "provider": row["provider"],
+                "retrieval": {"query": str(retrieve.get("query", ""))[:200],
+                              "candidate_count": int(retrieve.get("candidate_count", 0) or 0),
+                              "selected_ids": selected_ids},
+                "llm": {"model": str(synthesize.get("model", ""))[:64],
+                        "latency_ms": int(synthesize.get("latency_ms", 0) or 0)},
+                "answer": row["answer"],
+                "sources": sources}
 
     def load_agent_session(self, session_id, user_id):
         """Return the session's turns for this user, or None if not found/owner mismatch."""

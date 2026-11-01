@@ -150,32 +150,77 @@
                 android:visibility="gone" />
 
             <!-- AI 辅助创作主入口 -->
-            <Button
+            <LinearLayout
                 android:id="@+id/creation_assist"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="2dp"
-                android:background="@drawable/bg_ai_button"
-                app:backgroundTint="@null"
-                app:icon="@drawable/ic_sparkle"
-                app:iconTint="@android:color/white"
-                app:iconGravity="textStart"
-                app:iconPadding="10dp"
-                android:gravity="center"
-                android:paddingStart="20dp"
-                android:paddingEnd="24dp"
-                android:text="AI 辅助创作"
-                android:textAllCaps="false"
-                android:textColor="@android:color/white"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_ai_entry_card"
+                android:foreground="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="16dp">
+
+                <FrameLayout
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/bg_ai_icon_circle">
+
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_sparkle"
+                        android:contentDescription="@string/ai_creation_title" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/ai_creation_title"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/profile_ink" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="@string/ai_creation_entry_subtitle"
+                        android:textSize="12sp"
+                        android:textColor="@color/profile_muted" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:rotationY="180"
+                    android:src="@drawable/ic_arrow_back"
+                    app:tint="@color/profile_muted"
+                    android:contentDescription="@string/back" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/creation_assist_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:background="@drawable/bg_status_soft"
                 android:accessibilityLiveRegion="polite"
-                android:textColor="@color/profile_muted"
+                android:textSize="13sp"
+                android:textColor="@color/profile_accent"
                 android:visibility="gone" />
 
             <!-- AI 辅助的次级操作：一行文字按钮 -->

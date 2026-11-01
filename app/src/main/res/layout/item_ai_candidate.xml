@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AI 建议候选项卡片 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="top"
+    android:background="@drawable/bg_ai_candidate"
+    android:foreground="?attr/selectableItemBackground"
+    android:paddingStart="14dp"
+    android:paddingEnd="14dp"
+    android:paddingTop="13dp"
+    android:paddingBottom="13dp">
+
+    <ImageView
+        android:id="@+id/candidate_dot"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginTop="1dp"
+        android:contentDescription="@string/ai_creation_candidate"
+        android:background="@drawable/bg_ai_dot" />
+
+    <TextView
+        android:id="@+id/candidate_text"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="12dp"
+        android:textSize="14.5sp"
+        android:lineSpacingExtra="3dp"
+        android:maxLines="8"
+        android:ellipsize="end"
+        android:textColor="@color/profile_ink" />
+</LinearLayout>

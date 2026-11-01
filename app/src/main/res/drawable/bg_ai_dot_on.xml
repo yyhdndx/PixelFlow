@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AI 候选圆点选中：品牌紫实底 + 白心 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/profile_accent" />
+    <size android:width="20dp" android:height="20dp" />
+</shape>

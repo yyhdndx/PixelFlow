@@ -181,6 +181,38 @@ def create_app(settings=None, upstream=None):
         except (ValueError, KeyError, TypeError, *DATABASE_ERRORS):
             raise HTTPException(503, "Analytics status unavailable") from None
 
+    @app.get("/internal/traces")
+    def agent_traces(count: str = "20", cursor: str | None = None,
+                     credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        verify_maintenance(credentials)
+        try:
+            if not count.isdigit() or not 1 <= int(count) <= 50:
+                raise ValueError("count 应为 1–50")
+            before = None
+            if cursor is not None:
+                if not cursor.isdigit() or int(cursor) <= 0:
+                    raise ValueError("cursor 应为正整数")
+                before = int(cursor)
+            return store.agent_trace_page(int(count), before)
+        except ValueError as error:
+            raise HTTPException(400, str(error)) from None
+        except (KeyError, TypeError, *DATABASE_ERRORS):
+            raise HTTPException(502, "Agent trace store unavailable") from None
+
+    @app.get("/internal/traces/{trace_id}")
+    def agent_trace_detail(trace_id: str,
+                           credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        verify_maintenance(credentials)
+        try:
+            trace = store.agent_trace_detail(trace_id)
+        except ValueError as error:
+            raise HTTPException(400, str(error)) from None
+        except (KeyError, TypeError, *DATABASE_ERRORS):
+            raise HTTPException(502, "Agent trace store unavailable") from None
+        if trace is None:
+            raise HTTPException(404, "Agent trace not found")
+        return {"trace": trace}
+
     @app.get("/profiles/me")
     def profile(response: Response, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
         response.headers["Cache-Control"] = "no-store"

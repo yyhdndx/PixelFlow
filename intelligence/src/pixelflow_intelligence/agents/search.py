@@ -4,6 +4,7 @@
 规划决策、工具选择结果与执行 trace；但流程仍是单轮有界的——
 规划器固定产出"检索一次"的计划，不存在 while/not-satisfied 循环。
 """
+import time
 import uuid
 
 from ..skills import Context, SkillError, create_registry
@@ -30,11 +31,22 @@ def answer_question(*, user, question, session_id, upstream, token, settings, st
     plan = {"intent": "community_search", "retrieval_rounds": 1, "max_sources": MAX_SOURCES}
     context.checkpoint()
     retrieved = registry.invoke("search_posts", {"user_id": user, "question": question}, context)
+    selected = retrieved["output"]["items"][:MAX_SOURCES]
+
+    def numeric_id(value):
+        text = str(value)
+        return text if text.isdigit() and 0 < len(text) <= 18 else "0"
+
     steps = [{"step": "plan", "decision": plan},
-             {key: retrieved[key] for key in ("skill", "skill_version", "trace_id", "elapsed_ms")},
+             {"step": "retrieve", "skill": retrieved["skill"],
+              "skill_version": retrieved["skill_version"], "trace_id": retrieved["trace_id"],
+              "elapsed_ms": retrieved["elapsed_ms"], "query": question,
+              "candidate_count": retrieved["output"]["inspected"],
+              "selected_ids": [numeric_id(item["post_id"]) for item in selected],
+              "sources": [{"post_id": numeric_id(item["post_id"]), "title": item["title"]}
+                          for item in selected]},
              {"step": "validate", "selected": min(MAX_SOURCES, len(retrieved["output"]["items"])),
               "inspected": retrieved["output"]["inspected"]}]
-    selected = retrieved["output"]["items"][:MAX_SOURCES]
 
     history = []
     if store is not None and session_id:
@@ -43,6 +55,10 @@ def answer_question(*, user, question, session_id, upstream, token, settings, st
             history = session["turns"][-3:]
 
     degraded = 0
+    degraded_reason = ""
+    provider_name = "rules"
+    llm_latency_ms = 0
+    model_name = ""
     if not selected:
         answer = NO_ANSWER
     else:
@@ -52,20 +68,30 @@ def answer_question(*, user, question, session_id, upstream, token, settings, st
             provider = DeepSeekAnswer(settings)
         if provider is None:
             degraded, answer = 1, _fallback_answer(selected)
+            degraded_reason = "未配置模型密钥，规则降级"
         else:
+            llm_start = time.monotonic()
             try:
                 answer = provider(question=question, history=history, sources=selected,
                                   deadline=context.deadline)
+                provider_name = "deepseek"
             except SkillError:
                 degraded, answer = 1, _fallback_answer(selected)
-            steps.append({"step": "synthesize", "provider": "deepseek", "ok": not degraded})
+                degraded_reason = "模型调用失败，规则降级"
+            llm_latency_ms = int((time.monotonic() - llm_start) * 1000)
+            steps.append({"step": "synthesize", "provider": provider_name,
+                          "ok": not degraded, "latency_ms": llm_latency_ms,
+                          "model": model_name or "deepseek-chat"})
         context.checkpoint()
 
+    latency_ms = max(0, int((time.time() - context.now) * 1000))
     new_session_id = session_id or str(uuid.uuid4())
     if store is not None:
         store.save_agent_trace(trace_id=context.trace_id, user_id=user, question=question,
                                answer=answer, source_count=len(selected), degraded=degraded,
-                               steps=steps, created_at=context.now)
+                               steps=steps, created_at=context.now, session_id=new_session_id,
+                               latency_ms=latency_ms, provider=provider_name,
+                               degraded_reason=degraded_reason)
         store.save_agent_session(new_session_id, user, history + [
             {"question": question, "answer": answer}], now=context.now)
     return {"user_id": user, "trace_id": context.trace_id, "session_id": new_session_id,

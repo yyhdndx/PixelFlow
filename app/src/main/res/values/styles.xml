@@ -11,6 +11,16 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
+    <style name="AiAssistDialog" parent="android:Theme.Material.Light.Dialog">
+        <!-- 圆角背景由内容视图自绘，窗口背景必须透明，否则四角会露出矩形底 -->
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.55</item>
+        <item name="android:windowNoTitle">true</item>
+        <!-- 软键盘弹出时不重排窗口，避免弹窗整体上下跳动 -->
+        <item name="android:windowSoftInputMode">stateHidden|adjustNothing</item>
+    </style>
+
     <style name="FullScreenDialogAnimation">
         <item name="android:windowEnterAnimation">@android:anim/fade_in</item>
         <item name="android:windowExitAnimation">@android:anim/fade_out</item>
