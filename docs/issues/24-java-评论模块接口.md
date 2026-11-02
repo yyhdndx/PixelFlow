@@ -1,6 +1,6 @@
 # [Java][P2] 评论模块：comments 表与发评/列表/删除接口
 
-负责人：yyh（Gitee: @yyhSEU）。状态：2026-11-02 新建，待领取。
+负责人：yyh（Gitee: @yyhSEU）。状态：2026-11-02 后端实现已合并 dev（merge `403faa1`，服务器 H2 测试 7/7 + 回归 65/65 全过，V14 双库迁移）；CI 的 MySQL 测试库注册由 `fd5bf8d` 补齐；待 master 部署后端到端验证后关闭 issue。
 `24` 是仓库任务编号，线上 Gitee Issue：https://gitee.com/yyhSEU/pixel-flow/issues/IKS8US
 
 前置：无硬前置；与任务 20（时间字段）、Agent 评论总结均解耦——本任务落地后，
