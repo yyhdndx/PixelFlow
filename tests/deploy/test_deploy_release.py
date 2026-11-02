@@ -9,6 +9,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+import zipfile
 
 
 SCRIPT = Path(__file__).resolve().parents[2] / 'deploy/scripts/deploy-release.sh'
@@ -31,6 +32,11 @@ class DeploymentTests(unittest.TestCase):
             path = self.old / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(value)
+        self.jar = 'server/target/pixelflow-server-0.1.0.jar'
+        self.sql = {'V1__schema.sql': 'CREATE TABLE test (id INT);'}
+        jar = self.old / self.jar
+        jar.parent.mkdir(parents=True)
+        jar.write_bytes(self.jar_bytes(self.sql))
         self.bin = Path(self.temp.name) / 'bin'
         self.bin.mkdir()
         self.log = self.root / 'commands.log'
@@ -66,20 +72,31 @@ else:
         path.write_text(content)
         path.chmod(0o755)
 
-    def package(self, changed_schema=False, unsafe=False):
+    @staticmethod
+    def jar_bytes(migrations):
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, 'w') as jar:
+            for name, content in migrations.items():
+                jar.writestr('BOOT-INF/classes/db/mysql/' + name, content)
+        return output.getvalue()
+
+    def package(self, changed_schema=False, unsafe=False, migrations=None, source_migrations=None):
+        migrations = self.sql if migrations is None else migrations
+        source_migrations = migrations if source_migrations is None else source_migrations
         files = {
             'RELEASE_COMMIT': SHA + '\n',
-            'server/target/pixelflow-server-0.1.0.jar': 'fake jar',
-            self.migration: (self.old / self.migration).read_text(),
+            self.jar: self.jar_bytes(migrations),
             self.schema: '# changed' if changed_schema else (self.old / self.schema).read_text(),
             'intelligence/pyproject.toml': '# test fixture',
         }
+        files.update({'server/src/main/resources/db/mysql/' + name: content
+                      for name, content in source_migrations.items()})
         if unsafe:
             files['../escape'] = 'must not extract'
         archive = self.root / f'incoming/{SHA}-1-1.tar.gz'
         with tarfile.open(archive, 'w:gz') as output:
             for name, text in files.items():
-                data = text.encode()
+                data = text.encode() if isinstance(text, str) else text
                 item = tarfile.TarInfo(name)
                 item.size = len(data)
                 output.addfile(item, io.BytesIO(data))
@@ -108,6 +125,62 @@ else:
         self.assertEqual(4, result.returncode, result.stderr)
         self.assertEqual(self.old, (self.root / 'current').resolve())
         self.assertFalse(self.log.exists())
+
+    def test_manual_release_without_migration_directory_uses_running_jar(self):
+        shutil.rmtree(self.old / 'server/src')
+        result = self.run_deploy(self.package())
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn('Java migration check passed', result.stdout)
+
+    def test_java_migration_changes_are_rejected_even_without_old_source_directory(self):
+        shutil.rmtree(self.old / 'server/src')
+        variants = [
+            {**self.sql, 'V2__new.sql': 'CREATE TABLE another (id INT);'},
+            {'V1__schema.sql': 'CREATE TABLE test (id BIGINT);'},
+            {'V2__renamed.sql': self.sql['V1__schema.sql']},
+            {},
+        ]
+        for migrations in variants:
+            with self.subTest(migrations=list(migrations)):
+                result = self.run_deploy(self.package(migrations=migrations))
+                self.assertEqual(4, result.returncode, result.stdout + result.stderr)
+                self.assertEqual(self.old, (self.root / 'current').resolve())
+                self.assertFalse(self.log.exists())
+                shutil.rmtree(self.root / f'releases/{SHA}-1-1')
+
+    def test_source_directory_cannot_hide_different_packaged_migrations(self):
+        result = self.run_deploy(self.package(
+            migrations={'V1__schema.sql': 'CHANGED'}, source_migrations=self.sql))
+        self.assertEqual(4, result.returncode, result.stderr)
+        self.assertIn('differs from packaged JAR', result.stderr)
+        self.assertFalse(self.log.exists())
+
+    def test_stale_previous_source_directory_is_rejected(self):
+        (self.old / self.migration).write_text('STALE')
+        result = self.run_deploy(self.package())
+        self.assertEqual(4, result.returncode, result.stderr)
+        self.assertFalse(self.log.exists())
+
+    def test_unverifiable_previous_jar_is_rejected(self):
+        for data in (b'not a zip', self.jar_bytes({}), None):
+            with self.subTest(data=data):
+                if data is None:
+                    (self.old / self.jar).unlink()
+                else:
+                    (self.old / self.jar).write_bytes(data)
+                result = self.run_deploy(self.package())
+                self.assertEqual(4, result.returncode, result.stderr)
+                self.assertIn('Cannot verify Java migrations', result.stderr)
+                self.assertFalse(self.log.exists())
+                shutil.rmtree(self.root / f'releases/{SHA}-1-1')
+
+    def test_missing_migration_directory_still_allows_healthy_rollback(self):
+        shutil.rmtree(self.old / 'server/src')
+        self.env['FAIL_NEW_HEALTH'] = '1'
+        result = self.run_deploy(self.package())
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual(self.old, (self.root / 'current').resolve())
+        self.assertIn('Application rollback healthy', result.stderr)
 
     def test_checksum_mismatch_stops_before_extraction(self):
         self.package()

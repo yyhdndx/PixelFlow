@@ -63,7 +63,9 @@ jobs:
           python-version: '3.11'
       - name: Install Python dependencies
         run: |
-          python -m pip install './intelligence[test]'
+          python -m pip install './intelligence[test,mcp]'
+          python -m pip check
+          python -c 'import pixelflow_intelligence.api.app; import pixelflow_intelligence.mcp.server'
           python -m pip freeze --exclude pixelflow-intelligence > intelligence/constraints-ci.txt
       - name: Create disposable databases
         run: |
