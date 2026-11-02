@@ -35,9 +35,10 @@ public class CommentController {
         if (content.isEmpty() || content.length()>500) throw new ApiException(400,"INVALID_ARGUMENT","评论应为 1–500 字");
         Long parentId=null; String parentAuthor=null;
         if (input.parentCommentId()!=null) {
-            var parents=db.queryForList("SELECT author_id FROM comments WHERE comment_id=? AND post_id=?",input.parentCommentId(),postId);
+            parentId=Long.parseLong(input.parentCommentId());
+            var parents=db.queryForList("SELECT author_id FROM comments WHERE comment_id=? AND post_id=?",parentId,postId);
             if (parents.isEmpty()) throw new ApiException(404,"COMMENT_NOT_FOUND","被回复的评论不存在");
-            parentId=Long.parseLong(input.parentCommentId()); parentAuthor=(String)parents.get(0).get("author_id");
+            parentAuthor=(String)parents.get(0).get("author_id");
         }
         var key=new GeneratedKeyHolder();
         Long parent=parentId;

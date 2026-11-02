@@ -104,16 +104,16 @@ class NotificationApiTest {
                 .content(encode(Map.of("content","回复","parentCommentId","999999")))).andExpect(status().isNotFound());
     }
 
-    @Test void likeNotifiesOnceAndSkipsSelf() throws Exception {
+    @Test void likeNotifiesOncePerLikeEvent() throws Exception {
         String alice=account("alice3"); String bob=account("bob3"); String adm=admin("admin_l");
         String post=published(alice,adm);
         like(alice,post,true);                                   // 自赞无通知
         assertEquals(0,list(alice,"LIKE").get("notification_list").size());
         like(bob,post,true);
-        like(bob,post,false);                                    // 取消赞
-        like(bob,post,true);                                     // 重点赞不重复通知
+        like(bob,post,false);                                    // 取消赞不产生通知
+        like(bob,post,true);                                     // 再次点赞视为新的点赞事件，再通知一次
         var likes=list(alice,"LIKE").get("notification_list");
-        assertEquals(1,likes.size());
+        assertEquals(2,likes.size());
         assertEquals("bob3",likes.get(0).get("actor").get("nickname").asText());
     }
 
