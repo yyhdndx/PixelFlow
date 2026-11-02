@@ -88,7 +88,7 @@ it('requires a reason for user changes and renders the server result', async () 
   expect(wrapper.text()).toContain('已禁用')
   wrapper.unmount()
 })
-it('loads an AI suggestion and prefills the moderation reason', async () => {
+it('loads an AI suggestion automatically on open and prefills the moderation reason', async () => {
   request.mockImplementation(async path => path.startsWith('/api/admin/posts') ? [post] : [])
   write.mockResolvedValue({ status_code: 0, suggestion: {
     suggestion_id: 's-1', post_id: '100', risk_level: 'high', recommended_action: 'reject',
@@ -97,7 +97,6 @@ it('loads an AI suggestion and prefills the moderation reason', async () => {
   const wrapper = mount(Moderation)
   await flushPromises()
   await wrapper.findAll('button').find(b => b.text() === '查看并审核').trigger('click')
-  await wrapper.findAll('button').find(b => b.text() === '获取 AI 建议').trigger('click')
   await flushPromises()
   expect(write).toHaveBeenCalledWith('/api/admin/agent/moderation-suggestion', 'POST', { post_id: '100' })
   expect(wrapper.text()).toContain('高风险')
@@ -113,8 +112,8 @@ it('surfaces suggestion failures without touching the review state', async () =>
   const wrapper = mount(Moderation)
   await flushPromises()
   await wrapper.findAll('button').find(b => b.text() === '查看并审核').trigger('click')
-  await wrapper.findAll('button').find(b => b.text() === '获取 AI 建议').trigger('click')
   await flushPromises()
+  expect(write).toHaveBeenCalledWith('/api/admin/agent/moderation-suggestion', 'POST', { post_id: '100' })
   expect(wrapper.find('[role="alert"]').text()).toBe('建议服务暂时不可用')
   expect(wrapper.find('textarea').exists()).toBe(true)
   wrapper.unmount()

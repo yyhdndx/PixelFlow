@@ -45,12 +45,22 @@ onBeforeUnmount(() => { revision++; release() })
     <template v-if="items.length">
       <div class="stage">
         <button v-if="items.length > 1" class="arrow left" type="button" aria-label="上一个"
-                :disabled="items[index]?.error" @click="prev">‹</button>
+                :disabled="items[index]?.error" @click="prev">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+               stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
         <span v-if="items[index]?.error" class="muted">媒体读取失败</span>
         <video v-else-if="items[index]?.video" :src="items[index].url" controls preload="metadata" />
         <img v-else :src="items[index].url" alt="作品媒体" referrerpolicy="no-referrer">
         <button v-if="items.length > 1" class="arrow right" type="button" aria-label="下一个"
-                :disabled="items[index]?.error" @click="next">›</button>
+                :disabled="items[index]?.error" @click="next">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+               stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
       </div>
       <div class="bar">
         <span class="muted fine">{{ index + 1 }} / {{ items.length }}</span>
@@ -70,13 +80,20 @@ onBeforeUnmount(() => { revision++; release() })
 .stage img, .stage video { max-width: 100%; max-height: 420px; border-radius: var(--radius-m, 10px); display: block; }
 .arrow {
   position: absolute; top: 50%; transform: translateY(-50%);
-  width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line, #e3e6ee);
+  width: 36px; height: 36px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; border: 1px solid var(--line, #e3e6ee);
   background: rgba(255, 255, 255, .92); color: var(--ink-700, #2c3245);
-  font-size: 22px; line-height: 1; cursor: pointer; z-index: 1;
+  cursor: pointer; z-index: 1;
   box-shadow: 0 2px 8px rgba(23, 28, 45, .12);
   transition: background .15s ease;
 }
-.arrow:hover { background: #fff; }
+/* 全局 button:hover/:active 会覆盖 transform，必须在这里顶住，否则悬停时箭头跳位 */
+.carousel .arrow:hover:not(:disabled) {
+  transform: translateY(-50%); filter: none;
+  background: #fff; box-shadow: 0 2px 8px rgba(23, 28, 45, .12);
+}
+.carousel .arrow:active:not(:disabled) { transform: translateY(-50%); filter: none; }
 .arrow.left { left: 10px; }
 .arrow.right { right: 10px; }
 .bar { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 18px; }
@@ -86,5 +103,7 @@ onBeforeUnmount(() => { revision++; release() })
   border: none; background: var(--line, #e3e6ee); cursor: pointer;
   transition: background .15s ease, transform .15s ease;
 }
+.carousel .dot:hover:not(:disabled) { transform: none; filter: none; box-shadow: none; }
 .dot.on { background: var(--accent, #5a6cf3); transform: scale(1.15); }
+.carousel .dot.on:hover:not(:disabled) { transform: scale(1.15); }
 </style>
