@@ -1,7 +1,7 @@
 # [Java][P2] 评论模块：comments 表与发评/列表/删除接口
 
 负责人：yyh（Gitee: @yyhSEU）。状态：2026-11-02 新建，待领取。
-`24` 是仓库任务编号，线上 Gitee Issue：（创建后回填）
+`24` 是仓库任务编号，线上 Gitee Issue：https://gitee.com/yyhSEU/pixel-flow/issues/IKS8US
 
 前置：无硬前置；与任务 20（时间字段）、Agent 评论总结均解耦——本任务落地后，
 「评论总结」Agent 功能才能从演示数据切换为真实数据链路（另行开任务，不在本范围）。
