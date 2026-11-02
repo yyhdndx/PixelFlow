@@ -799,6 +799,39 @@ paths:
         '403': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
         '502': {$ref: '#/components/responses/AgentTraceFailure'}
+  /api/admin/agent/moderation-suggestion:
+    post:
+      summary: 管理员请求作品 AI 审核建议
+      description: 仅 ADMIN。按 post_id 读取作品快照（标题/正文）转发 Python POST /internal/moderation-suggestion，内部使用 PIXELFLOW_INTELLIGENCE_TOKEN，不接收浏览器直连。Python 侧先执行 content-safety 规则（安全下限），再可选经 DeepSeek 汇总建议；规则 high 时最终结果不低于 reject。只建议、不自动审核，通过/驳回仍由管理员人工决定。每次调用产生 trace_id，可经轨迹查询接口核查。上游等待最多 15 秒；成功响应 no-store。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [post_id]
+              properties:
+                post_id: {type: string, pattern: '^[1-9][0-9]{0,17}$'}
+      responses:
+        '200':
+          description: 审核建议（风险等级 + 建议处置 + 理由 + 规则命中）
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status_code, suggestion]
+                properties:
+                  status_code: {type: integer, enum: [0]}
+                  suggestion: {$ref: '#/components/schemas/ModerationSuggestion'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '502': {$ref: '#/components/responses/Error'}
   /api/admin/posts:
     get:
       description: 仅 ADMIN
@@ -1067,6 +1100,23 @@ components:
             properties:
               post_id: {type: string, pattern: '^[1-9][0-9]{0,17}$'}
               title: {type: string, maxLength: 120}
+    ModerationSuggestion:
+      type: object
+      additionalProperties: false
+      required: [suggestion_id, post_id, risk_level, recommended_action, reason, rule_hits, suggestions, policy_version, provider, latency_ms, trace_id, degraded]
+      properties:
+        suggestion_id: {type: string, format: uuid}
+        post_id: {type: string, pattern: '^[1-9][0-9]{0,17}$'}
+        risk_level: {type: string, enum: [low, medium, high]}
+        recommended_action: {type: string, enum: [approve, review, reject]}
+        reason: {type: string, minLength: 1, maxLength: 500}
+        rule_hits: {type: array, maxItems: 10, items: {type: string, pattern: '^[a-z_]{1,32}$'}}
+        suggestions: {type: array, maxItems: 10, items: {type: string, maxLength: 200}}
+        policy_version: {type: string, maxLength: 64}
+        provider: {type: string, maxLength: 64, description: deepseek 或 rules（降级）}
+        latency_ms: {type: integer, format: int64, minimum: 0}
+        trace_id: {type: string, format: uuid}
+        degraded: {type: integer, enum: [0, 1]}
     AgentSearchError:
       type: object
       required: [status_code, code, message, requestId]

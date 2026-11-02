@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { request, write, session } from '../../api/client'
 const users = ref([]), selected = ref(null), reason = ref(''), error = ref(''), notice = ref('')
 const loading = ref(false), saving = ref(false), more = ref(false)
+const roleLabel = value => ({ ADMIN: '管理员', CREATOR: '创作者', USER: '普通用户' })[value] || value
 async function load(append = false) {
   loading.value = true; error.value = ''
   try {
@@ -30,7 +31,7 @@ onMounted(() => load())
   <p v-if="error" class="error" role="alert">{{ error }}</p><p v-if="notice" class="success" role="status">{{ notice }}</p>
   <section class="panel"><p v-if="loading">正在加载…</p><p v-if="!loading && !users.length" class="empty">暂无用户</p>
     <div v-if="users.length" class="table-wrap"><table><thead><tr><th>账号</th><th>昵称</th><th>角色</th><th>状态</th><th>操作</th></tr></thead><tbody>
-      <tr v-for="user in users" :key="user.id"><td>{{ user.username }}<small>{{ user.id }}</small></td><td>{{ user.nickname }}</td><td>{{ user.role }}</td><td><span :class="['badge', { disabled: !user.enabled }]">{{ user.enabled ? '已启用' : '已禁用' }}</span></td><td><button class="secondary" :disabled="saving || user.id === session.user?.id" @click="open(user)">{{ user.id === session.user?.id ? '当前账号' : user.enabled ? '禁用' : '启用' }}</button></td></tr>
+      <tr v-for="user in users" :key="user.id"><td>{{ user.username }}<small>{{ user.id }}</small></td><td>{{ user.nickname }}</td><td><span :class="['badge', 'neutral']">{{ roleLabel(user.role) }}</span></td><td><span :class="['badge', { disabled: !user.enabled }]">{{ user.enabled ? '已启用' : '已禁用' }}</span></td><td><button class="secondary" :disabled="saving || user.id === session.user?.id" @click="open(user)">{{ user.id === session.user?.id ? '当前账号' : user.enabled ? '禁用' : '启用' }}</button></td></tr>
     </tbody></table></div><button v-if="more" class="secondary" :disabled="loading" @click="load(true)">加载更多用户</button>
   </section>
   <section v-if="selected" class="panel" aria-label="确认账号状态变更"><h2>确认{{ selected.enabled ? '禁用' : '启用' }} {{ selected.username }}？</h2>
