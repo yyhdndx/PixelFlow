@@ -68,7 +68,7 @@
             android:text="@string/messages_tab_mention"
             android:textSize="14sp"
             android:textStyle="bold"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/profile_accent"
             android:background="@drawable/bg_ai_candidate_on" />
 
         <TextView

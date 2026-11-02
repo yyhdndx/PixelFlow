@@ -118,7 +118,7 @@ public class MessagesFragment extends Fragment {
         for (int i = 0; i < tabs.length; i++) {
             boolean selected = i == index;
             tabs[i].setBackgroundResource(selected ? R.drawable.bg_ai_candidate_on : 0);
-            tabs[i].setTextColor(requireContext().getColor(selected ? R.color.white : R.color.black));
+            tabs[i].setTextColor(requireContext().getColor(selected ? R.color.profile_accent : R.color.black));
         }
         reload();
     }
