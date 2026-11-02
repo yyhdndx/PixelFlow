@@ -1,6 +1,6 @@
 # [Java][P2] posts 增加 submit_time / review_time / publish_time 时间字段
 
-负责人：WeiKnight（Gitee: @WeiKnight_CN）。状态：2026-11-01 新建，待领取。
+负责人：WeiKnight（Gitee: @WeiKnight_CN）。状态：2026-11-02 后端实现及本地双库验收通过，待管理端接线联调；尚未提交。
 `20` 是仓库任务编号，线上 Gitee Issue：https://gitee.com/yyhSEU/pixel-flow/issues/IKS0WJ
 
 前置：PR #14（Web 管理端）已合入 dev（`3f4e82b`），审核队列「提交时间」当前显示「—」，
@@ -22,16 +22,16 @@
 
 ## 改动范围
 
-1. **迁移**：H2/MySQL 各新增 V12，posts 加三个可空 BIGINT 列；存量 PUBLISHED 作品
+1. **迁移**：H2/MySQL 各新增 V13__post_times.sql（V12 已由搜索标题索引占用），posts 加三个可空 BIGINT 列；存量 PUBLISHED 作品
    `publish_time` 回填为 `create_time`，其余留 NULL。
 2. **写入点**：
    - `PostService.transition`（publish=true → PENDING）：写 submit_time；
    - `ModerationController` 审核通过：review_time + publish_time；驳回：review_time。
 3. **查询出口（勿漏）**：
    - `PostService.view()` —— /feed/、详情、我的作品、搜索自动带上；
-   - `UserPostsQueryService`（作者主页）与 `FavoritePostsQueryService`（我的收藏）
-     自行构造卡片、不经 view()，必须手动加；
-   - `GET /api/admin/posts` 审核队列带 submit_time（管理端等待时长展示/排序）。
+   - `UserPostsQueryService`（作者主页）与 `FavoritePostsQueryService`（我的收藏）当前均复用 `view()`，不重复映射，分别验证接口字段；
+   - `GET /api/admin/posts` 审核队列同样带三个时间字段；管理端接线由协调方负责，submit_time 未知显示“—”，不新增排序参数。
+   - 所有时间为 Unix 秒；create_time 保持草稿创建时间，展示使用 `publish_time ?? create_time`。Android 展示适配由协调方跟进。
 4. **契约**：Post schema 加三个 nullable 字段；`/api/admin/posts` 响应同步更新。
 5. **展示兜底**：对外时间展示用 `COALESCE(publish_time, create_time)`，撤回作品保留原发布时间。
 6. **可选**：MCP `list_my_posts` 增加 submit_time，Agent 可判断待审时长。
@@ -44,8 +44,8 @@
 
 ## 验收标准
 
-- [ ] V12 迁移 H2/MySQL 双库通过，存量回填正确。
-- [ ] 驳回 → 再提交 → 通过全链路时间正确（JVM + MySQL 专项测试断言）。
-- [ ] Feed/详情/作者主页/收藏/审核队列均带新字段，两个不走 view() 的查询服务不遗漏。
+- [x] V13 迁移 H2/MySQL 双库通过，存量回填正确。
+- [x] 驳回 → 再提交 → 通过全链路时间正确（JVM + MySQL 专项测试断言）。
+- [x] Feed/详情/作者主页/收藏/审核队列均带新字段，复用 view() 的查询服务不遗漏。
 - [ ] 与管理端联调：审核队列显示提交时间与等待时长。
-- [ ] 相关 JVM 测试通过，普通 Feed 回归不受影响。
+- [x] 相关 JVM 测试通过，普通 Feed 回归不受影响。实际命令、通过/跳过数量与交接说明见 [作品时间字段验收](../testing/作品时间字段验收.md)。

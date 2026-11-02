@@ -95,7 +95,10 @@ public class PostService {
             throw new ApiException(409,"INCOMPLETE_DRAFT","发布前请填写标题并添加至少一个媒体");
         if (publish && !List.of("DRAFT","REJECTED","WITHDRAWN","PENDING").contains(state))
             throw new ApiException(409,"INVALID_STATE","当前状态不能提交审核");
-        db.update("UPDATE posts SET status=? WHERE id=?",next,id);
+        if (publish && !state.equals("PENDING"))
+            db.update("UPDATE posts SET status=?,submit_time=? WHERE id=?",next,Instant.now().getEpochSecond(),id);
+        else
+            db.update("UPDATE posts SET status=? WHERE id=?",next,id);
         return Map.of("postId",Long.toString(id),"status",next);
     }
 
@@ -163,6 +166,8 @@ public class PostService {
         Map<String,Object> result=new LinkedHashMap<>();
         result.put("post_id",id); result.put("title",row.get("title")); result.put("content",row.get("content"));
         result.put("create_time",row.get("create_time")); result.put("status",row.get("status"));
+        result.put("submit_time",row.get("submit_time")); result.put("review_time",row.get("review_time"));
+        result.put("publish_time",row.get("publish_time"));
         result.put("media_ids",db.queryForList("SELECT media_id FROM post_media WHERE post_id=? ORDER BY position",String.class,Long.parseLong(id)));
         result.put("author",Map.of("user_id",row.get("author_id"),"nickname",row.get("nickname"),"avatar",row.getOrDefault("avatar","")));
         try { result.put("clips",json.readValue((String)row.get("clips_json"),new TypeReference<List<Clip>>(){})); }
