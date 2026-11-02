@@ -41,6 +41,7 @@ async function audit() {
 function open(post) {
   selected.value = post; reason.value = ''; notice.value = ''; error.value = ''
   suggestion.value = null; suggestionError.value = ''
+  loadSuggestion()
 }
 async function loadSuggestion() {
   if (suggesting.value || !selected.value) return
