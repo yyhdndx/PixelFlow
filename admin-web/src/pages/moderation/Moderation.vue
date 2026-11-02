@@ -13,6 +13,12 @@ const actionLabels = { approve: '建议通过', review: '建议人工复核', re
 const riskClass = { low: '', medium: 'pending', high: 'disabled' }
 const actionClass = { approve: '', review: 'pending', reject: 'disabled' }
 const date = value => new Date(Number(value) * 1000).toLocaleString('zh-CN')
+const waited = value => {
+  const seconds = Math.max(0, Math.floor(Date.now() / 1000) - Number(value))
+  if (seconds < 3600) return Math.max(1, Math.floor(seconds / 60)) + ' 分钟'
+  if (seconds < 86400) return Math.floor(seconds / 3600) + ' 小时'
+  return Math.floor(seconds / 86400) + ' 天'
+}
 async function load(append = false) {
   loading.value = true; error.value = ''
   try {
@@ -81,7 +87,7 @@ onMounted(() => { load(); audit() })
     <p v-else-if="!posts.length" class="empty">暂无待审核作品</p>
     <div v-for="post in posts" :key="post.post_id" class="post-row">
       <PostMedia :clips="post.clips" compact />
-      <div class="post-copy"><h3>{{ post.title || '未命名作品' }}</h3><p>{{ post.author.nickname || '未设置昵称' }}</p><p class="muted fine">作品 {{ post.post_id }} · 提交时间 —</p></div>
+      <div class="post-copy"><h3>{{ post.title || '未命名作品' }}</h3><p>{{ post.author.nickname || '未设置昵称' }}</p><p class="muted fine">作品 {{ post.post_id }} · 提交时间 {{ post.submit_time ? date(post.submit_time) + '（等待 ' + waited(post.submit_time) + '）' : '—' }}</p></div>
       <button class="secondary" :disabled="saving" @click="open(post)">查看并审核</button>    </div>
     <button v-if="more" class="secondary" :disabled="loading" @click="load(true)">加载更多作品</button>
   </section>

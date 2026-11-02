@@ -4,8 +4,19 @@ import Moderation from '../src/pages/moderation/Moderation.vue'
 import Users from '../src/pages/users/Users.vue'
 import { request, write } from '../src/api/client'
 vi.mock('../src/api/client', () => ({ request: vi.fn(), write: vi.fn(), session: { user: { id: 'admin' } } }))
-const post = { post_id: '100', title: '中文作品', content: '正文', author: { nickname: '作者A' }, clips: [] }
+const post = { post_id: '100', title: '中文作品', content: '正文', author: { nickname: '作者A' }, clips: [], submit_time: 1700000000 }
 beforeEach(() => vi.resetAllMocks())
+it('shows pending-queue submit time and waiting duration, with a dash when unknown', async () => {
+  const withTime = { ...post, submit_time: Math.floor(Date.now() / 1000) - 7200 }
+  const withoutTime = { ...post, post_id: '101', submit_time: null }
+  request.mockImplementation(async path => path.startsWith('/api/admin/posts') ? [withTime, withoutTime] : [])
+  const wrapper = mount(Moderation)
+  await flushPromises()
+  expect(wrapper.text()).toContain('等待 2 小时')
+  expect(wrapper.text()).toMatch(/提交时间 \d{4}\/\d{1,2}\/\d{1,2}/)
+  expect(wrapper.text()).toContain('提交时间 —')
+  wrapper.unmount()
+})
 it('sends a decision and displays persisted audit data', async () => {
   request.mockImplementation(async path => path.startsWith('/api/admin/posts') ? [post] : [])
   write.mockResolvedValue({ postId: '100', status: 'PUBLISHED' })
