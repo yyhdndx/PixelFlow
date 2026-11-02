@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="messages_title">消息</string>
+    <string name="messages_tab_mention">@我</string>
+    <string name="messages_tab_reply">回复</string>
+    <string name="messages_tab_like">赞</string>
+    <string name="messages_settings">通知设置</string>
+    <string name="messages_mute_hint">开启后不再接收该类通知</string>
+    <string name="messages_mute_mention">屏蔽 @我</string>
+    <string name="messages_mute_reply">屏蔽 回复</string>
+    <string name="messages_mute_like">屏蔽 赞</string>
+    <string name="messages_empty_mention">还没有人 @ 你</string>
+    <string name="messages_empty_reply">还没有人回复你</string>
+    <string name="messages_empty_like">还没有人赞你的作品</string>
+    <string name="messages_login_required">登录后查看消息</string>
+    <string name="messages_mention_text">%1$s 在评论中提到了你</string>
+    <string name="messages_reply_text">%1$s 回复了你的评论</string>
+    <string name="messages_like_text">%1$s 赞了你的作品《%2$s》</string>
+    <string name="messages_mark_all_read">全部已读</string>
+</resources>

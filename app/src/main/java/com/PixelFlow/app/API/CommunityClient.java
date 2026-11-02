@@ -1,6 +1,8 @@
 package com.PixelFlow.app.API;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.util.List;
@@ -294,6 +296,56 @@ public class CommunityClient implements AutoCloseable {
                     authenticated(job, path, "GET", null, expected, true), JsonObject.class));
             return page;
         }, callback);
+    }
+    /** 消息通知分页；type 为 MENTION（@我）/REPLY（回复）/LIKE（赞）。 */
+    public Job getNotifications(String type, String cursor, Callback<NotificationPage> callback) {
+        return submit((job, expected) -> {
+            if (!type.equals("MENTION") && !type.equals("REPLY") && !type.equals("LIKE"))
+                throw new ApiError(400, "通知类型无效");
+            if (cursor != null && !cursor.matches("[1-9][0-9]{0,18}"))
+                throw new ApiError(400, "分页参数无效");
+            NotificationPage page = NotificationPage.parse(gson.fromJson(
+                    authenticated(job, "/api/users/me/notifications?type=" + type + "&count=20"
+                            + (cursor == null ? "" : "&cursor=" + cursor), "GET", null, expected, true),
+                    JsonObject.class));
+            return page;
+        }, callback);
+    }
+    public Job getUnreadNotificationCount(Callback<Integer> callback) {
+        return submit((job, expected) -> {
+            JsonObject result = gson.fromJson(authenticated(job, "/api/users/me/notifications/unread-count",
+                    "GET", null, expected, true), JsonObject.class);
+            if (result == null || !result.has("count")) throw new ApiError(0, "未读数响应不完整");
+            return result.get("count").getAsInt();
+        }, callback);
+    }
+    /** 全部标记已读。 */
+    public Job markNotificationsRead(Callback<Void> callback) {
+        return submit((job, expected) -> {
+            authenticated(job, "/api/users/me/notifications/read", "POST", new JsonObject(), expected, true);
+            return null;
+        }, callback);
+    }
+    public Job getNotificationPreferences(Callback<java.util.Set<String>> callback) {
+        return submit((job, expected) -> parseMuted(authenticated(job, "/api/users/me/notification-preferences",
+                "GET", null, expected, true)), callback);
+    }
+    public Job setNotificationPreferences(java.util.Set<String> muted, Callback<java.util.Set<String>> callback) {
+        JsonObject input = new JsonObject();
+        JsonArray array = new JsonArray();
+        for (String type : muted) array.add(type);
+        input.add("mutedTypes", array);
+        return submit((job, expected) -> parseMuted(authenticated(job, "/api/users/me/notification-preferences",
+                "PUT", input, expected, true)), callback);
+    }
+    private java.util.Set<String> parseMuted(String raw) throws ApiError {
+        JsonObject result = gson.fromJson(raw, JsonObject.class);
+        if (result == null || !result.has("muted_types") || !result.get("muted_types").isJsonArray())
+            throw new ApiError(0, "通知偏好响应不完整");
+        java.util.Set<String> muted = new java.util.LinkedHashSet<>();
+        for (JsonElement item : result.getAsJsonArray("muted_types"))
+            if (item.isJsonPrimitive()) muted.add(item.getAsString());
+        return muted;
     }
     public Job getUserProfile(String userId, Callback<UserProfile> callback) {
         return submit((job, expected) -> {
