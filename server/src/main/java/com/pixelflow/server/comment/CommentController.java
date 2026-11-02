@@ -61,16 +61,15 @@ public class CommentController {
     /** 解析 @昵称 生成 MENTION 通知；被回复者已由 REPLY 通知则不再重复。 */
     private void notifyMentions(String content,Actor actor,long postId,long commentId,String replyRecipient) {
         var matcher=java.util.regex.Pattern.compile("@([\\p{L}\\p{N}_.-]{1,40})").matcher(content);
-        Set<String> mentioned=new LinkedHashSet<>();
-        while (matcher.find()) mentioned.add(matcher.group(1));
-        for (String nickname : mentioned) {
+        Set<String> nicknames=new LinkedHashSet<>();
+        while (matcher.find()) nicknames.add(matcher.group(1));
+        Set<String> notified=new HashSet<>();
+        for (String nickname : nicknames) {
             var users=db.queryForList("SELECT id FROM users WHERE nickname=? AND enabled=TRUE",nickname);
             for (var user : users) {
                 String recipient=(String)user.get("id");
-                if (recipient.equals(actor.id()) || recipient.equals(replyRecipient)) continue;
-                if (mentioned.contains(recipient)) continue;
+                if (recipient.equals(actor.id()) || recipient.equals(replyRecipient) || !notified.add(recipient)) continue;
                 notifications.notify(recipient,"MENTION",actor.id(),postId,commentId);
-                mentioned.add(recipient);
             }
         }
     }
