@@ -60,7 +60,7 @@ class PostLifecycleHttpTest {
             port=application.getWebServer().getPort(); db=application.getBean(JdbcTemplate.class);
             usernames.add("admin");
             try {
-                assertEquals(List.of("1","2","3","4","5","6","7","9","10","11","12"),db.queryForList(
+                assertEquals(List.of("1","2","3","4","5","6","7","9","10","11","12","13"),db.queryForList(
                         "SELECT version FROM flyway_schema_history WHERE success=TRUE AND version IS NOT NULL ORDER BY installed_rank",String.class));
                 author=register("a","作者甲"); visitor=register("b","访问者乙"); admin=login("admin");
                 authorId=body(send("GET","/api/users/me",author,null,null),200).get("id").asText();
@@ -200,13 +200,37 @@ class PostLifecycleHttpTest {
         assertEquals(id,post.get("post_id").asText()); assertEquals(state,post.get("status").asText()); assertEquals(title,post.get("title").asText());
     }
     void assertStatus(String id,String action,String state) throws Exception {
+        var before=detail(id,author);
         var result=body(send("POST","/api/posts/"+id+"/"+action,author,null,null),200);
         assertEquals(id,result.get("postId").asText()); assertEquals(state,result.get("status").asText());
+        var after=detail(id,author);
+        assertEquals(before.get("create_time"),after.get("create_time"));
+        assertEquals(before.get("review_time"),after.get("review_time"));
+        assertEquals(before.get("publish_time"),after.get("publish_time"));
+        if (action.equals("publish") && !before.get("status").asText().equals("PENDING")) {
+            assertTrue(after.get("submit_time").isIntegralNumber());
+            var queue=body(send("GET","/api/admin/posts",admin,null,null),200);
+            assertTrue(java.util.stream.StreamSupport.stream(queue.spliterator(),false)
+                    .anyMatch(card -> card.get("post_id").asText().equals(id) && card.get("submit_time").equals(after.get("submit_time"))));
+        } else assertEquals(before.get("submit_time"),after.get("submit_time"));
     }
     void moderate(String id,String state,int status) throws Exception {
+        var before=detail(id,author);
         var response=send("POST","/api/admin/posts/"+id+"/moderation",admin,null,json.writeValueAsString(Map.of("status",state,"reason","本次链路验收")));
         if (status==200) { assertEquals(state,body(response,200).get("status").asText()); }
         else error(response,status,"INVALID_STATE");
+        var after=detail(id,author);
+        assertEquals(before.get("create_time"),after.get("create_time"));
+        assertEquals(before.get("submit_time"),after.get("submit_time"));
+        if (status==200 && before.get("status").asText().equals("PENDING") && !state.equals("PENDING")) {
+            assertTrue(after.get("review_time").isIntegralNumber());
+            assertEquals(after.get("review_time").asLong(),audits(id).get(audits(id).size()-1).get("created_at").asLong());
+            if (state.equals("PUBLISHED")) assertEquals(after.get("review_time"),after.get("publish_time"));
+            else assertEquals(before.get("publish_time"),after.get("publish_time"));
+        } else {
+            assertEquals(before.get("review_time"),after.get("review_time"));
+            assertEquals(before.get("publish_time"),after.get("publish_time"));
+        }
     }
     List<JsonNode> audits(String id) throws Exception {
         List<JsonNode> result=new ArrayList<>();

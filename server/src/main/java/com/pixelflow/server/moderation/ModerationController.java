@@ -36,9 +36,17 @@ public class ModerationController {
             if (!(before.equals("PENDING") && Set.of("PUBLISHED","REJECTED").contains(input.status()))
                     && !(before.equals("PUBLISHED") && input.status().equals("WITHDRAWN")))
                 throw new ApiException(409,"INVALID_STATE","不能执行该审核状态流转");
-            db.update("UPDATE posts SET status=? WHERE id=?",input.status(),id);
+            long now=Instant.now().getEpochSecond();
+            if (before.equals("PENDING")) {
+                if (input.status().equals("PUBLISHED"))
+                    db.update("UPDATE posts SET status=?,review_time=?,publish_time=? WHERE id=?",input.status(),now,now,id);
+                else
+                    db.update("UPDATE posts SET status=?,review_time=? WHERE id=?",input.status(),now,id);
+            } else {
+                db.update("UPDATE posts SET status=? WHERE id=?",input.status(),id);
+            }
             db.update("INSERT INTO moderation_records(actor_id,post_id,before_status,after_status,reason,created_at) VALUES(?,?,?,?,?,?)",
-                    actor.id(),id,before,input.status(),input.reason(),Instant.now().getEpochSecond());
+                    actor.id(),id,before,input.status(),input.reason(),now);
         }
         return Map.of("postId",Long.toString(id),"status",input.status());
     }
