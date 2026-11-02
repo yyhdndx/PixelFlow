@@ -237,7 +237,7 @@ def create_app(settings=None, upstream=None):
             raise HTTPException(502, "Moderation suggestion unavailable") from None
         except (ValueError, KeyError, TypeError, *DATABASE_ERRORS):
             raise HTTPException(502, "Moderation suggestion store unavailable") from None
-        return {"suggestion": suggestion}
+        return {"status_code": 0, "suggestion": suggestion}
 
     @app.get("/profiles/me")
     def profile(response: Response, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
