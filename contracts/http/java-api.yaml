@@ -535,6 +535,69 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/PostStatus'}
         default: {$ref: '#/components/responses/Error'}
+  /api/posts/{id}/comments:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    post:
+      description: 登录用户对已公开作品发表评论；content 1–500 字非空白；成功返回完整评论对象，posts.comment_count +1。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [content]
+              properties:
+                content: {type: string, minLength: 1, maxLength: 500}
+      responses:
+        '200': {$ref: '#/components/responses/Comment'}
+        default: {$ref: '#/components/responses/Error'}
+    get:
+      description: 登录可见；按 comment_id 倒序游标分页，只返回 VISIBLE；默认每页 20，count 1–50。
+      parameters:
+        - {name: cursor, in: query, schema: {type: integer, format: int64, minimum: 1}, description: 上一页末项 comment_id}
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+      responses:
+        '200':
+          description: '{status_code, comment_list, has_more, next_cursor}'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, comment_list, has_more, next_cursor]
+                properties:
+                  status_code: {type: integer}
+                  has_more: {type: integer, enum: [0, 1]}
+                  next_cursor: {type: [string, 'null']}
+                  comment_list: {type: array, items: {$ref: '#/components/schemas/Comment'}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/comments/{commentId}:
+    parameters:
+      - {name: commentId, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
+    delete:
+      description: 作者本人或 ADMIN 软删（status=DELETED），可见计数 -1；重复删除幂等返回成功。
+      responses:
+        '200': {description: '{commentId, status: DELETED}'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/admin/comments/{commentId}/status:
+    parameters:
+      - {name: commentId, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
+    put:
+      description: 仅 ADMIN 隐藏/恢复评论（HIDDEN/VISIBLE），隐藏时可见计数 -1、恢复 +1；DELETED 不可变更。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status: {type: string, enum: [VISIBLE, HIDDEN]}
+      responses:
+        '200': {description: '{commentId, status}'}
+        default: {$ref: '#/components/responses/Error'}
   /api/interactions/{kind}:
     parameters:
       - {name: kind, in: path, required: true, schema: {type: string, enum: [likes, favorites, follows, not-interested]}}
@@ -1038,7 +1101,26 @@ components:
     Post: {description: 作品详情, content: {application/json: {schema: {$ref: '#/components/schemas/Post'}}}}
     Posts: {description: 作品列表，续页取末项 post_id；空数组表示结束, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Post'}}}}}
     PostStatus: {description: 作品状态, content: {application/json: {schema: {type: object, properties: {postId: {type: string}, status: {type: string}}}}}}
+    Comment: {description: 评论对象, content: {application/json: {schema: {$ref: '#/components/schemas/Comment'}}}}
   schemas:
+    Comment:
+      type: object
+      additionalProperties: false
+      required: [comment_id, post_id, content, status, create_time, author]
+      properties:
+        comment_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        post_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        content: {type: string, minLength: 1, maxLength: 500}
+        status: {type: string, enum: [VISIBLE, HIDDEN, DELETED]}
+        create_time: {type: integer, format: int64, minimum: 0}
+        author:
+          type: object
+          additionalProperties: false
+          required: [user_id, nickname, avatar]
+          properties:
+            user_id: {type: string, maxLength: 36}
+            nickname: {type: string, maxLength: 40}
+            avatar: {type: string}
     AgentTracePage:
       type: object
       additionalProperties: false
@@ -1318,6 +1400,7 @@ components:
         hashtag: {type: array, items: {type: object}, description: 当前为空数组，标签提取待实现}
         music: {type: object, nullable: true, description: 当前为 null，音乐元数据待实现}
         like_count: {type: integer, format: int64}
+        comment_count: {type: integer, description: 当前可见评论数，发评/删评/隐藏/恢复时事务内维护}
         is_liked: {type: boolean, description: 当前认证用户是否点赞；游客为 false。Feed 和详情提供此字段。}
         is_favorited: {type: boolean, description: 当前认证用户是否收藏；游客为 false。}
     Event:
