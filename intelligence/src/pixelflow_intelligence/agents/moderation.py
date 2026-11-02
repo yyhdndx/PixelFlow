@@ -64,12 +64,15 @@ def suggest_moderation(*, actor, post_id, title, content, tags, settings, store,
                                              "suggestions": safety_out["suggestions"]},
                                 deadline=context.deadline)
             provider_name = "deepseek"
-            # 安全下限：最终档位 = 规则档位与模型档位中的更高者，理由取更严格一侧。
-            severity = max(ACTION_ORDER[rule_action], ACTION_ORDER[decision["recommended_action"]])
+            # 安全下限：最终档位 = 规则、模型动作、模型风险等级三者最高者，理由取更严格一侧。
+            model_action = decision.get("recommended_action") \
+                if decision.get("recommended_action") in ACTION_ORDER else "review"
+            risk_action = ACTION_BY_RISK.get(decision.get("risk_level"), model_action)
+            severity = max(ACTION_ORDER[rule_action], ACTION_ORDER[model_action], ACTION_ORDER[risk_action])
             risk = RISK_BY_SEVERITY[severity]
             action = ACTION_BY_SEVERITY[severity]
-            reason = decision["reason"] if ACTION_ORDER[decision["recommended_action"]] >= \
-                ACTION_ORDER[rule_action] else rule_reason
+            reason = decision["reason"] if ACTION_ORDER[model_action] >= ACTION_ORDER[rule_action] \
+                else rule_reason
         except Exception:
             degraded, degraded_reason = 1, "模型调用失败，规则降级"
         llm_latency_ms = int((time.monotonic() - llm_start) * 1000)
