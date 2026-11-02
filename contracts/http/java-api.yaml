@@ -550,6 +550,7 @@ paths:
               required: [content]
               properties:
                 content: {type: string, minLength: 1, maxLength: 500}
+                parentCommentId: {type: string, pattern: '^[1-9][0-9]{0,18}$', description: 可选；回复某条评论时携带，须属于同一作品}
       responses:
         '200': {$ref: '#/components/responses/Comment'}
         default: {$ref: '#/components/responses/Error'}
@@ -597,6 +598,68 @@ paths:
                 status: {type: string, enum: [VISIBLE, HIDDEN]}
       responses:
         '200': {description: '{commentId, status}'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/users/me/notifications:
+    get:
+      description: 登录用户按类型查看通知（@我/回复/赞），notification_id 倒序游标分页；被屏蔽类型返回空列表。
+      parameters:
+        - {name: type, in: query, required: true, schema: {type: string, enum: [MENTION, REPLY, LIKE]}}
+        - {name: cursor, in: query, schema: {type: integer, format: int64, minimum: 1}, description: 上一页末项 notification_id}
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+      responses:
+        '200':
+          description: '{status_code, notification_list, has_more, next_cursor}'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, notification_list, has_more, next_cursor]
+                properties:
+                  status_code: {type: integer}
+                  has_more: {type: integer, enum: [0, 1]}
+                  next_cursor: {type: [string, 'null']}
+                  notification_list: {type: array, items: {$ref: '#/components/schemas/Notification'}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/users/me/notifications/unread-count:
+    get:
+      description: 未读通知总数（不含已屏蔽类型），用于导航角标。
+      responses:
+        '200': {description: '{count}', content: {application/json: {schema: {type: object, required: [count], properties: {count: {type: integer, format: int64}}}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/users/me/notifications/read:
+    post:
+      description: 标记已读；body 为空或 ids 缺省时全部已读，否则仅标记指定 id。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                ids: {type: array, items: {type: string, pattern: '^[1-9][0-9]{0,18}$'}}
+      responses:
+        '200': {description: '{updated: true}'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/users/me/notification-preferences:
+    get:
+      description: 已屏蔽的通知类型列表。
+      responses:
+        '200': {description: '{muted_types: [...]}', content: {application/json: {schema: {type: object, required: [muted_types], properties: {muted_types: {type: array, items: {type: string, enum: [MENTION, REPLY, LIKE]}}}}}}}
+        default: {$ref: '#/components/responses/Error'}
+    put:
+      description: 设置屏蔽类型（整单覆盖）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [mutedTypes]
+              properties:
+                mutedTypes: {type: array, items: {type: string, enum: [MENTION, REPLY, LIKE]}}
+      responses:
+        '200': {description: '{muted_types: [...]}'}
         default: {$ref: '#/components/responses/Error'}
   /api/interactions/{kind}:
     parameters:
@@ -1110,6 +1173,7 @@ components:
       properties:
         comment_id: {type: string, pattern: '^[1-9][0-9]*$'}
         post_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        parent_comment_id: {type: string, nullable: true, pattern: '^[1-9][0-9]*$', description: 仅回复评论时存在}
         content: {type: string, minLength: 1, maxLength: 500}
         status: {type: string, enum: [VISIBLE, HIDDEN, DELETED]}
         create_time: {type: integer, format: int64, minimum: 0}
@@ -1121,6 +1185,26 @@ components:
             user_id: {type: string, maxLength: 36}
             nickname: {type: string, maxLength: 40}
             avatar: {type: string}
+    Notification:
+      type: object
+      additionalProperties: false
+      required: [notification_id, type, actor, post_id, post_title, read, create_time]
+      properties:
+        notification_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        type: {type: string, enum: [MENTION, REPLY, LIKE]}
+        actor:
+          type: object
+          additionalProperties: false
+          required: [user_id, nickname, avatar]
+          properties:
+            user_id: {type: string, maxLength: 36}
+            nickname: {type: string, maxLength: 40}
+            avatar: {type: string}
+        post_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        post_title: {type: string, maxLength: 120}
+        comment_id: {type: string, nullable: true, pattern: '^[1-9][0-9]*$'}
+        read: {type: boolean}
+        create_time: {type: integer, format: int64, minimum: 0}
     AgentTracePage:
       type: object
       additionalProperties: false

@@ -25,6 +25,7 @@ import androidx.fragment.app.Fragment;
 
 import com.PixelFlow.app.API.ApiClient;
 import com.PixelFlow.app.ButtonFragment.HomeFragment;
+import com.PixelFlow.app.ButtonFragment.MessagesFragment;
 import com.PixelFlow.app.ButtonFragment.ProfileFragment;
 import com.PixelFlow.app.Streams.PreloadManager;
 import com.PixelFlow.app.Streams.WorkItem;
@@ -37,7 +38,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements HomeFragment.OnScrollListener {
+public class MainActivity extends AppCompatActivity implements HomeFragment.OnScrollListener, MessagesFragment.OnMessagesChangedListener {
 
     private BottomNavigationView bottomNavigationView;
     private FloatingActionButton fabCamera;
@@ -164,22 +165,18 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
             int itemId = item.getItemId();
             if (itemId == R.id.nav_home) {
                 selectedFragment = HomeFragment.newInstance();
+            } else if (itemId == R.id.nav_messages) {
+                selectedFragment = MessagesFragment.newInstance();
             } else if (itemId == R.id.nav_profile) {
                 selectedFragment = ProfileFragment.newInstance();
             }
-            // 其他导航项可以在这里添加
-            // else if (itemId == R.id.nav_friends) {
-            //     selectedFragment = FriendsFragment.newInstance();
-            // } else if (itemId == R.id.nav_messages) {
-            //     selectedFragment = MessagesFragment.newInstance();
-            // }
 
             if (selectedFragment != null) {
                 showFragment(selectedFragment);
 
                 // 根据选择的Fragment调整FAB可见性
-                if (selectedFragment instanceof ProfileFragment) {
-                    // 在Profile页面隐藏FAB
+                if (selectedFragment instanceof ProfileFragment || selectedFragment instanceof MessagesFragment) {
+                    // 在Profile/消息页面隐藏FAB
                     if (isFabVisible && fabCamera != null) {
                         hideFab();
                     }
@@ -276,6 +273,38 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
     @Override
     public void onScrollDown() {
         // 发布入口已移入底部导航，不遮挡作品，滚动时保持可用。
+    }
+
+    /** 消息通知角标：未登录隐藏，登录后按未读数展示。 */
+    private void refreshMessageBadge() {
+        if (bottomNavigationView == null) return;
+        com.google.android.material.badge.BadgeDrawable badge =
+                bottomNavigationView.getOrCreateBadge(R.id.nav_messages);
+        if (!ApiClient.getInstance(this).isLoggedIn()) {
+            badge.setVisible(false);
+            return;
+        }
+        ApiClient.getInstance(this).getUnreadNotificationCount(new ApiClient.Callback<Integer>() {
+            @Override public void onSuccess(Integer count) {
+                badge.setVisible(count > 0);
+                if (count > 0) badge.setNumber(count);
+            }
+            @Override public void onFailure(String message) {
+                badge.setVisible(false);
+            }
+        });
+    }
+
+    /** MessagesFragment 已读 / 屏蔽设置变化后回调，刷新角标。 */
+    @Override
+    public void onMessagesChanged() {
+        refreshMessageBadge();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshMessageBadge();
     }
 
     @Override

@@ -15,12 +15,17 @@ import java.util.*;
 
 @RestController
 public class CommentController {
-    public record CreateInput(@NotBlank @Size(max=500) String content) {}
+    public record CreateInput(@NotBlank @Size(max=500) String content,
+            @Pattern(regexp="[1-9][0-9]{0,18}") String parentCommentId) {}
     public record StatusInput(@NotNull @Pattern(regexp="VISIBLE|HIDDEN") String status) {}
 
     private final JdbcTemplate db;
     private final PostService posts;
-    public CommentController(JdbcTemplate db, PostService posts) { this.db=db; this.posts=posts; }
+    private final com.pixelflow.server.notify.NotificationService notifications;
+    public CommentController(JdbcTemplate db, PostService posts,
+            com.pixelflow.server.notify.NotificationService notifications) {
+        this.db=db; this.posts=posts; this.notifications=notifications;
+    }
 
     @PostMapping("/api/posts/{postId}/comments") @Transactional
     public Map<String,Object> create(@PathVariable long postId,@Valid @RequestBody CreateInput input,
@@ -28,17 +33,45 @@ public class CommentController {
         posts.requirePublished(Long.toString(postId));
         String content=input.content().trim();
         if (content.isEmpty() || content.length()>500) throw new ApiException(400,"INVALID_ARGUMENT","评论应为 1–500 字");
+        Long parentId=null; String parentAuthor=null;
+        if (input.parentCommentId()!=null) {
+            parentId=Long.parseLong(input.parentCommentId());
+            var parents=db.queryForList("SELECT author_id FROM comments WHERE comment_id=? AND post_id=?",parentId,postId);
+            if (parents.isEmpty()) throw new ApiException(404,"COMMENT_NOT_FOUND","被回复的评论不存在");
+            parentAuthor=(String)parents.get(0).get("author_id");
+        }
         var key=new GeneratedKeyHolder();
+        Long parent=parentId;
         db.update(connection -> {
             var statement=connection.prepareStatement(
-                    "INSERT INTO comments(post_id,author_id,content,status,create_time) VALUES(?,?,?,'VISIBLE',?)",
+                    "INSERT INTO comments(post_id,author_id,content,parent_comment_id,status,create_time) VALUES(?,?,?,?,'VISIBLE',?)",
                     new String[]{"comment_id"});
             statement.setLong(1,postId); statement.setString(2,actor.id()); statement.setString(3,content);
-            statement.setLong(4,Instant.now().getEpochSecond()); return statement;
+            if (parent==null) statement.setNull(4,java.sql.Types.BIGINT); else statement.setLong(4,parent);
+            statement.setLong(5,Instant.now().getEpochSecond()); return statement;
         },key);
         long commentId=key.getKey().longValue();
         db.update("UPDATE posts SET comment_count=comment_count+1 WHERE id=?",postId);
+        if (parentAuthor!=null)
+            notifications.notify(parentAuthor,"REPLY",actor.id(),postId,commentId);
+        notifyMentions(content,actor,postId,commentId,parentAuthor);
         return view(commentId);
+    }
+
+    /** 解析 @昵称 生成 MENTION 通知；被回复者已由 REPLY 通知则不再重复。 */
+    private void notifyMentions(String content,Actor actor,long postId,long commentId,String replyRecipient) {
+        var matcher=java.util.regex.Pattern.compile("@([\\p{L}\\p{N}_.-]{1,40})").matcher(content);
+        Set<String> nicknames=new LinkedHashSet<>();
+        while (matcher.find()) nicknames.add(matcher.group(1));
+        Set<String> notified=new HashSet<>();
+        for (String nickname : nicknames) {
+            var users=db.queryForList("SELECT id FROM users WHERE nickname=? AND enabled=TRUE",nickname);
+            for (var user : users) {
+                String recipient=(String)user.get("id");
+                if (recipient.equals(actor.id()) || recipient.equals(replyRecipient) || !notified.add(recipient)) continue;
+                notifications.notify(recipient,"MENTION",actor.id(),postId,commentId);
+            }
+        }
     }
 
     @GetMapping("/api/posts/{postId}/comments")
@@ -104,6 +137,7 @@ public class CommentController {
         Map<String,Object> result=new LinkedHashMap<>();
         result.put("comment_id",row.get("comment_id").toString());
         result.put("post_id",row.get("post_id").toString());
+        if (row.get("parent_comment_id") != null) result.put("parent_comment_id",row.get("parent_comment_id").toString());
         result.put("content",row.get("content"));
         result.put("status",row.get("status"));
         result.put("create_time",row.get("create_time"));
