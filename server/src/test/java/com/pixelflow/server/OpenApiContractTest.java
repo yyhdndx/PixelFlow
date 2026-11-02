@@ -25,6 +25,12 @@ class OpenApiContractTest {
         var example=(Map<?,?>)((Map<?,?>)content.get("application/json")).get("example");
         assertEquals("摄影与旅行\n记录生活",example.get("bio"));
         var schemas=(Map<?,?>)((Map<?,?>)document.get("components")).get("schemas");
+        var timeProperties=(Map<?,?>)((Map<?,?>)schemas.get("Post")).get("properties");
+        for (String field:List.of("submit_time","review_time","publish_time")) {
+            var time=(Map<?,?>)timeProperties.get(field);
+            assertEquals("integer",time.get("type")); assertEquals("int64",time.get("format"));
+            assertEquals(true,time.get("nullable"));
+        }
         var updateProperties=(Map<?,?>)((Map<?,?>)schemas.get("UserProfileUpdate")).get("properties");
         var nickname=(Map<?,?>)updateProperties.get("nickname");
         assertEquals(1,nickname.get("x-utf16-minLength"));

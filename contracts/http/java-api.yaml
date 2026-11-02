@@ -834,7 +834,7 @@ paths:
         '502': {$ref: '#/components/responses/Error'}
   /api/admin/posts:
     get:
-      description: 仅 ADMIN
+      description: 仅 ADMIN；返回 Post 数组，包含可空的 submit_time、review_time、publish_time（Unix 秒）。提交时间未知时展示为“—”，不使用 create_time 冒充；保持 ID 倒序游标分页。
       parameters:
         - {$ref: '#/components/parameters/Count'}
         - {$ref: '#/components/parameters/Cursor'}
@@ -1301,7 +1301,10 @@ components:
         post_id: {type: string}
         title: {type: string}
         content: {type: string}
-        create_time: {type: integer, format: int64}
+        create_time: {type: integer, format: int64, description: 草稿创建时间（Unix 秒），创建后不变；公开时间展示使用 publish_time，null 时回退到 create_time}
+        submit_time: {type: integer, format: int64, nullable: true, description: 最近一次实际进入 PENDING 的时间（Unix 秒）；历史未知为 null，重复提交不刷新}
+        review_time: {type: integer, format: int64, nullable: true, description: 最近一次 PENDING 审核通过或驳回的时间（Unix 秒）；历史未知为 null}
+        publish_time: {type: integer, format: int64, nullable: true, description: 最近一次审核通过的发布时间（Unix 秒）；尚未发布为 null，撤回保留原值}
         status: {type: string, enum: [DRAFT, PENDING, PUBLISHED, REJECTED, WITHDRAWN]}
         content_version: {type: integer, description: 草稿内容版本，建议采纳的乐观并发控制用；默认 0，每次编辑或采纳递增}
         author:

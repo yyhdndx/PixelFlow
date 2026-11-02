@@ -196,6 +196,23 @@ mvn -B -ntp -f server/pom.xml -Dtest=UserPostsApiTest,UserPostsHttpTest,OpenApiC
 `DELETE /api/media/{mediaId}` 删除本人未引用的图片，成功返回 204 并释放一个上传名额；此操作没有回收站，客户端执行前应让用户确认。已删除或不属于本人的 ID 返回 404，不能用管理员身份代删；仍被任何草稿、待审、公开、驳回或下架作品引用时返回 409 MEDIA_IN_USE。先从所有相关作品移除引用再删除，单纯下架不会移除引用。数据库文件不保证立即缩小，已做备份和已下载副本也不会随之消失。
 
 
+## 作品时间字段（任务 20）
+
+V13__post_times.sql 在 H2/MySQL 增加可空的 `submit_time`、`review_time`、`publish_time`（Unix 秒）。存量 PUBLISHED 作品仅回填 `publish_time=create_time`，历史提交/审核时间不推测。启动时由 Flyway 自动升级，不覆盖 V12 搜索索引迁移。
+
+所有 Post 卡片与审核队列均返回三个字段，无值为 null。`create_time` 始终是草稿创建时间；公开时间展示使用 `publish_time ?? create_time`。提交时间未知显示“—”。重复提交或审核不刷新时间，撤回保留历史时间，完整历史继续查询审核审计。
+
+使用 Java 17 和 MySQL 8.4。为接口专项准备本机独占 `pf_post_times_test`；迁移专项每次需要一个全新的空 `_test` 库，验证从 V12 升级，不可指向共享库。凭据通过环境变量注入，不写入命令历史或仓库：
+
+```powershell
+$env:MYSQL_TEST_POST_TIMES_URL = 'jdbc:mysql://127.0.0.1:3306/pf_post_times_test'
+$env:MYSQL_TEST_POST_TIMES_MIGRATION_URL = 'jdbc:mysql://127.0.0.1:3306/pf_post_times_migration_test'
+# MYSQL_TEST_USER / MYSQL_TEST_PASSWORD 由本机私有环境提供
+mvn -B -ntp -f server/pom.xml '-Dtest=PostTimesApiTest,MySqlPostTimesApiTest,PostTimesMigrationTest,MySqlPostTimesMigrationTest,OpenApiContractTest' test
+```
+
+专项实际结果与管理端交接见 [作品时间字段验收](../docs/testing/作品时间字段验收.md)。管理端提交时间/等待时长接线与 Android 展示由协调方跟进。
+
 ## 管理员 Agent 轨迹查询（任务 22）
 
 Java 提供 `GET /api/admin/agent/traces?count=20` 和 `GET /api/admin/agent/traces/{trace_id}`，仅 ADMIN 可调用；普通用户不能查询自己的或他人的轨迹。管理员用于跨用户审计，不按当前管理员 user_id 过滤。
