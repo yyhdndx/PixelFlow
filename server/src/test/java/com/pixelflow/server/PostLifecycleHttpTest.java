@@ -33,6 +33,19 @@ class PostLifecycleHttpTest {
     String databasePassword() { return ""; }
     boolean mysql() { return false; }
 
+    /** 迁移版本断言直接取自 Flyway 元数据，新增迁移时不用改测试。 */
+    List<String> expectedVersions() {
+        var info=org.flywaydb.core.Flyway.configure()
+                .dataSource(databaseUrl(),databaseUser(),databasePassword())
+                .locations("classpath:db/"+(mysql() ? "mysql" : "h2")).load().info();
+        var versions=new ArrayList<String>();
+        for (var migration : info.all()) {
+            if (migration.getVersion()!=null) versions.add(migration.getVersion().getVersion());
+        }
+        versions.sort(Comparator.comparingInt(Integer::parseInt));
+        return versions;
+    }
+
     @Test void creationModerationVisibilityAndWithdrawalOverHttp() throws Exception {
         String url=databaseUrl();
         try (var connection=DriverManager.getConnection(url,databaseUser(),databasePassword())) {
@@ -60,7 +73,7 @@ class PostLifecycleHttpTest {
             port=application.getWebServer().getPort(); db=application.getBean(JdbcTemplate.class);
             usernames.add("admin");
             try {
-                assertEquals(List.of("1","2","3","4","5","6","7","9","10","11","12","13","14","15"),db.queryForList(
+                assertEquals(expectedVersions(),db.queryForList(
                         "SELECT version FROM flyway_schema_history WHERE success=TRUE AND version IS NOT NULL ORDER BY installed_rank",String.class));
                 author=register("a","作者甲"); visitor=register("b","访问者乙"); admin=login("admin");
                 authorId=body(send("GET","/api/users/me",author,null,null),200).get("id").asText();

@@ -18,17 +18,29 @@ import com.bumptech.glide.Glide;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 作品详情页评论区：头像 + 昵称 +（回复前缀）+ 内容 + 相对时间。 */
+/**
+ * 作品详情页两级评论区：一级评论平铺，回复缩进显示在其所属一级评论下方，
+ * 回复标“回复 @某人”。数据里只可能存在两级，回复的回复也会挂回同一一级评论。
+ */
 public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> {
     private final Context context;
     private String selfId;
-    private final List<CommentPage.CommentItem> items = new ArrayList<>();
+    /** 一级评论（每条自带 replies）。 */
+    private final List<CommentPage.CommentItem> roots = new ArrayList<>();
+    /** 展开成扁平行，供 RecyclerView 使用。 */
+    private final List<Row> rows = new ArrayList<>();
     private OnCommentActionListener actionListener;
 
     public interface OnCommentActionListener {
         /** 点击整条评论 → 回复；长按 → 弹操作（复制/删除自己的）。 */
         void onCommentClick(CommentPage.CommentItem item);
         void onCommentLongClick(CommentPage.CommentItem item);
+    }
+
+    private static final class Row {
+        final CommentPage.CommentItem item;
+        final boolean reply;
+        Row(CommentPage.CommentItem item, boolean reply) { this.item = item; this.reply = reply; }
     }
 
     public CommentAdapter(Context context, String selfId) {
@@ -46,32 +58,72 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> 
     }
 
     public void setData(List<CommentPage.CommentItem> data) {
-        items.clear();
-        items.addAll(data);
+        roots.clear();
+        roots.addAll(data);
+        rebuildRows();
         notifyDataSetChanged();
     }
 
     public void addData(List<CommentPage.CommentItem> data) {
-        int start = items.size();
-        items.addAll(data);
-        notifyItemRangeInserted(start, data.size());
+        int start = rows.size();
+        roots.addAll(data);
+        rebuildRows();
+        notifyItemRangeInserted(start, rows.size() - start);
     }
 
-    /** 新发评论插入顶部（列表倒序，最新在前）。 */
+    /** 新发的一级评论插到顶部。 */
     public void prepend(CommentPage.CommentItem item) {
-        items.add(0, item);
+        if (!item.isRoot()) { addReply(item); return; }
+        roots.add(0, item);
+        rebuildRows();
         notifyItemInserted(0);
     }
 
-    public void remove(String commentId) {
-        int index = -1;
-        for (int i = 0; i < items.size(); i++) {
-            if (items.get(i).id.equals(commentId)) { index = i; break; }
+    /** 新发的回复插到所属一级评论的回复末尾；找不到对应一级评论时忽略。 */
+    public void addReply(CommentPage.CommentItem item) {
+        if (item.rootId == null) return;
+        for (int i = 0; i < roots.size(); i++) {
+            if (roots.get(i).id.equals(item.rootId)) {
+                roots.get(i).replies.add(item);
+                rebuildRows();
+                notifyItemInserted(indexOfRow(item.id));
+                return;
+            }
         }
-        if (index >= 0) { items.remove(index); notifyItemRemoved(index); }
     }
 
-    public List<CommentPage.CommentItem> getData() { return items; }
+    /** 删除评论；删一级评论时它的回复一起移除（服务端也是级联删除）。 */
+    public void remove(String commentId) {
+        boolean changed = false;
+        for (int i = roots.size() - 1; i >= 0; i--) {
+            CommentPage.CommentItem root = roots.get(i);
+            if (root.id.equals(commentId)) {
+                roots.remove(i);
+                changed = true;
+            } else {
+                changed |= root.replies.removeIf(reply -> reply.id.equals(commentId));
+            }
+        }
+        if (changed) {
+            rebuildRows();
+            notifyDataSetChanged();
+        }
+    }
+
+    public List<CommentPage.CommentItem> getData() { return roots; }
+
+    private void rebuildRows() {
+        rows.clear();
+        for (CommentPage.CommentItem root : roots) {
+            rows.add(new Row(root, false));
+            for (CommentPage.CommentItem reply : root.replies) rows.add(new Row(reply, true));
+        }
+    }
+
+    private int indexOfRow(String commentId) {
+        for (int i = 0; i < rows.size(); i++) if (rows.get(i).item.id.equals(commentId)) return i;
+        return Math.max(0, rows.size() - 1);
+    }
 
     @NonNull @Override
     public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -80,12 +132,25 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> 
 
     @Override
     public void onBindViewHolder(@NonNull Holder holder, int position) {
-        CommentPage.CommentItem item = items.get(position);
+        Row row = rows.get(position);
+        CommentPage.CommentItem item = row.item;
+
+        int startDp = row.reply ? 52 : 16;
+        holder.itemView.setPaddingRelative(dp(startDp), dp(10), dp(16), dp(10));
+        ViewGroup.LayoutParams avatarParams = holder.avatar.getLayoutParams();
+        int avatarSize = dp(row.reply ? 24 : 32);
+        if (avatarParams.width != avatarSize || avatarParams.height != avatarSize) {
+            avatarParams.width = avatarSize;
+            avatarParams.height = avatarSize;
+            holder.avatar.setLayoutParams(avatarParams);
+        }
+
         holder.nickname.setText(item.authorNickname);
         Glide.with(context).load(item.authorAvatar.isEmpty() ? null : item.authorAvatar)
                 .placeholder(R.drawable.profile_avatar).error(R.drawable.profile_avatar)
                 .circleCrop().into(holder.avatar);
-        if (item.parentNickname != null && !item.parentNickname.isEmpty()) {
+
+        if (row.reply && item.parentNickname != null && !item.parentNickname.isEmpty()) {
             String prefix = context.getString(R.string.comments_reply_prefix, item.parentNickname);
             SpannableString text = new SpannableString(prefix + item.content);
             text.setSpan(new ForegroundColorSpan(context.getColor(R.color.profile_muted)),
@@ -97,15 +162,19 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> 
         holder.time.setText(item.createTime > 0 ? DateUtils.formatRelativeTime(item.createTime) : "");
         holder.itemView.setOnClickListener(v -> {
             int pos = holder.getBindingAdapterPosition();
-            if (pos >= 0 && pos < items.size() && actionListener != null)
-                actionListener.onCommentClick(items.get(pos));
+            if (pos >= 0 && pos < rows.size() && actionListener != null)
+                actionListener.onCommentClick(rows.get(pos).item);
         });
         holder.itemView.setOnLongClickListener(v -> {
             int pos = holder.getBindingAdapterPosition();
-            if (pos >= 0 && pos < items.size() && actionListener != null)
-                actionListener.onCommentLongClick(items.get(pos));
+            if (pos >= 0 && pos < rows.size() && actionListener != null)
+                actionListener.onCommentLongClick(rows.get(pos).item);
             return true;
         });
+    }
+
+    private int dp(int value) {
+        return Math.round(value * context.getResources().getDisplayMetrics().density);
     }
 
     /** 是否当前登录用户的评论（决定长按可否删除）。 */
@@ -113,7 +182,7 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> 
         return selfId != null && !selfId.isEmpty() && selfId.equals(item.authorId);
     }
 
-    @Override public int getItemCount() { return items.size(); }
+    @Override public int getItemCount() { return rows.size(); }
 
     static class Holder extends RecyclerView.ViewHolder {
         ImageView avatar;

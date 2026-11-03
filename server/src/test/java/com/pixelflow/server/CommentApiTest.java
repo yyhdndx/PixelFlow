@@ -127,12 +127,75 @@ class CommentApiTest {
         var reply=body(mvc.perform(post("/api/posts/"+id+"/comments").header("Authorization",owner).contentType("application/json")
                 .content(encode(Map.of("content","回复内容","parentCommentId",parentId)))).andExpect(status().isOk()).andReturn());
         assertEquals(parentId,reply.get("parent_comment_id").asText());
+        assertEquals(parentId,reply.get("root_comment_id").asText());
         assertEquals("other8",reply.get("parent_nickname").asText(),
                 "创建回复的响应必须带 parent_nickname，客户端乐观插入才不会丢掉“回复 @xx”前缀");
         var list=body(mvc.perform(get("/api/posts/"+id+"/comments").header("Authorization",owner)).andReturn());
-        assertEquals(2,list.get("comment_list").size());
-        assertEquals("other8",list.get("comment_list").get(0).get("parent_nickname").asText());
+        assertEquals(1,list.get("comment_list").size(),"一级评论只有一条，回复挂在它的 replies 里");
+        var root=list.get("comment_list").get(0);
+        assertEquals(parentId,root.get("comment_id").asText());
+        assertEquals(1,root.get("reply_count").asInt());
+        assertEquals("other8",root.get("replies").get(0).get("parent_nickname").asText());
         assertEquals(2,count(id));
+    }
+
+    @Test void replyToReplyStaysAtSecondLevel() throws Exception {
+        String owner=account("author9"); String other=account("other9"); String third=account("third9");
+        String adm=admin("admin_t"); String id=published(owner,adm);
+        String root=comment(owner,id,"一级评论");
+        String firstReply=reply(other,id,root,"回复一级");
+        var nested=body(mvc.perform(post("/api/posts/"+id+"/comments").header("Authorization",third)
+                .contentType("application/json")
+                .content(encode(Map.of("content","回复这条回复","parentCommentId",firstReply)))).andExpect(status().isOk()).andReturn());
+        assertEquals(root,nested.get("parent_comment_id").asText(),"回复的回复仍挂在同一一级评论下");
+        assertEquals(root,nested.get("root_comment_id").asText());
+        assertEquals("other9",nested.get("parent_nickname").asText(),"标注被回复的是那条回复的作者");
+        var list=body(mvc.perform(get("/api/posts/"+id+"/comments").header("Authorization",owner)).andReturn());
+        assertEquals(1,list.get("comment_list").size());
+        var rootNode=list.get("comment_list").get(0);
+        assertEquals(2,rootNode.get("reply_count").asInt());
+        assertEquals(2,rootNode.get("replies").size());
+        assertEquals(3,count(id));
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM comments WHERE parent_comment_id IS NOT NULL "
+                + "AND parent_comment_id NOT IN (SELECT comment_id FROM comments WHERE parent_comment_id IS NULL)",Integer.class),
+                "任何回复的父都必须是一级评论，结构只有两级");
+    }
+
+    @Test void deleteRootCascadesReplies() throws Exception {
+        String owner=account("author10"); String other=account("other10"); String adm=admin("admin_d2");
+        String id=published(owner,adm);
+        String root=comment(owner,id,"一级");
+        reply(other,id,root,"回复一");
+        reply(other,id,root,"回复二");
+        assertEquals(3,count(id));
+        mvc.perform(delete("/api/comments/"+root).header("Authorization",owner)).andExpect(status().isOk());
+        assertEquals(0,count(id),"删除一级评论要把它的回复一起删掉并扣减评论数");
+        var list=body(mvc.perform(get("/api/posts/"+id+"/comments").header("Authorization",owner)).andReturn());
+        assertEquals(0,list.get("comment_list").size());
+    }
+
+    @Test void hidingRootHidesReplies() throws Exception {
+        String owner=account("author11"); String other=account("other11"); String adm=admin("admin_h2");
+        String id=published(owner,adm);
+        String root=comment(owner,id,"一级");
+        reply(other,id,root,"回复");
+        assertEquals(2,count(id));
+        mvc.perform(put("/api/admin/comments/"+root+"/status").header("Authorization",adm).contentType("application/json")
+                .content(encode(Map.of("status","HIDDEN")))).andExpect(status().isOk());
+        assertEquals(0,count(id));
+        assertEquals(0,body(mvc.perform(get("/api/posts/"+id+"/comments").header("Authorization",owner)).andReturn())
+                .get("comment_list").size());
+        mvc.perform(put("/api/admin/comments/"+root+"/status").header("Authorization",adm).contentType("application/json")
+                .content(encode(Map.of("status","VISIBLE")))).andExpect(status().isOk());
+        assertEquals(2,count(id));
+        assertEquals(1,body(mvc.perform(get("/api/posts/"+id+"/comments").header("Authorization",owner)).andReturn())
+                .get("comment_list").size());
+    }
+
+    private String reply(String token,String postId,String parentId,String content) throws Exception {
+        return body(mvc.perform(post("/api/posts/"+postId+"/comments").header("Authorization",token)
+                .contentType("application/json").content(encode(Map.of("content",content,"parentCommentId",parentId))))
+                .andExpect(status().isOk()).andReturn()).get("comment_id").asText();
     }
 
     @Test void blankAndOversizedContentRejected() throws Exception {
