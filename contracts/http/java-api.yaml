@@ -425,6 +425,41 @@ paths:
                   next_cursor: {type: string, nullable: true}
                   post_list: {type: array, items: {$ref: '#/components/schemas/Post'}}
         default: {$ref: '#/components/responses/Error'}
+  /api/feed/following:
+    get:
+      summary: 当前用户关注作者的公开作品流
+      description: |
+        仅查询认证用户关注的作者，返回 PUBLISHED 且作者存在并启用的作品，图片和视频均返回。
+        最新优先（按作品数字 ID 倒序），重新发布不改变排序位置；cursor 为上页 next_cursor，按 id < cursor 续页。
+        不应用推荐屏蔽或不感兴趣偏好，不接受客户端指定查询身份。无关注或无公开作品返回空页。
+        卡片与 /feed/ 相同，包含 V13 时间字段及当前访问者的点赞、收藏状态。响应 Cache-Control: no-store。
+      parameters:
+        - name: count
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 50, default: 20}
+          description: 显式空值、非十进制正整数及越界均为 400 INVALID_ARGUMENT
+        - name: cursor
+          in: query
+          schema: {type: string, pattern: '^[0-9]+$'}
+          description: 可省略；提供时须为正整数且不超过 9223372036854775807，空值或非法值为 400
+      responses:
+        '200':
+          description: 关注作品分页；末页 next_cursor 为 null
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FollowingFeedPage'}
+              examples:
+                empty: {value: {status_code: 0, post_list: [], has_more: 0, next_cursor: null}}
+                nextPage:
+                  value:
+                    status_code: 0
+                    post_list: [{post_id: '123', title: 示例作品, status: PUBLISHED, is_liked: false, is_favorited: false}]
+                    has_more: 1
+                    next_cursor: '123'
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
   /api/search/posts:
     get:
       summary: 按关键词搜索公开作品
@@ -534,6 +569,132 @@ paths:
       description: 作者撤回自己的作品（含待审核和草稿），设为 WITHDRAWN。
       responses:
         '200': {$ref: '#/components/responses/PostStatus'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/posts/{id}/comments:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    post:
+      description: 登录用户对已公开作品发表评论；content 1–500 字非空白；成功返回完整评论对象（回复时含 parent_comment_id/root_comment_id/parent_nickname），posts.comment_count +1。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [content]
+              properties:
+                content: {type: string, minLength: 1, maxLength: 500}
+                parentCommentId: {type: string, pattern: '^[1-9][0-9]{0,18}$', description: 可选；回复某条评论时携带，须属于同一作品；回复“回复”会被收拢到同一一级评论下}
+      responses:
+        '200': {$ref: '#/components/responses/Comment'}
+        default: {$ref: '#/components/responses/Error'}
+    get:
+      description: 登录可见；一级评论按 comment_id 倒序游标分页，只返回 VISIBLE，每条带 replies（该一级评论下的可见回复，时间正序，数量不限）与 reply_count；默认每页 20，count 1–50。
+      parameters:
+        - {name: cursor, in: query, schema: {type: integer, format: int64, minimum: 1}, description: 上一页末条一级评论 comment_id}
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+      responses:
+        '200':
+          description: '{status_code, comment_list, has_more, next_cursor}'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, comment_list, has_more, next_cursor]
+                properties:
+                  status_code: {type: integer}
+                  has_more: {type: integer, enum: [0, 1]}
+                  next_cursor: {type: [string, 'null']}
+                  comment_list: {type: array, items: {$ref: '#/components/schemas/Comment'}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/comments/{commentId}:
+    parameters:
+      - {name: commentId, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
+    delete:
+      description: 作者本人或 ADMIN 软删（status=DELETED）；删一级评论会级联删除它下面的全部回复，按实际删除条数扣减可见计数；重复删除幂等返回成功。
+      responses:
+        '200': {description: '{commentId, status: DELETED, removed}'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/admin/comments/{commentId}/status:
+    parameters:
+      - {name: commentId, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
+    put:
+      description: 仅 ADMIN 隐藏/恢复评论（HIDDEN/VISIBLE）；操作一级评论会连同其回复一起变更并按实际条数调整可见计数；DELETED 不可变更。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status: {type: string, enum: [VISIBLE, HIDDEN]}
+      responses:
+        '200': {description: '{commentId, status}'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/users/me/notifications:
+    get:
+      description: 登录用户按类型查看通知（@我/回复/赞），notification_id 倒序游标分页；被屏蔽类型返回空列表。
+      parameters:
+        - {name: type, in: query, required: true, schema: {type: string, enum: [MENTION, REPLY, LIKE]}}
+        - {name: cursor, in: query, schema: {type: integer, format: int64, minimum: 1}, description: 上一页末项 notification_id}
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+      responses:
+        '200':
+          description: '{status_code, notification_list, has_more, next_cursor}'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, notification_list, has_more, next_cursor]
+                properties:
+                  status_code: {type: integer}
+                  has_more: {type: integer, enum: [0, 1]}
+                  next_cursor: {type: [string, 'null']}
+                  notification_list: {type: array, items: {$ref: '#/components/schemas/Notification'}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/users/me/notifications/unread-count:
+    get:
+      description: 未读通知总数（不含已屏蔽类型），用于导航角标。
+      responses:
+        '200': {description: '{count}', content: {application/json: {schema: {type: object, required: [count], properties: {count: {type: integer, format: int64}}}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/users/me/notifications/read:
+    post:
+      description: 标记已读；body 为空或 ids 缺省时全部已读，否则仅标记指定 id。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                ids: {type: array, items: {type: string, pattern: '^[1-9][0-9]{0,18}$'}}
+      responses:
+        '200': {description: '{updated: true}'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/users/me/notification-preferences:
+    get:
+      description: 已屏蔽的通知类型列表。
+      responses:
+        '200': {description: '{muted_types: [...]}', content: {application/json: {schema: {type: object, required: [muted_types], properties: {muted_types: {type: array, items: {type: string, enum: [MENTION, REPLY, LIKE]}}}}}}}
+        default: {$ref: '#/components/responses/Error'}
+    put:
+      description: 设置屏蔽类型（整单覆盖）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [mutedTypes]
+              properties:
+                mutedTypes: {type: array, items: {type: string, enum: [MENTION, REPLY, LIKE]}}
+      responses:
+        '200': {description: '{muted_types: [...]}'}
         default: {$ref: '#/components/responses/Error'}
   /api/interactions/{kind}:
     parameters:
@@ -1038,7 +1199,63 @@ components:
     Post: {description: 作品详情, content: {application/json: {schema: {$ref: '#/components/schemas/Post'}}}}
     Posts: {description: 作品列表，续页取末项 post_id；空数组表示结束, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Post'}}}}}
     PostStatus: {description: 作品状态, content: {application/json: {schema: {type: object, properties: {postId: {type: string}, status: {type: string}}}}}}
+    Comment: {description: 评论对象, content: {application/json: {schema: {$ref: '#/components/schemas/Comment'}}}}
   schemas:
+    FollowingFeedPage:
+      type: object
+      required: [status_code, post_list, has_more, next_cursor]
+      properties:
+        status_code: {type: integer, enum: [0]}
+        post_list: {type: array, items: {$ref: '#/components/schemas/Post'}}
+        has_more: {type: integer, enum: [0, 1]}
+        next_cursor: {type: string, nullable: true, description: 存在下一页时为本页末条作品数字 ID，否则为 null}
+    Comment:
+      type: object
+      additionalProperties: false
+      required: [comment_id, post_id, content, status, create_time, author]
+      description: 两级评论结构。parent_comment_id 只在回复时存在，且恒为所属一级评论 id；回复的回复不会更深一层。
+      properties:
+        comment_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        post_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        parent_comment_id: {type: string, nullable: true, pattern: '^[1-9][0-9]*$', description: 仅回复评论时存在，值是所属一级评论 id}
+        root_comment_id: {type: string, nullable: true, pattern: '^[1-9][0-9]*$', description: 仅回复评论时存在，等于所属一级评论 id；创建回复的响应也会带}
+        parent_nickname: {type: string, nullable: true, description: 回复时被回复者昵称，用于渲染“回复 @某人”}
+        reply_count: {type: integer, minimum: 0, description: 仅列表接口的一级评论返回，该评论下的可见回复数}
+        replies:
+          type: array
+          description: 仅列表接口的一级评论返回，按时间正序。
+          items: {$ref: '#/components/schemas/Comment'}
+        content: {type: string, minLength: 1, maxLength: 500}
+        status: {type: string, enum: [VISIBLE, HIDDEN, DELETED]}
+        create_time: {type: integer, format: int64, minimum: 0}
+        author:
+          type: object
+          additionalProperties: false
+          required: [user_id, nickname, avatar]
+          properties:
+            user_id: {type: string, maxLength: 36}
+            nickname: {type: string, maxLength: 40}
+            avatar: {type: string}
+    Notification:
+      type: object
+      additionalProperties: false
+      required: [notification_id, type, actor, post_id, post_title, read, create_time]
+      properties:
+        notification_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        type: {type: string, enum: [MENTION, REPLY, LIKE]}
+        actor:
+          type: object
+          additionalProperties: false
+          required: [user_id, nickname, avatar]
+          properties:
+            user_id: {type: string, maxLength: 36}
+            nickname: {type: string, maxLength: 40}
+            avatar: {type: string}
+        post_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        post_title: {type: string, maxLength: 120}
+        comment_id: {type: string, nullable: true, pattern: '^[1-9][0-9]*$'}
+        read: {type: boolean}
+        create_time: {type: integer, format: int64, minimum: 0}
     AgentTracePage:
       type: object
       additionalProperties: false
@@ -1318,6 +1535,7 @@ components:
         hashtag: {type: array, items: {type: object}, description: 当前为空数组，标签提取待实现}
         music: {type: object, nullable: true, description: 当前为 null，音乐元数据待实现}
         like_count: {type: integer, format: int64}
+        comment_count: {type: integer, description: 当前可见评论数，发评/删评/隐藏/恢复时事务内维护}
         is_liked: {type: boolean, description: 当前认证用户是否点赞；游客为 false。Feed 和详情提供此字段。}
         is_favorited: {type: boolean, description: 当前认证用户是否收藏；游客为 false。}
     Event:

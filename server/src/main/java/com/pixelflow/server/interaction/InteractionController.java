@@ -21,7 +21,11 @@ public class InteractionController {
     private final PostService posts;
     private final com.pixelflow.server.events.EventWriter events;
     private final PreferenceService preferences;
-    public InteractionController(JdbcTemplate db,PostService posts,com.pixelflow.server.events.EventWriter events,PreferenceService preferences) { this.db=db; this.posts=posts; this.events=events; this.preferences=preferences; }
+    private final com.pixelflow.server.notify.NotificationService notifications;
+    public InteractionController(JdbcTemplate db,PostService posts,com.pixelflow.server.events.EventWriter events,
+            PreferenceService preferences,com.pixelflow.server.notify.NotificationService notifications) {
+        this.db=db; this.posts=posts; this.events=events; this.preferences=preferences; this.notifications=notifications;
+    }
     private void kind(String kind) {
         if (!Set.of("likes","favorites","follows","not-interested").contains(kind)) throw new ApiException(404,"NOT_FOUND","互动类型不存在");
     }
@@ -48,6 +52,12 @@ public class InteractionController {
         if (kind.equals("likes") && before!=input.active())
             events.append(UUID.randomUUID().toString(),actor.id(),input.targetId(),input.active() ? "LIKE" : "UNLIKE",
                     java.time.Instant.now().getEpochSecond(),null,null,"SERVER");
+        // 点赞通知：仅首次点赞（取消重点赞不重复通知），且跳过自赞与被屏蔽用户。
+        if (kind.equals("likes") && input.active() && !before) {
+            var owners=db.queryForList("SELECT author_id FROM posts WHERE id=?",Long.parseLong(input.targetId()));
+            if (!owners.isEmpty())
+                notifications.notify((String)owners.get(0).get("author_id"),"LIKE",actor.id(),Long.parseLong(input.targetId()),null);
+        }
         if (kind.equals("not-interested") && before!=input.active()) {
             preferences.bumpVersion(actor);
             if (input.active())

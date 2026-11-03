@@ -25,7 +25,8 @@ def execute(data, context):
     hits = []
     if any(word in text for word in BANNED_WORDS):
         hits.append("banned_word")
-    if not hits and any(pattern.search(text) for pattern in _CONTACT_PATTERNS):
+    # 独立检测：命中违禁词后仍继续检查联系方式，多条规则同时上报。
+    if any(pattern.search(text) for pattern in _CONTACT_PATTERNS):
         hits.append("contact_info")
     risk = "high" if "banned_word" in hits else ("medium" if hits else "low")
     suggestions = []

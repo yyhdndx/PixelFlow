@@ -34,7 +34,7 @@ class PostTimesApiTest {
     @AfterEach void cleanup() {
         String users="SELECT id FROM users WHERE username LIKE ?";
         String posts="SELECT id FROM posts WHERE author_id IN ("+users+")";
-        for (String table:List.of("post_creation_idempotency","moderation_records","post_media","behavior_events"))
+        for (String table:List.of("notifications","post_creation_idempotency","moderation_records","post_media","behavior_events"))
             db.update("DELETE FROM "+table+" WHERE post_id IN ("+posts+")",prefix+"%");
         db.update("DELETE FROM interactions WHERE user_id IN ("+users+")",prefix+"%");
         db.update("DELETE FROM posts WHERE author_id IN ("+users+")",prefix+"%");

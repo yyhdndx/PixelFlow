@@ -174,6 +174,7 @@ public class PostService {
         catch (Exception e) { throw new IllegalStateException("Invalid stored media metadata",e); }
         result.put("hashtag",List.of()); result.put("music",null);
         result.put("like_count",db.queryForObject("SELECT COUNT(*) FROM interactions WHERE kind='likes' AND target_id=?",Long.class,id));
+        result.put("comment_count",row.get("comment_count")==null ? 0 : ((Number)row.get("comment_count")).intValue());
         return result;
     }
     public String encode(Object value) {

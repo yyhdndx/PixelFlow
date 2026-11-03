@@ -1,6 +1,8 @@
 package com.PixelFlow.app.API;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.util.List;
@@ -293,6 +295,97 @@ public class CommunityClient implements AutoCloseable {
             ConnectionPage page = ConnectionPage.parse(gson.fromJson(
                     authenticated(job, path, "GET", null, expected, true), JsonObject.class));
             return page;
+        }, callback);
+    }
+    /** 消息通知分页；type 为 MENTION（@我）/REPLY（回复）/LIKE（赞）。 */
+    public Job getNotifications(String type, String cursor, Callback<NotificationPage> callback) {
+        return submit((job, expected) -> {
+            if (!type.equals("MENTION") && !type.equals("REPLY") && !type.equals("LIKE"))
+                throw new ApiError(400, "通知类型无效");
+            if (cursor != null && !cursor.matches("[1-9][0-9]{0,18}"))
+                throw new ApiError(400, "分页参数无效");
+            NotificationPage page = NotificationPage.parse(gson.fromJson(
+                    authenticated(job, "/api/users/me/notifications?type=" + type + "&count=20"
+                            + (cursor == null ? "" : "&cursor=" + cursor), "GET", null, expected, true),
+                    JsonObject.class));
+            return page;
+        }, callback);
+    }
+    public Job getUnreadNotificationCount(Callback<Integer> callback) {
+        return submit((job, expected) -> {
+            JsonObject result = gson.fromJson(authenticated(job, "/api/users/me/notifications/unread-count",
+                    "GET", null, expected, true), JsonObject.class);
+            if (result == null || !result.has("count")) throw new ApiError(0, "未读数响应不完整");
+            return result.get("count").getAsInt();
+        }, callback);
+    }
+    /** 全部标记已读。 */
+    public Job markNotificationsRead(Callback<Void> callback) {
+        return submit((job, expected) -> {
+            authenticated(job, "/api/users/me/notifications/read", "POST", new JsonObject(), expected, true);
+            return null;
+        }, callback);
+    }
+    public Job getNotificationPreferences(Callback<java.util.Set<String>> callback) {
+        return submit((job, expected) -> parseMuted(authenticated(job, "/api/users/me/notification-preferences",
+                "GET", null, expected, true)), callback);
+    }
+    public Job setNotificationPreferences(java.util.Set<String> muted, Callback<java.util.Set<String>> callback) {
+        JsonObject input = new JsonObject();
+        JsonArray array = new JsonArray();
+        for (String type : muted) array.add(type);
+        input.add("mutedTypes", array);
+        return submit((job, expected) -> parseMuted(authenticated(job, "/api/users/me/notification-preferences",
+                "PUT", input, expected, true)), callback);
+    }
+    private java.util.Set<String> parseMuted(String raw) throws ApiError {
+        JsonObject result = gson.fromJson(raw, JsonObject.class);
+        if (result == null || !result.has("muted_types") || !result.get("muted_types").isJsonArray())
+            throw new ApiError(0, "通知偏好响应不完整");
+        java.util.Set<String> muted = new java.util.LinkedHashSet<>();
+        for (JsonElement item : result.getAsJsonArray("muted_types"))
+            if (item.isJsonPrimitive()) muted.add(item.getAsString());
+        return muted;
+    }
+    /** 作品评论分页（倒序）。 */
+    public Job getComments(String postId, String cursor, Callback<CommentPage> callback) {
+        return submit((job, expected) -> {
+            if (postId == null || !postId.matches("[1-9][0-9]{0,18}"))
+                throw new ApiError(400, "作品 ID 无效");
+            if (cursor != null && !cursor.matches("[1-9][0-9]{0,18}"))
+                throw new ApiError(400, "分页参数无效");
+            CommentPage page = CommentPage.parse(gson.fromJson(
+                    authenticated(job, "/api/posts/" + postId + "/comments?count=20"
+                            + (cursor == null ? "" : "&cursor=" + cursor), "GET", null, expected, true),
+                    JsonObject.class));
+            return page;
+        }, callback);
+    }
+    /** 发表评论；parentCommentId 为 null 表示一级评论（回复）。 */
+    public Job createComment(String postId, String content, String parentCommentId,
+                             Callback<CommentPage.CommentItem> callback) {
+        return submit((job, expected) -> {
+            if (postId == null || !postId.matches("[1-9][0-9]{0,18}"))
+                throw new ApiError(400, "作品 ID 无效");
+            if (content == null || content.trim().isEmpty() || content.trim().length() > 500)
+                throw new ApiError(400, "评论应为 1–500 字");
+            if (parentCommentId != null && !parentCommentId.matches("[1-9][0-9]{0,18}"))
+                throw new ApiError(400, "被回复评论无效");
+            JsonObject input = new JsonObject();
+            input.addProperty("content", content.trim());
+            if (parentCommentId != null) input.addProperty("parentCommentId", parentCommentId);
+            JsonObject result = gson.fromJson(authenticated(job, "/api/posts/" + postId + "/comments",
+                    "POST", input, expected, true), JsonObject.class);
+            return CommentPage.CommentItem.parse(result);
+        }, callback);
+    }
+    /** 删除自己的评论（管理员可删任意）。 */
+    public Job deleteComment(String commentId, Callback<Void> callback) {
+        return submit((job, expected) -> {
+            if (commentId == null || !commentId.matches("[1-9][0-9]{0,18}"))
+                throw new ApiError(400, "评论 ID 无效");
+            authenticated(job, "/api/comments/" + commentId, "DELETE", null, expected, true);
+            return null;
         }, callback);
     }
     public Job getUserProfile(String userId, Callback<UserProfile> callback) {

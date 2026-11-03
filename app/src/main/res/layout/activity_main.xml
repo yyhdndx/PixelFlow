@@ -29,14 +29,15 @@
         app:itemIconTint="@color/nav_item_color"
         app:itemTextColor="@color/nav_item_color" />
 
-    <!-- 发布按钮：品牌靛紫 + 白色圆头加号，轻微悬浮 -->
+    <!-- 发布按钮：品牌靛紫 + 白色圆头加号，悬浮于底部导航上方居中，
+         避免遮挡底部导航中间的「消息」Tab -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab_camera"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignTop="@id/bottom_navigation"
+        android:layout_above="@id/bottom_navigation"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp"
         android:src="@drawable/ic_add"
         android:contentDescription="@string/home_create"
         app:fabCustomSize="56dp"

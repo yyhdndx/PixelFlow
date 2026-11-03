@@ -5,7 +5,7 @@ import time
 from typing import Annotated, Literal
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from ..skills.models import CreateAssistOutput
 from ..skills.runtime import SkillError
@@ -145,6 +145,13 @@ class ModerationDecision(BaseModel):
     risk_level: Literal["low", "medium", "high"]
     recommended_action: Literal["approve", "review", "reject"]
     reason: Reason
+
+    @model_validator(mode="after")
+    def consistent(self):
+        mapping = {"low": "approve", "medium": "review", "high": "reject"}
+        if self.recommended_action != mapping[self.risk_level]:
+            raise ValueError("risk_level and recommended_action disagree")
+        return self
 
 
 class DeepSeekModerationAdvisor:
