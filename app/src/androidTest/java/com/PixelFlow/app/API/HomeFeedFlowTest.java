@@ -31,11 +31,11 @@ public class HomeFeedFlowTest {
     private ApiClient api, previous;
     private Field singleton;
     private ActivityScenario<MainActivity> screen;
-    private final AtomicInteger firstPages = new AtomicInteger(), nextPages = new AtomicInteger(), recommendations = new AtomicInteger();
+    private final AtomicInteger firstPages = new AtomicInteger(), nextPages = new AtomicInteger(), communityPages = new AtomicInteger();
     private final List<String> cursors = new CopyOnWriteArrayList<>();
     private final List<String> feedAccounts = new CopyOnWriteArrayList<>();
     private final CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1);
-    private volatile boolean failFirst, failNext, empty, holdFirst, missingRecommendations;
+    private volatile boolean failFirst, failNext, empty, holdFirst, paginateCommunity;
 
     private MockResponse json(String body) { return new MockResponse().setHeader("Content-Type", "application/json").setBody(body); }
     private String posts(boolean bob, boolean next) {
@@ -57,6 +57,13 @@ public class HomeFeedFlowTest {
                 String path = request.getRequestUrl().encodedPath();
                 boolean bob = "Bearer bob".equals(request.getHeader("Authorization"));
                 if (path.equals("/feed/")) {
+                    communityPages.incrementAndGet();
+                    boolean next = request.getRequestUrl().queryParameter("cursor") != null;
+                    if (paginateCommunity) return json("{\"status_code\":0,\"has_more\":" + (next ? 0 : 1)
+                            + ",\"next_cursor\":" + (next ? "null" : "\"189\"") + ",\"post_list\":" + posts(true, next) + "}");
+                    return json("{\"status_code\":0,\"has_more\":0,\"next_cursor\":null,\"post_list\":" + posts(true, true) + "}");
+                }
+                if (path.equals("/api/feed/following")) {
                     feedAccounts.add(bob ? "bob" : "alice-or-guest");
                     String cursor = request.getRequestUrl().queryParameter("cursor");
                     if (cursor == null) {
@@ -70,11 +77,6 @@ public class HomeFeedFlowTest {
                     return json("{\"status_code\":0,\"has_more\":" + (empty || cursor != null ? 0 : 1)
                             + ",\"next_cursor\":" + (empty || cursor != null ? "null" : (bob ? "\"189\"" : "\"89\""))
                             + ",\"post_list\":" + (empty ? "[]" : posts(bob, cursor != null)) + "}");
-                }
-                if (path.equals("/api/recommendations/me/feed")) {
-                    recommendations.incrementAndGet();
-                    if (missingRecommendations) return json("{}").setResponseCode(404);
-                    return json("{\"strategy\":\"popular\",\"reason\":\"cold_start\",\"profile_version\":0,\"preferences_changed\":false,\"post_list\":" + posts(bob, true) + "}");
                 }
                 if (path.equals("/api/events") || path.equals("/api/auth/logout")) return json("{}");
                 return json("{}").setResponseCode(404);
@@ -182,28 +184,62 @@ public class HomeFeedFlowTest {
             assertFalse(adapter(a).getData().get(0).isLiked());
         });
     }
-    @Test public void recreationPreservesRecommendationSource() {
-        launch(); ready(12);
-        screen.onActivity(a -> ((TabLayout)a.findViewById(R.id.tab_layout)).getTabAt(1).select()); ready(2);
-        int ordinary = firstPages.get(); screen.recreate(); ready(2);
-        screen.onActivity(a -> assertEquals(1, ((TabLayout)a.findViewById(R.id.tab_layout)).getSelectedTabPosition()));
-        assertEquals(ordinary, firstPages.get()); assertTrue(recommendations.get() >= 2);
+    private void selectTab(int index) {
+        screen.onActivity(a -> ((TabLayout)a.findViewById(R.id.tab_layout)).getTabAt(index).select());
     }
-    @Test public void emptyCommunityIsDistinctFromFailure() {
+    @Test public void recreationPreservesCommunitySelection() {
+        launch(); ready(12); selectTab(1); ready(2);
+        int following = firstPages.get(); screen.recreate(); ready(2);
+        screen.onActivity(a -> assertEquals(1, ((TabLayout)a.findViewById(R.id.tab_layout)).getSelectedTabPosition()));
+        assertEquals(following, firstPages.get()); assertTrue(communityPages.get() >= 2);
+    }
+    @Test public void emptyFollowingOffersCommunity() {
         empty = true; launch();
         await(a -> {
             assertEquals(View.VISIBLE, a.findViewById(R.id.empty_state_layout).getVisibility());
-            assertEquals(a.getString(R.string.home_empty_title), ((TextView)a.findViewById(R.id.feed_state_title)).getText().toString());
-            assertEquals(a.getString(R.string.home_refresh), ((TextView)a.findViewById(R.id.retry_button)).getText().toString());
+            assertEquals(a.getString(R.string.home_empty_following), ((TextView)a.findViewById(R.id.feed_state_message)).getText().toString());
+            assertEquals(a.getString(R.string.home_go_community), ((TextView)a.findViewById(R.id.retry_button)).getText().toString());
+        });
+        screen.onActivity(a -> a.findViewById(R.id.retry_button).performClick()); ready(2);
+    }
+    @Test public void tabsRetainIndependentCardsCursorAndRefresh() {
+        launch(); ready(12);
+        screen.onActivity(a -> {
+            assertEquals(0, ((TabLayout)a.findViewById(R.id.tab_layout)).getSelectedTabPosition());
+            assertEquals("100", adapter(a).getData().get(0).getId());
+            load(a, false);
+        }); ready(14);
+        selectTab(1); ready(2);
+        screen.onActivity(a -> assertTrue(adapter(a).getData().stream().allMatch(p -> Integer.parseInt(p.getId()) > 100)));
+        screen.onActivity(a -> load(a, true)); ready(2);
+        selectTab(0); ready(14);
+        assertEquals(1, firstPages.get()); assertEquals(java.util.Arrays.asList("89"), cursors);
+        screen.onActivity(a -> {
+            assertEquals(14, adapter(a).getData().stream().map(p -> p.getId()).distinct().count());
+            assertFalse((Boolean) field(home(a), "hasMoreData"));
         });
     }
-    @Test public void unavailableRecommendationExplainsItAndCommunityStillWorks() {
-        missingRecommendations = true; launch(); ready(12);
-        screen.onActivity(a -> ((TabLayout)a.findViewById(R.id.tab_layout)).getTabAt(1).select()); ready(0);
+    @Test public void bothTabsPaginateWithoutMixingRows() {
+        paginateCommunity = true; launch(); ready(12);
+        screen.onActivity(a -> load(a, false)); ready(14);
+        selectTab(1); ready(12); screen.onActivity(a -> load(a, false)); ready(14);
         screen.onActivity(a -> {
-            assertEquals(a.getString(R.string.home_recommendations_unavailable), ((TextView)a.findViewById(R.id.feed_state_message)).getText().toString());
-            ((TabLayout)a.findViewById(R.id.tab_layout)).getTabAt(0).select();
+            assertEquals(14, adapter(a).getData().stream().map(p -> p.getId()).distinct().count());
+            assertTrue(adapter(a).getData().stream().allMatch(p -> Integer.parseInt(p.getId()) >= 187));
+            assertNull(field(home(a), "nextCursor"));
         });
-        ready(12);
+        selectTab(0); ready(14);
+        screen.onActivity(a -> assertTrue(adapter(a).getData().stream().allMatch(p -> Integer.parseInt(p.getId()) <= 100)));
+    }
+    @Test public void guestFollowingHasLoginGuidanceWithoutRequest() {
+        api.close();
+        api = new ApiClient(server.url("/").toString());
+        try { singleton.set(null, api); } catch (IllegalAccessException e) { throw new AssertionError(e); }
+        launch();
+        await(a -> {
+            assertEquals(a.getString(R.string.home_login_title), ((TextView)a.findViewById(R.id.feed_state_title)).getText().toString());
+            assertEquals(a.getString(R.string.home_login), ((TextView)a.findViewById(R.id.retry_button)).getText().toString());
+        });
+        assertEquals(0, firstPages.get()); selectTab(1); ready(2);
     }
 }
