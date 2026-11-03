@@ -295,6 +295,7 @@ class PostLifecycleHttpTest {
                 for (String user:db.queryForList("SELECT id FROM users WHERE username=?",String.class,username)) {
                     for (Long post:db.queryForList("SELECT id FROM posts WHERE author_id=?",Long.class,user)) {
                         db.update("DELETE FROM notifications WHERE post_id=?",post);
+                        db.update("DELETE FROM comments WHERE post_id=?",post);
                         db.update("DELETE FROM behavior_events WHERE post_id=?",post);
                         db.update("DELETE FROM moderation_records WHERE post_id=?",post);
                         db.update("DELETE FROM post_media WHERE post_id=?",post);
