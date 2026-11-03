@@ -32,8 +32,8 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> 
     private OnCommentActionListener actionListener;
 
     public interface OnCommentActionListener {
-        /** 点某条评论旁的「回复」→ 回复这个人；输入框默认仍是评论这条帖子。 */
-        void onCommentReplyClick(CommentPage.CommentItem item);
+        /** 点某条评论旁的「回复」→ 回复这个人；anchor 是被点的那一行，用来把它保持在输入框上方。 */
+        void onCommentReplyClick(CommentPage.CommentItem item, android.view.View anchor);
         void onCommentLongClick(CommentPage.CommentItem item);
     }
 
@@ -163,7 +163,7 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> 
         holder.reply.setOnClickListener(v -> {
             int pos = holder.getBindingAdapterPosition();
             if (pos >= 0 && pos < rows.size() && actionListener != null)
-                actionListener.onCommentReplyClick(rows.get(pos).item);
+                actionListener.onCommentReplyClick(rows.get(pos).item, holder.itemView);
         });
         holder.itemView.setOnLongClickListener(v -> {
             int pos = holder.getBindingAdapterPosition();

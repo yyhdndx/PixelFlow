@@ -4,7 +4,7 @@
     <string name="comments_empty">还没有评论，来抢沙发</string>
     <string name="comments_load_error">评论加载失败，下拉重试</string>
     <string name="comments_input_hint">说点什么...</string>
-    <string name="comments_reply_hint">回复 %1$s：</string>
+    <string name="comments_reply_hint">回复 @%1$s：</string>
     <string name="comments_send">发送</string>
     <string name="comments_reply_prefix">回复 @%1$s：</string>
     <string name="comments_avatar">评论者头像</string>
