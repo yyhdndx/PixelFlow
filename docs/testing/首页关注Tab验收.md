@@ -56,4 +56,15 @@ MockWebServer 流程测试负责分页、失败重试、生命周期、账号切
 
 截图由 `FollowingFeedHttpTest` 写入应用 external files 的 `following-evidence` 目录；Gradle connected 测试结束可能卸载应用，需保留安装并用 `adb shell am instrument` 执行后及时 `adb pull`。
 
-自动化已验证 Activity 重建恢复所选 Tab；物理设备与人工杀进程恢复不在本次模拟器结果之内。未执行云端联调或部署。
+## 补充验收：登录跳转与进程恢复
+
+游客测试新增实际点击「去登录」，通过 Instrumentation ActivityMonitor 确认打开 `AccountActivity`，并确认关注接口请求数仍为 0。补测首页 `HomeFeedFlowTest`：10 运行、0 失败、0 跳过。首次补测时模拟器休眠/锁屏，7 项失败；唤醒、解锁并设置 `svc power stayon true` 后，同一套测试全部通过。
+
+进程恢复使用安装的正式 debug APK，不在目标进程内运行 instrumentation：
+
+1. 启动应用，确认首次选中「我的关注」，点击「社区」。
+2. 按 Home 退到后台，记录应用 PID 与最近任务 ID。
+3. `adb shell am kill com.PixelFlow.app`，确认 `pidof com.PixelFlow.app` 无结果；保留最近任务，不使用 force-stop 或清除数据。
+4. `adb shell am task focus <taskId>` 恢复原任务，确认新 PID，并通过 `uiautomator dump` 检查「社区」`selected=true`、「我的关注」`selected=false`。
+
+本次实测任务 ID 为 179，PID `9049 → 无进程 → 9238`，恢复后社区仍选中，验证通过。任务 ID 与 PID 每次不同，应从 `dumpsys activity recents` 和 `pidof` 读取。该流程验证系统保留任务状态时的进程重建；不要求强制停止、清除数据或开启全新任务后保留选择。物理设备尚未单独验收，未执行云端联调或部署。

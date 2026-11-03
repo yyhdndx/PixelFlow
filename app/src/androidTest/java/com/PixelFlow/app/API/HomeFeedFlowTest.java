@@ -113,7 +113,8 @@ public class HomeFeedFlowTest {
     private void ready(int count) {
         await(a -> {
             assertFalse((Boolean) field(home(a), "requestInFlight"));
-            assertEquals(count, adapter(a).getData().size());
+            assertEquals("requests=" + feedAccounts + "; account=" + api.username() + "; message="
+                    + ((TextView)a.findViewById(R.id.feed_state_message)).getText(), count, adapter(a).getData().size());
         });
     }
     private void launch() { screen = ActivityScenario.launch(MainActivity.class); }
@@ -241,5 +242,22 @@ public class HomeFeedFlowTest {
             assertEquals(a.getString(R.string.home_login), ((TextView)a.findViewById(R.id.retry_button)).getText().toString());
         });
         assertEquals(0, firstPages.get()); selectTab(1); ready(2);
+        selectTab(0);
+        android.app.Instrumentation instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation();
+        android.app.Instrumentation.ActivityMonitor monitor = instrumentation.addMonitor(
+                com.PixelFlow.app.AccountActivity.class.getName(), null, false);
+        android.app.Activity login = null;
+        try {
+            screen.onActivity(a -> a.findViewById(R.id.retry_button).performClick());
+            login = instrumentation.waitForMonitorWithTimeout(monitor, 5000);
+            assertNotNull("Login guidance must open AccountActivity", login);
+            assertEquals(0, firstPages.get());
+        } finally {
+            if (login != null) {
+                android.app.Activity activity = login;
+                instrumentation.runOnMainSync(activity::finish);
+            }
+            instrumentation.removeMonitor(monitor);
+        }
     }
 }
