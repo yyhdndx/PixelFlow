@@ -168,6 +168,33 @@ class AutoReplyApiTest {
         mvc.perform(delete("/api/posts/"+post+"/auto-replies/"+ruleId).header("Authorization",owner)).andExpect(status().isNotFound());
     }
 
+    @Test void batchCreateAddsMultipleRulesAndRespectsLimit() throws Exception {
+        String owner=account("ar_author9"); String adm=admin("ar_admin9"); String post=published(owner,adm);
+        String payload="{\"rules\":[{\"question\":\"有人问价格\",\"answer\":\"99 元\"},"
+                + "{\"question\":\"有人问发货\",\"answer\":\"48 小时\"}]}";
+        var created=body(mvc.perform(post("/api/posts/"+post+"/auto-replies/batch")
+                .header("Authorization",owner).contentType("application/json").content(payload))
+                .andExpect(status().isOk()).andReturn());
+        assertEquals(2,created.get("created").size());
+        assertEquals("有人问发货",created.get("created").get(1).get("question").asText());
+
+        StringBuilder tooMany=new StringBuilder("{\"rules\":[");
+        for (int i=0;i<9;i++) tooMany.append(i==0?"":",").append("{\"question\":\"场景").append(i)
+                .append("\",\"answer\":\"答案").append(i).append("\"}");
+        tooMany.append("]}");
+        mvc.perform(post("/api/posts/"+post+"/auto-replies/batch").header("Authorization",owner)
+                .contentType("application/json").content(tooMany.toString())).andExpect(status().isBadRequest());
+    }
+
+    @Test void batchCreateRequiresOwnerAndRules() throws Exception {
+        String owner=account("ar_author10"); String adm=admin("ar_admin10"); String post=published(owner,adm);
+        String other=account("ar_other10");
+        String payload="{\"rules\":[{\"question\":\"有人问价格\",\"answer\":\"99 元\"}]}";
+        mvc.perform(post("/api/posts/"+post+"/auto-replies/batch").header("Authorization",other)
+                .contentType("application/json").content(payload)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/posts/"+post+"/auto-replies/batch").header("Authorization",owner)
+                .contentType("application/json").content("{\"rules\":[]}")).andExpect(status().isBadRequest());
+    }
     @Test void listReturnsConfiguredScenarios() throws Exception {
         String owner=account("ar_author8"); String adm=admin("ar_admin8"); String post=published(owner,adm);
         rule(owner,post,"有人问价格","99 元");

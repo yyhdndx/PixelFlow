@@ -448,6 +448,32 @@ public class CommunityClient implements AutoCloseable {
             return suggestions;
         }, callback);
     }
+    /** 批量创建规则（AI 候选多选后一次应用）。 */
+    public Job batchCreateAutoReplies(String postId, List<AutoReplyRule> rules,
+                                      Callback<List<AutoReplyRule>> callback) {
+        return submit((job, expected) -> {
+            if (rules == null || rules.isEmpty()) throw new ApiError(400, "请先勾选要应用的规则");
+            JsonArray array = new JsonArray();
+            for (AutoReplyRule rule : rules) {
+                JsonObject item = autoReplyInput(rule.question, rule.answer);
+                array.add(item);
+            }
+            JsonObject input = new JsonObject();
+            input.add("rules", array);
+            JsonObject result = gson.fromJson(authenticated(job,
+                    "/api/posts/" + postId + "/auto-replies/batch", "POST", input, expected, true),
+                    JsonObject.class);
+            List<AutoReplyRule> created = new ArrayList<>();
+            if (result.has("created") && result.get("created").isJsonArray()) {
+                JsonArray createdArray = result.getAsJsonArray("created");
+                for (int i = 0; i < createdArray.size(); i++) {
+                    if (createdArray.get(i).isJsonObject())
+                        created.add(AutoReplyRule.parse(createdArray.get(i).getAsJsonObject()));
+                }
+            }
+            return created;
+        }, callback);
+    }
     private JsonObject autoReplyInput(String question, String answer) throws IOException {
         if (question == null || question.trim().isEmpty() || question.trim().length() > 200)
             throw new ApiError(400, "场景描述应为 1–200 字");

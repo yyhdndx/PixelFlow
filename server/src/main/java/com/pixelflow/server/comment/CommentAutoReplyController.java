@@ -24,6 +24,7 @@ public class CommentAutoReplyController {
     public record RuleUpdate(@NotBlank @Size(max=200) String question,
             @NotBlank @Size(max=300) String answer, @NotNull Boolean enabled) {}
     public record SuggestInput(@NotBlank @Size(max=500) String prompt) {}
+    public record BatchInput(@NotEmpty @Size(max=10) List<@Valid RuleInput> rules) {}
 
     static final int MAX_RULES_PER_POST = 10;
 
@@ -78,6 +79,37 @@ public class CommentAutoReplyController {
                 + "FROM comment_auto_replies WHERE id=?",ruleId));
     }
 
+    /** 批量创建（AI 候选多选后「应用」用）：一次最多 10 条，与总量上限一起校验。 */
+    @PostMapping("/api/posts/{postId}/auto-replies/batch") @Transactional
+    public Map<String,Object> batch(@PathVariable long postId,@Valid @RequestBody BatchInput input,
+            @AuthenticationPrincipal Actor actor) {
+        requireOwner(postId,actor);
+        int existing = db.queryForObject("SELECT COUNT(*) FROM comment_auto_replies WHERE post_id=?",
+                Integer.class,postId);
+        if (existing + input.rules().size() > MAX_RULES_PER_POST)
+            throw new ApiException(400,"TOO_MANY_RULES",
+                    "每篇作品最多 " + MAX_RULES_PER_POST + " 条规则，当前已有 " + existing + " 条");
+        var created = new ArrayList<Map<String,Object>>();
+        long now = Instant.now().getEpochSecond();
+        for (RuleInput rule : input.rules()) {
+            var key = new GeneratedKeyHolder();
+            db.update(connection -> {
+                var statement = connection.prepareStatement(
+                        "INSERT INTO comment_auto_replies(post_id,owner_id,question,answer,enabled,create_time,update_time)"
+                                + " VALUES(?,?,?,?,TRUE,?,?)", new String[]{"id"});
+                statement.setLong(1,postId); statement.setString(2,actor.id());
+                statement.setString(3,rule.question().trim()); statement.setString(4,rule.answer().trim());
+                statement.setLong(5,now); statement.setLong(6,now);
+                return statement;
+            },key);
+            created.add(view(db.queryForMap("SELECT id,question,answer,enabled,create_time,update_time "
+                    + "FROM comment_auto_replies WHERE id=?",key.getKey().longValue())));
+        }
+        Map<String,Object> response = new LinkedHashMap<>();
+        response.put("status_code",0);
+        response.put("created",created);
+        return response;
+    }
     /** 用 Agent 按作品上下文把作者描述拆成若干「场景 → 答案」候选。 */
     @PostMapping("/api/posts/{postId}/auto-replies/suggest") @Transactional(readOnly = true)
     public Map<String,Object> suggest(@PathVariable long postId,@Valid @RequestBody SuggestInput input,
