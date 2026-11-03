@@ -885,6 +885,12 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private void deleteComment(CommentPage.CommentItem item) {
         ApiClient.getInstance(this).deleteComment(item.id, new CommunityClient.Callback<Void>() {
             @Override public void onSuccess(Void value) {
+                // 删掉的评论可能正是当前回复对象（或它的所属一级评论），清掉回复态避免发到已删除目标
+                if (replyTarget != null && (item.id.equals(replyTarget.id)
+                        || item.id.equals(replyTarget.rootId))) {
+                    replyTarget = null;
+                    commentInput.setHint(R.string.comments_input_hint);
+                }
                 commentAdapter.remove(item.id);
                 updateCommentViews();
                 android.widget.Toast.makeText(WorkDetailActivity.this, R.string.comments_deleted_toast,

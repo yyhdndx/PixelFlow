@@ -539,7 +539,7 @@ paths:
     parameters:
       - {$ref: '#/components/parameters/Id'}
     post:
-      description: 登录用户对已公开作品发表评论；content 1–500 字非空白；成功返回完整评论对象，posts.comment_count +1。
+      description: 登录用户对已公开作品发表评论；content 1–500 字非空白；成功返回完整评论对象（回复时含 parent_comment_id/root_comment_id/parent_nickname），posts.comment_count +1。
       requestBody:
         required: true
         content:
@@ -550,14 +550,14 @@ paths:
               required: [content]
               properties:
                 content: {type: string, minLength: 1, maxLength: 500}
-                parentCommentId: {type: string, pattern: '^[1-9][0-9]{0,18}$', description: 可选；回复某条评论时携带，须属于同一作品}
+                parentCommentId: {type: string, pattern: '^[1-9][0-9]{0,18}$', description: 可选；回复某条评论时携带，须属于同一作品；回复“回复”会被收拢到同一一级评论下}
       responses:
         '200': {$ref: '#/components/responses/Comment'}
         default: {$ref: '#/components/responses/Error'}
     get:
-      description: 登录可见；按 comment_id 倒序游标分页，只返回 VISIBLE；默认每页 20，count 1–50。
+      description: 登录可见；一级评论按 comment_id 倒序游标分页，只返回 VISIBLE，每条带 replies（该一级评论下的可见回复，时间正序，数量不限）与 reply_count；默认每页 20，count 1–50。
       parameters:
-        - {name: cursor, in: query, schema: {type: integer, format: int64, minimum: 1}, description: 上一页末项 comment_id}
+        - {name: cursor, in: query, schema: {type: integer, format: int64, minimum: 1}, description: 上一页末条一级评论 comment_id}
         - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
       responses:
         '200':
@@ -577,15 +577,15 @@ paths:
     parameters:
       - {name: commentId, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
     delete:
-      description: 作者本人或 ADMIN 软删（status=DELETED），可见计数 -1；重复删除幂等返回成功。
+      description: 作者本人或 ADMIN 软删（status=DELETED）；删一级评论会级联删除它下面的全部回复，按实际删除条数扣减可见计数；重复删除幂等返回成功。
       responses:
-        '200': {description: '{commentId, status: DELETED}'}
+        '200': {description: '{commentId, status: DELETED, removed}'}
         default: {$ref: '#/components/responses/Error'}
   /api/admin/comments/{commentId}/status:
     parameters:
       - {name: commentId, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
     put:
-      description: 仅 ADMIN 隐藏/恢复评论（HIDDEN/VISIBLE），隐藏时可见计数 -1、恢复 +1；DELETED 不可变更。
+      description: 仅 ADMIN 隐藏/恢复评论（HIDDEN/VISIBLE）；操作一级评论会连同其回复一起变更并按实际条数调整可见计数；DELETED 不可变更。
       requestBody:
         required: true
         content:
@@ -1170,11 +1170,18 @@ components:
       type: object
       additionalProperties: false
       required: [comment_id, post_id, content, status, create_time, author]
+      description: 两级评论结构。parent_comment_id 只在回复时存在，且恒为所属一级评论 id；回复的回复不会更深一层。
       properties:
         comment_id: {type: string, pattern: '^[1-9][0-9]*$'}
         post_id: {type: string, pattern: '^[1-9][0-9]*$'}
-        parent_comment_id: {type: string, nullable: true, pattern: '^[1-9][0-9]*$', description: 仅回复评论时存在}
-        parent_nickname: {type: string, nullable: true, description: 仅列表接口在回复评论时返回被回复者昵称}
+        parent_comment_id: {type: string, nullable: true, pattern: '^[1-9][0-9]*$', description: 仅回复评论时存在，值是所属一级评论 id}
+        root_comment_id: {type: string, nullable: true, pattern: '^[1-9][0-9]*$', description: 仅回复评论时存在，等于所属一级评论 id；创建回复的响应也会带}
+        parent_nickname: {type: string, nullable: true, description: 回复时被回复者昵称，用于渲染“回复 @某人”}
+        reply_count: {type: integer, minimum: 0, description: 仅列表接口的一级评论返回，该评论下的可见回复数}
+        replies:
+          type: array
+          description: 仅列表接口的一级评论返回，按时间正序。
+          items: {$ref: '#/components/schemas/Comment'}
         content: {type: string, minLength: 1, maxLength: 500}
         status: {type: string, enum: [VISIBLE, HIDDEN, DELETED]}
         create_time: {type: integer, format: int64, minimum: 0}
