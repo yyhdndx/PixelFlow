@@ -32,4 +32,13 @@
     <string name="auto_reply_ai_generate">生成候选</string>
     <string name="auto_reply_ai_generating">生成中…</string>
     <string name="auto_reply_manual_hint">或手动填写：</string>
-    <string name="auto_reply_ai_candidate">「%1$s」→ %2$s</string></resources>
+    <string name="auto_reply_ai_candidate">「%1$s」→ %2$s</string>    <string name="auto_reply_edit_title">编辑规则</string>
+    <string name="auto_reply_ai_help">AI 会参考这篇作品，把你的一句话拆成多条「场景 → 答案」；生成后勾选你想要的，再点「应用选中」。</string>
+    <string name="auto_reply_select_all">全选</string>
+    <string name="auto_reply_apply">应用选中</string>
+    <string name="auto_reply_selected_count">已选 %1$d / %2$d 条</string>
+    <string name="auto_reply_applied">已添加 %1$d 条规则</string>
+    <string name="auto_reply_manual_title">或手动填写一条</string>    <string name="auto_reply_ai_need_prompt">先用一句话描述你想自动回复什么</string>
+    <string name="auto_reply_ai_empty">AI 没有提炼出规则，把想法说得更具体些试试</string>
+    <string name="auto_reply_apply_empty">请先勾选要应用的候选</string>
+    <string name="auto_reply_need_both">场景和回复内容都要填写</string></resources>
