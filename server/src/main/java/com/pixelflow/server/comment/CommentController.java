@@ -80,7 +80,10 @@ public class CommentController {
         PostService.checkPage(count,cursor);
         if (db.queryForObject("SELECT COUNT(*) FROM posts WHERE id=?",Integer.class,postId)==0)
             throw new ApiException(404,"POST_NOT_FOUND","作品不存在");
-        var rows=db.queryForList("SELECT c.*,u.nickname,u.avatar FROM comments c JOIN users u ON c.author_id=u.id "
+        var rows=db.queryForList("SELECT c.*,u.nickname,u.avatar,pu.nickname AS parent_nickname "
+                + "FROM comments c JOIN users u ON c.author_id=u.id "
+                + "LEFT JOIN comments p ON c.parent_comment_id = p.comment_id "
+                + "LEFT JOIN users pu ON p.author_id = pu.id "
                 + "WHERE c.post_id=? AND c.status='VISIBLE' AND c.comment_id<? ORDER BY c.comment_id DESC LIMIT ?",
                 postId,cursor==null ? Long.MAX_VALUE : cursor,count+1);
         boolean more=rows.size()>count;
@@ -138,6 +141,7 @@ public class CommentController {
         result.put("comment_id",row.get("comment_id").toString());
         result.put("post_id",row.get("post_id").toString());
         if (row.get("parent_comment_id") != null) result.put("parent_comment_id",row.get("parent_comment_id").toString());
+        if (row.get("parent_nickname") != null) result.put("parent_nickname",row.get("parent_nickname"));
         result.put("content",row.get("content"));
         result.put("status",row.get("status"));
         result.put("create_time",row.get("create_time"));

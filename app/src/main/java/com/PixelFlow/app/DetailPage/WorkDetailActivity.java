@@ -22,14 +22,23 @@ import android.widget.*;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.GestureDetectorCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.content.ClipboardManager;
+import android.content.ClipData;
 
 import com.PixelFlow.app.AudioPlayer;
 import com.PixelFlow.app.DAO.PersistState.LikeStatus;
 import com.PixelFlow.app.API.ApiClient;
+import com.PixelFlow.app.API.CommentPage;
 import com.PixelFlow.app.API.CommunityClient;
+import com.PixelFlow.app.API.CurrentUser;
 import com.PixelFlow.app.API.PostItem;
 import com.PixelFlow.app.API.UserProfile;
 import com.PixelFlow.app.Hashtag.HashtagActivity;
@@ -80,6 +89,20 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private ImageView commentButton;  // 保持
     private ImageView collectButton;  // 保持
     private ImageView shareButton;
+
+    // 评论区
+    private RecyclerView commentsList;
+    private TextView commentsHeader;
+    private TextView commentsEmpty;
+    private TextView commentsMore;
+    private com.PixelFlow.app.Streams.CommentAdapter commentAdapter;
+    private String commentsCursor;
+    private boolean commentsHasMore;
+    private boolean commentsLoading;
+    private int commentsGeneration;
+    private String selfUserId = "";
+    private CommentPage.CommentItem replyTarget;
+    private boolean commentSending;
 
     // 数据
     private WorkItem workItem;
@@ -148,6 +171,13 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         restoredPlayback = savedInstanceState == null ? null : savedInstanceState.getBundle("media.playback");
         setContentView(R.layout.activity_detail);
 
+        // 沉浸式标志下窗口不会随键盘重排，手动用 IME insets 顶起底部栏与内容
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root_layout), (view, insets) -> {
+            int imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+            view.setPadding(view.getPaddingLeft(), view.getPaddingTop(), view.getPaddingRight(), imeBottom);
+            return insets;
+        });
+
         // 获取传递的数据
         workItem = (WorkItem) getIntent().getSerializableExtra("work_item");
         if (workItem == null) {
@@ -165,6 +195,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         setupData();
         setupListeners();
         loadInteractionState();
+        setupComments();
     }
 
     // 拖拽未达到退出阈值时回弹复位
@@ -424,6 +455,12 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         commentButton = findViewById(R.id.comment_button);  // 保持
         collectButton = findViewById(R.id.collect_button);  // 保持
         shareButton = findViewById(R.id.share_button);
+
+        // 评论区
+        commentsList = findViewById(R.id.comments_list);
+        commentsHeader = findViewById(R.id.comments_header);
+        commentsEmpty = findViewById(R.id.comments_empty);
+        commentsMore = findViewById(R.id.comments_more);
     }
 
     private void setupData() {
@@ -669,7 +706,202 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         // 分享按钮
         shareButton.setOnClickListener(v -> shareWork());
 
-        // 评论为后续能力，本轮不做；评论框/按钮暂为占位。
+        // 评论输入框：未登录点按时跳登录页（与点赞/关注一致）
+        commentInput.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus && !ApiClient.getInstance(this).isLoggedIn()) {
+                commentInput.clearFocus();
+                startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
+            }
+        });
+        // 输入框长按取消「回复 @xxx」状态
+        commentInput.setOnLongClickListener(v -> {
+            if (replyTarget != null) {
+                replyTarget = null;
+                commentInput.setHint(R.string.comments_input_hint);
+                return true;
+            }
+            return false;
+        });
+        // 键盘发送键提交评论
+        commentInput.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEND) {
+                submitComment();
+                return true;
+            }
+            return false;
+        });
+        // 评论图标：定位到评论区并聚焦输入框
+        commentButton.setOnClickListener(v -> {
+            androidx.core.widget.NestedScrollView scroll = findViewById(R.id.nested_scroll_view);
+            if (scroll != null && commentsHeader != null)
+                scroll.smoothScrollTo(0, commentsHeader.getTop());
+            commentInput.requestFocus();
+            InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (imm != null) imm.showSoftInput(commentInput, InputMethodManager.SHOW_IMPLICIT);
+        });
+    }
+
+    // ==================== 评论区 ====================
+
+    private void setupComments() {
+        commentAdapter = new com.PixelFlow.app.Streams.CommentAdapter(this, selfUserId);
+        commentAdapter.setOnCommentActionListener(new com.PixelFlow.app.Streams.CommentAdapter.OnCommentActionListener() {
+            @Override
+            public void onCommentClick(CommentPage.CommentItem item) { replyTo(item); }
+            @Override
+            public void onCommentLongClick(CommentPage.CommentItem item) { showCommentActions(item); }
+        });
+        commentsList.setLayoutManager(new LinearLayoutManager(this));
+        commentsList.setAdapter(commentAdapter);
+        commentsMore.setOnClickListener(v -> loadMoreComments());
+        // 拉取当前用户 ID（用于「删除自己的评论」判定）
+        if (ApiClient.getInstance(this).isLoggedIn()) {
+            ApiClient.getInstance(this).getCurrentUser(new CommunityClient.Callback<CurrentUser>() {
+                @Override public void onSuccess(CurrentUser user) {
+                    selfUserId = user.id;
+                    if (commentAdapter != null) commentAdapter.notifyDataSetChanged();
+                }
+                @Override public void onFailure(String message) { }
+            });
+        }
+        reloadComments();
+        // 滚动到底附近自动加载下一页
+        androidx.core.widget.NestedScrollView scroll = findViewById(R.id.nested_scroll_view);
+        if (scroll != null) {
+            scroll.setOnScrollChangeListener(new androidx.core.widget.NestedScrollView.OnScrollChangeListener() {
+                @Override
+                public void onScrollChange(androidx.core.widget.NestedScrollView v, int scrollX, int scrollY,
+                                           int oldScrollX, int oldScrollY) {
+                    View child = v.getChildAt(0);
+                    if (child != null && scrollY + v.getHeight() >= child.getHeight() - 200) loadMoreComments();
+                }
+            });
+        }
+    }
+
+    private void reloadComments() {
+        commentsGeneration++;
+        loadCommentsPage(null);
+    }
+
+    private void loadMoreComments() {
+        if (!commentsHasMore || commentsCursor == null || commentsLoading) return;
+        loadCommentsPage(commentsCursor);
+    }
+
+    private void loadCommentsPage(String cursor) {
+        final int gen = commentsGeneration;
+        commentsLoading = true;
+        ApiClient.getInstance(this).getComments(workItem.getId(), cursor,
+                new CommunityClient.Callback<CommentPage>() {
+                    @Override public void onSuccess(CommentPage page) {
+                        if (gen != commentsGeneration) return;
+                        commentsLoading = false;
+                        commentsCursor = page.nextCursor;
+                        commentsHasMore = page.hasMore;
+                        if (cursor == null) commentAdapter.setData(page.items);
+                        else commentAdapter.addData(page.items);
+                        updateCommentViews();
+                    }
+                    @Override public void onFailure(String message) {
+                        if (gen != commentsGeneration) return;
+                        commentsLoading = false;
+                        updateCommentViews();
+                    }
+                });
+    }
+
+    private void updateCommentViews() {
+        int count = commentAdapter.getItemCount();
+        commentsHeader.setText(count > 0
+                ? getString(R.string.comments_header) + " " + count
+                : getString(R.string.comments_header));
+        commentsEmpty.setVisibility(count == 0 ? View.VISIBLE : View.GONE);
+        if (commentsHasMore && commentsCursor != null) {
+            commentsMore.setVisibility(View.VISIBLE);
+            commentsMore.setText("加载更多");
+        } else {
+            commentsMore.setVisibility(View.GONE);
+        }
+    }
+
+    /** 点评论 → 进入回复该评论的状态。 */
+    private void replyTo(CommentPage.CommentItem item) {
+        if (!ApiClient.getInstance(this).isLoggedIn()) {
+            startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
+            return;
+        }
+        replyTarget = item;
+        commentInput.setHint(getString(R.string.comments_reply_hint, item.authorNickname));
+        commentInput.requestFocus();
+        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null) imm.showSoftInput(commentInput, InputMethodManager.SHOW_IMPLICIT);
+    }
+
+    /** 长按评论：自己的可删除，所有人可复制。 */
+    private void showCommentActions(CommentPage.CommentItem item) {
+        boolean own = commentAdapter != null && commentAdapter.isOwn(item);
+        String[] options = own
+                ? new String[]{getString(R.string.comments_dialog_copy), getString(R.string.comments_dialog_delete)}
+                : new String[]{getString(R.string.comments_dialog_copy)};
+        new android.app.AlertDialog.Builder(this)
+                .setItems(options, (dialog, which) -> {
+                    if (getString(R.string.comments_dialog_copy).equals(options[which])) {
+                        ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                        if (cm != null) {
+                            cm.setPrimaryClip(ClipData.newPlainText("comment", item.content));
+                            android.widget.Toast.makeText(this, R.string.comments_copied, android.widget.Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        deleteComment(item);
+                    }
+                })
+                .show();
+    }
+
+    private void deleteComment(CommentPage.CommentItem item) {
+        ApiClient.getInstance(this).deleteComment(item.id, new CommunityClient.Callback<Void>() {
+            @Override public void onSuccess(Void value) {
+                commentAdapter.remove(item.id);
+                updateCommentViews();
+                android.widget.Toast.makeText(WorkDetailActivity.this, R.string.comments_deleted_toast,
+                        android.widget.Toast.LENGTH_SHORT).show();
+            }
+            @Override public void onFailure(String message) {
+                android.widget.Toast.makeText(WorkDetailActivity.this, message, android.widget.Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void submitComment() {
+        if (commentSending) return;
+        String content = commentInput.getText() == null ? "" : commentInput.getText().toString().trim();
+        if (content.isEmpty()) return;
+        if (!ApiClient.getInstance(this).isLoggedIn()) {
+            startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
+            return;
+        }
+        String parentId = replyTarget == null ? null : replyTarget.id;
+        commentSending = true;
+        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null) imm.hideSoftInputFromWindow(commentInput.getWindowToken(), 0);
+        ApiClient.getInstance(this).createComment(workItem.getId(), content, parentId,
+                new CommunityClient.Callback<CommentPage.CommentItem>() {
+                    @Override public void onSuccess(CommentPage.CommentItem item) {
+                        commentSending = false;
+                        commentInput.setText("");
+                        replyTarget = null;
+                        commentInput.setHint(R.string.comments_input_hint);
+                        commentAdapter.prepend(item);
+                        updateCommentViews();
+                        isChanged = true;
+                    }
+                    @Override public void onFailure(String message) {
+                        commentSending = false;
+                        android.widget.Toast.makeText(WorkDetailActivity.this, message,
+                                android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 
     private void updateFollowButton() {
