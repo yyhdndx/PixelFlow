@@ -59,6 +59,16 @@ class OpenApiContractTest {
         assertTrue(suggestion.get("description").toString().contains("15 秒"));
         var suggestionBody=(Map<?,?>)suggestion.get("requestBody");
         assertEquals(true,suggestionBody.get("required"));
+        var following=(Map<?,?>)((Map<?,?>)paths.get("/api/feed/following")).get("get");
+        assertFalse(following.containsKey("security"));
+        assertTrue(following.get("description").toString().contains("重新发布不改变排序位置"));
+        assertEquals(Set.of("200","400","401"),((Map<?,?>)following.get("responses")).keySet());
+        var followingPage=(Map<?,?>)schemas.get("FollowingFeedPage");
+        assertEquals(List.of("status_code","post_list","has_more","next_cursor"),followingPage.get("required"));
+        var followingFields=(Map<?,?>)followingPage.get("properties");
+        assertEquals(Map.of("$ref","#/components/schemas/Post"),((Map<?,?>)followingFields.get("post_list")).get("items"));
+        assertEquals(List.of(0,1),((Map<?,?>)followingFields.get("has_more")).get("enum"));
+        assertEquals(true,((Map<?,?>)followingFields.get("next_cursor")).get("nullable"));
         var search=(Map<?,?>)((Map<?,?>)paths.get("/api/search/posts")).get("get");
         assertEquals(List.of(),search.get("security"));
         assertTrue(search.get("description").toString().contains("数字 ID 倒序"));
