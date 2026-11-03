@@ -23,6 +23,7 @@ import android.widget.*;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.core.view.GestureDetectorCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -205,6 +206,17 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         setupListeners();
         loadInteractionState();
         setupComments();
+
+        // 底部操作栏浮在内容之上，给滚动内容预留同高的底部内边距，
+        // 否则最后一条评论会被输入框挡住、也滚不上来。
+        bottomBar.post(() -> {
+            androidx.core.widget.NestedScrollView scroll = findViewById(R.id.nested_scroll_view);
+            if (scroll != null && bottomBar != null && bottomBar.getHeight() > 0) {
+                scroll.setClipToPadding(false);
+                scroll.setPadding(scroll.getPaddingLeft(), scroll.getPaddingTop(),
+                        scroll.getPaddingRight(), bottomBar.getHeight());
+            }
+        });
     }
 
     // 拖拽未达到退出阈值时回弹复位
@@ -775,7 +787,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         commentAdapter = new com.PixelFlow.app.Streams.CommentAdapter(this, selfUserId);
         commentAdapter.setOnCommentActionListener(new com.PixelFlow.app.Streams.CommentAdapter.OnCommentActionListener() {
             @Override
-            public void onCommentReplyClick(CommentPage.CommentItem item) { replyTo(item); }
+            public void onCommentReplyClick(CommentPage.CommentItem item, View anchor) { replyTo(item, anchor); }
             @Override
             public void onCommentLongClick(CommentPage.CommentItem item) { showCommentActions(item); }
         });
@@ -854,16 +866,58 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     }
 
     /** 点某条评论旁的「回复」→ 进入回复这个人的状态（默认是评论这条帖子）。 */
-    private void replyTo(CommentPage.CommentItem item) {
+    private void replyTo(CommentPage.CommentItem item, View anchor) {
         if (!ApiClient.getInstance(this).isLoggedIn()) {
             startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
             return;
         }
+        showBottomBar();
         replyTarget = item;
         commentInput.setHint(getString(R.string.comments_reply_hint, item.authorNickname));
         commentInput.requestFocus();
         InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (imm != null) imm.showSoftInput(commentInput, InputMethodManager.SHOW_IMPLICIT);
+        // 键盘弹出会压缩内容区，稍后把被回复的那行滚到输入框上方，避免看不到在回复谁
+        final int anchorTop = anchor == null ? -1 : contentTopOf(anchor);
+        if (anchorTop >= 0) commentInput.postDelayed(() -> scrollBelowAnchor(anchorTop), 400);
+    }
+
+    /** 被点那一行相对 ScrollView 内容的纵坐标。 */
+    private int contentTopOf(View child) {
+        androidx.core.widget.NestedScrollView scroll = findViewById(R.id.nested_scroll_view);
+        if (scroll == null) return -1;
+        int y = 0;
+        View current = child;
+        while (current != null && current != scroll) {
+            y += current.getTop();
+            if (!(current.getParent() instanceof View)) return -1;
+            current = (View) current.getParent();
+        }
+        return current == scroll ? y : -1;
+    }
+
+    private void scrollBelowAnchor(int anchorTop) {
+        androidx.core.widget.NestedScrollView scroll = findViewById(R.id.nested_scroll_view);
+        if (scroll == null) return;
+        scroll.scrollTo(0, Math.max(0, anchorTop - dp(120)));
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    /** 下滑时底部栏会被 HideBottomViewOnScrollBehavior 收起，回复前要先滑出来。 */
+    private void showBottomBar() {
+        if (bottomBar == null) return;
+        ViewGroup.LayoutParams params = bottomBar.getLayoutParams();
+        if (!(params instanceof CoordinatorLayout.LayoutParams)) return;
+        CoordinatorLayout.Behavior<?> behavior = ((CoordinatorLayout.LayoutParams) params).getBehavior();
+        if (behavior instanceof com.google.android.material.behavior.HideBottomViewOnScrollBehavior) {
+            @SuppressWarnings("unchecked")
+            com.google.android.material.behavior.HideBottomViewOnScrollBehavior<View> hide =
+                    (com.google.android.material.behavior.HideBottomViewOnScrollBehavior<View>) behavior;
+            hide.slideUp(bottomBar);
+        }
     }
 
     /** 退出打字后回到默认：输入框重新表示“评论这条帖子”，而不是回复某个人。 */
