@@ -283,6 +283,24 @@
             android:imeOptions="actionSend"
             android:inputType="textMultiLine|textCapSentences"/>
 
+        <!-- 发送按钮：多行输入框的回车只换行，必须提供显式提交入口 -->
+        <TextView
+            android:id="@+id/comment_send"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:layout_marginEnd="12dp"
+            android:background="@drawable/edittext_rounded_bg"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="@string/comments_send"
+            android:textColor="@color/primary_color"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <!-- 点赞按钮 -->
         <ImageView
             android:id="@+id/like_button"

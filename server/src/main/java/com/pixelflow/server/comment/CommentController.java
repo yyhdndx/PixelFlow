@@ -132,7 +132,10 @@ public class CommentController {
     }
 
     private Map<String,Object> view(long commentId) {
-        var rows=db.queryForList("SELECT c.*,u.nickname,u.avatar FROM comments c JOIN users u ON c.author_id=u.id WHERE c.comment_id=?",commentId);
+        var rows=db.queryForList("SELECT c.*,u.nickname,u.avatar,pu.nickname AS parent_nickname "
+                + "FROM comments c JOIN users u ON c.author_id=u.id "
+                + "LEFT JOIN comments p ON c.parent_comment_id = p.comment_id "
+                + "LEFT JOIN users pu ON p.author_id = pu.id WHERE c.comment_id=?",commentId);
         if (rows.isEmpty()) throw new ApiException(404,"COMMENT_NOT_FOUND","评论不存在");
         return view(rows.get(0));
     }

@@ -21,7 +21,7 @@ import java.util.List;
 /** 作品详情页评论区：头像 + 昵称 +（回复前缀）+ 内容 + 相对时间。 */
 public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> {
     private final Context context;
-    private final String selfId;
+    private String selfId;
     private final List<CommentPage.CommentItem> items = new ArrayList<>();
     private OnCommentActionListener actionListener;
 
@@ -38,6 +38,11 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> 
 
     public void setOnCommentActionListener(OnCommentActionListener listener) {
         this.actionListener = listener;
+    }
+
+    /** 当前用户 ID 是异步拿到的，拿到后回填，否则长按自己的评论不会出现「删除」。 */
+    public void setSelfId(String selfId) {
+        this.selfId = selfId;
     }
 
     public void setData(List<CommentPage.CommentItem> data) {

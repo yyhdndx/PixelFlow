@@ -23,7 +23,7 @@ class CommentApiTest {
     @Autowired JdbcTemplate db;
     private static final String PASSWORD="test-password-2026";
     @BeforeEach void clean() {
-        for (String table:List.of("comments","moderation_records","post_media","media","behavior_events","interactions","posts","sessions","users")) db.update("DELETE FROM "+table);
+        for (String table:List.of("notifications","comments","moderation_records","post_media","media","behavior_events","interactions","posts","sessions","users")) db.update("DELETE FROM "+table);
     }
     private JsonNode body(MvcResult r) throws Exception { return json.readTree(r.getResponse().getContentAsString()); }
     private String encode(Object v) throws Exception { return json.writeValueAsString(v); }
@@ -118,6 +118,21 @@ class CommentApiTest {
                 .param("count","20").param("cursor",cursor)).andReturn());
         assertEquals(5,second.get("comment_list").size());
         assertEquals(0,second.get("has_more").asInt());
+    }
+
+    @Test void replyCarriesParentNicknameInCreateResponseAndList() throws Exception {
+        String owner=account("author8"); String other=account("other8"); String adm=admin("admin_r");
+        String id=published(owner,adm);
+        String parentId=comment(other,id,"原评论");
+        var reply=body(mvc.perform(post("/api/posts/"+id+"/comments").header("Authorization",owner).contentType("application/json")
+                .content(encode(Map.of("content","回复内容","parentCommentId",parentId)))).andExpect(status().isOk()).andReturn());
+        assertEquals(parentId,reply.get("parent_comment_id").asText());
+        assertEquals("other8",reply.get("parent_nickname").asText(),
+                "创建回复的响应必须带 parent_nickname，客户端乐观插入才不会丢掉“回复 @xx”前缀");
+        var list=body(mvc.perform(get("/api/posts/"+id+"/comments").header("Authorization",owner)).andReturn());
+        assertEquals(2,list.get("comment_list").size());
+        assertEquals("other8",list.get("comment_list").get(0).get("parent_nickname").asText());
+        assertEquals(2,count(id));
     }
 
     @Test void blankAndOversizedContentRejected() throws Exception {

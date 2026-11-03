@@ -4,9 +4,11 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.TextPaint;
+import android.text.TextWatcher;
 import android.text.method.LinkMovementMethod;
 import android.text.style.ClickableSpan;
 import android.text.style.ForegroundColorSpan;
@@ -85,6 +87,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
     // 底部交互区（保持所有你原有的元素）
     private EditText commentInput;  // 保持
+    private TextView commentSend;
     private ImageView likeButton;
     private ImageView commentButton;  // 保持
     private ImageView collectButton;  // 保持
@@ -451,6 +454,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         // 底部交互区
         bottomBar = findViewById(R.id.bottom_bar);
         commentInput = findViewById(R.id.comment_input);  // 保持
+        commentSend = findViewById(R.id.comment_send);
         likeButton = findViewById(R.id.like_button);
         commentButton = findViewById(R.id.comment_button);  // 保持
         collectButton = findViewById(R.id.collect_button);  // 保持
@@ -739,6 +743,25 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
             if (imm != null) imm.showSoftInput(commentInput, InputMethodManager.SHOW_IMPLICIT);
         });
+
+        // 发送按钮：输入框是多行，键盘回车只换行不会触发 IME_ACTION_SEND，
+        // 所以必须有显式发送入口，否则评论无法提交。
+        commentSend.setOnClickListener(v -> submitComment());
+        commentInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
+            @Override public void afterTextChanged(Editable s) { updateCommentSendState(); }
+        });
+        updateCommentSendState();
+    }
+
+    /** 有内容且已登录时显示「发送」，避免空评论与游客误触。 */
+    private void updateCommentSendState() {
+        if (commentSend == null || commentInput == null) return;
+        CharSequence text = commentInput.getText();
+        boolean hasText = text != null && text.toString().trim().length() > 0;
+        commentSend.setVisibility(
+                hasText && ApiClient.getInstance(this).isLoggedIn() ? View.VISIBLE : View.GONE);
     }
 
     // ==================== 评论区 ====================
@@ -759,7 +782,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             ApiClient.getInstance(this).getCurrentUser(new CommunityClient.Callback<CurrentUser>() {
                 @Override public void onSuccess(CurrentUser user) {
                     selfUserId = user.id;
-                    if (commentAdapter != null) commentAdapter.notifyDataSetChanged();
+                    if (commentAdapter != null) commentAdapter.setSelfId(selfUserId);
                 }
                 @Override public void onFailure(String message) { }
             });
