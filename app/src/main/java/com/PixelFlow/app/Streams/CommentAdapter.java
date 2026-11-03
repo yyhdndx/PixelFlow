@@ -32,8 +32,8 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> 
     private OnCommentActionListener actionListener;
 
     public interface OnCommentActionListener {
-        /** 点击整条评论 → 回复；长按 → 弹操作（复制/删除自己的）。 */
-        void onCommentClick(CommentPage.CommentItem item);
+        /** 点某条评论旁的「回复」→ 回复这个人；输入框默认仍是评论这条帖子。 */
+        void onCommentReplyClick(CommentPage.CommentItem item);
         void onCommentLongClick(CommentPage.CommentItem item);
     }
 
@@ -160,10 +160,10 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> 
             holder.content.setText(item.content);
         }
         holder.time.setText(item.createTime > 0 ? DateUtils.formatRelativeTime(item.createTime) : "");
-        holder.itemView.setOnClickListener(v -> {
+        holder.reply.setOnClickListener(v -> {
             int pos = holder.getBindingAdapterPosition();
             if (pos >= 0 && pos < rows.size() && actionListener != null)
-                actionListener.onCommentClick(rows.get(pos).item);
+                actionListener.onCommentReplyClick(rows.get(pos).item);
         });
         holder.itemView.setOnLongClickListener(v -> {
             int pos = holder.getBindingAdapterPosition();
@@ -186,13 +186,14 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> 
 
     static class Holder extends RecyclerView.ViewHolder {
         ImageView avatar;
-        TextView nickname, content, time;
+        TextView nickname, content, time, reply;
         Holder(@NonNull View itemView) {
             super(itemView);
             avatar = itemView.findViewById(R.id.c_avatar);
             nickname = itemView.findViewById(R.id.c_nickname);
             content = itemView.findViewById(R.id.c_content);
             time = itemView.findViewById(R.id.c_time);
+            reply = itemView.findViewById(R.id.c_reply);
         }
     }
 }

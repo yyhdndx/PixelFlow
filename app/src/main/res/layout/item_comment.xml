@@ -39,13 +39,35 @@
             android:textColor="#1A1A1A"
             android:lineSpacingExtra="3dp" />
 
-        <TextView
-            android:id="@+id/c_time"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textSize="12sp"
-            android:textColor="#B0B0B4" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/c_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="#B0B0B4" />
+
+            <!-- 只有点这里才进入“回复某人”，输入框默认仍是评论这条帖子 -->
+            <TextView
+                android:id="@+id/c_reply"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:text="@string/comments_action_reply"
+                android:textColor="#7A7A80"
+                android:textSize="12sp" />
+        </LinearLayout>
     </LinearLayout>
 
 </LinearLayout>
