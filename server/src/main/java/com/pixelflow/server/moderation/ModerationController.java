@@ -48,6 +48,7 @@ public class ModerationController {
             db.update("INSERT INTO moderation_records(actor_id,post_id,before_status,after_status,reason,created_at) VALUES(?,?,?,?,?,?)",
                     actor.id(),id,before,input.status(),input.reason(),now);
         }
+        posts.invalidateContentAfterCommit(id);
         return Map.of("postId",Long.toString(id),"status",input.status());
     }
     @GetMapping("/moderation") public List<Map<String,Object>> audit(@RequestParam(defaultValue="0") long after,

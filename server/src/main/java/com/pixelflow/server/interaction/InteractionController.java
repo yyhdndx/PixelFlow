@@ -65,6 +65,8 @@ public class InteractionController {
                         actor.id(), input.targetId(), "NOT_INTERESTED",
                         java.time.Instant.now().getEpochSecond(), null, null, "SERVER", input.recommendationId());
         }
+        if ((kind.equals("likes") || kind.equals("favorites")) && input.targetId().matches("[1-9][0-9]{0,17}"))
+            posts.invalidateContentAfterCommit(Long.parseLong(input.targetId()));
         return Map.of("targetId",input.targetId(),"active",input.active());
     }
     @GetMapping("/{kind}") public List<Map<String,Object>> list(@PathVariable String kind,@AuthenticationPrincipal Actor actor,

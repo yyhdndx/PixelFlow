@@ -31,6 +31,10 @@ spring:
       max-file-size: 8MB
       max-request-size: 9MB
 pixelflow:
+  local-cache:
+    enabled: ${PIXELFLOW_LOCAL_CACHE_ENABLED:true}
+    maximum-size: ${PIXELFLOW_LOCAL_CACHE_MAXIMUM_SIZE:1000}
+    ttl: ${PIXELFLOW_LOCAL_CACHE_TTL:10s}
   rate-limit:
     enabled: ${PIXELFLOW_RATE_LIMIT_ENABLED:false}
     namespace: ${PIXELFLOW_RATE_LIMIT_NAMESPACE:pixelflow:local}

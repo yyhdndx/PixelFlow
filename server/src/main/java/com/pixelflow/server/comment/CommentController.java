@@ -74,6 +74,7 @@ public class CommentController {
             var autoReply=autoReplyIfMatched(postId,commentId,content,actor);
             if (autoReply!=null) created.put("auto_reply",autoReply);
         }
+        posts.invalidateContentAfterCommit(postId);
         return created;
     }
 
@@ -202,6 +203,7 @@ public class CommentController {
                     + placeholders(scope.size())+")",scope.toArray());
             db.update("UPDATE posts SET comment_count=comment_count-? WHERE id=?",removed,postId);
         }
+        posts.invalidateContentAfterCommit(postId);
         return Map.of("commentId",Long.toString(commentId),"status","DELETED","removed",removed);
     }
 
@@ -224,6 +226,7 @@ public class CommentController {
             int delta="VISIBLE".equals(after) ? affected : -affected;
             db.update("UPDATE posts SET comment_count=comment_count+? WHERE id=?",delta,postId);
         }
+        posts.invalidateContentAfterCommit(postId);
         return Map.of("commentId",Long.toString(commentId),"status",after);
     }
 
