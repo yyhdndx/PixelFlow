@@ -106,6 +106,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private String selfUserId = "";
     private CommentPage.CommentItem replyTarget;
     private boolean commentSending;
+    /** 键盘是否处于弹出状态，用于判断“退出打字”并回到默认评论态。 */
+    private boolean imeWasVisible;
 
     // 数据
     private WorkItem workItem;
@@ -178,6 +180,10 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root_layout), (view, insets) -> {
             int imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
             view.setPadding(view.getPaddingLeft(), view.getPaddingTop(), view.getPaddingRight(), imeBottom);
+            // 键盘收起 = 退出打字：回复态回到默认的「评论这条帖子」
+            boolean imeVisible = imeBottom > 0;
+            if (imeWasVisible && !imeVisible) cancelReplyMode();
+            imeWasVisible = imeVisible;
             return insets;
         });
 
@@ -715,15 +721,14 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             if (hasFocus && !ApiClient.getInstance(this).isLoggedIn()) {
                 commentInput.clearFocus();
                 startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
+            } else if (!hasFocus) {
+                // 输入框失焦同样视为退出打字
+                cancelReplyMode();
             }
         });
         // 输入框长按取消「回复 @xxx」状态
         commentInput.setOnLongClickListener(v -> {
-            if (replyTarget != null) {
-                replyTarget = null;
-                commentInput.setHint(R.string.comments_input_hint);
-                return true;
-            }
+            cancelReplyMode();
             return false;
         });
         // 键盘发送键提交评论
@@ -770,7 +775,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         commentAdapter = new com.PixelFlow.app.Streams.CommentAdapter(this, selfUserId);
         commentAdapter.setOnCommentActionListener(new com.PixelFlow.app.Streams.CommentAdapter.OnCommentActionListener() {
             @Override
-            public void onCommentClick(CommentPage.CommentItem item) { replyTo(item); }
+            public void onCommentReplyClick(CommentPage.CommentItem item) { replyTo(item); }
             @Override
             public void onCommentLongClick(CommentPage.CommentItem item) { showCommentActions(item); }
         });
@@ -848,7 +853,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         }
     }
 
-    /** 点评论 → 进入回复该评论的状态。 */
+    /** 点某条评论旁的「回复」→ 进入回复这个人的状态（默认是评论这条帖子）。 */
     private void replyTo(CommentPage.CommentItem item) {
         if (!ApiClient.getInstance(this).isLoggedIn()) {
             startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
@@ -859,6 +864,13 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         commentInput.requestFocus();
         InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (imm != null) imm.showSoftInput(commentInput, InputMethodManager.SHOW_IMPLICIT);
+    }
+
+    /** 退出打字后回到默认：输入框重新表示“评论这条帖子”，而不是回复某个人。 */
+    private void cancelReplyMode() {
+        if (replyTarget == null) return;
+        replyTarget = null;
+        if (commentInput != null) commentInput.setHint(R.string.comments_input_hint);
     }
 
     /** 长按评论：自己的可删除，所有人可复制。 */
@@ -888,8 +900,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 // 删掉的评论可能正是当前回复对象（或它的所属一级评论），清掉回复态避免发到已删除目标
                 if (replyTarget != null && (item.id.equals(replyTarget.id)
                         || item.id.equals(replyTarget.rootId))) {
-                    replyTarget = null;
-                    commentInput.setHint(R.string.comments_input_hint);
+                    cancelReplyMode();
                 }
                 commentAdapter.remove(item.id);
                 updateCommentViews();
