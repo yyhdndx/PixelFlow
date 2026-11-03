@@ -1174,6 +1174,7 @@ components:
         comment_id: {type: string, pattern: '^[1-9][0-9]*$'}
         post_id: {type: string, pattern: '^[1-9][0-9]*$'}
         parent_comment_id: {type: string, nullable: true, pattern: '^[1-9][0-9]*$', description: 仅回复评论时存在}
+        parent_nickname: {type: string, nullable: true, description: 仅列表接口在回复评论时返回被回复者昵称}
         content: {type: string, minLength: 1, maxLength: 500}
         status: {type: string, enum: [VISIBLE, HIDDEN, DELETED]}
         create_time: {type: integer, format: int64, minimum: 0}
