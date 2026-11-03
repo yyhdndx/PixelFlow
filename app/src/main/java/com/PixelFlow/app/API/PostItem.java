@@ -12,14 +12,10 @@ public class PostItem {
     @SerializedName("like_count") private int likeCount;
     @SerializedName("is_liked") private boolean liked;
     @SerializedName("is_favorited") private boolean favorited;
-    @SerializedName("rec_reason") private String recReason;
-    @SerializedName("rec_score") private Double recScore;
     public int getLikeCount() { return Math.max(0, likeCount); }
     public boolean isLiked() { return liked; }
     public boolean isFavorited() { return favorited; }
     public void setFavorited(boolean favorited) { this.favorited = favorited; }
-    public String getRecReason() { return recReason; }
-    public Double getRecScore() { return recScore; }
 
     @SerializedName("create_time")
     private long createTime;
