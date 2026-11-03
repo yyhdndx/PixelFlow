@@ -27,6 +27,7 @@ class CacheBenchmarkTest {
                 }
             }
         }
+        try {
         for (boolean enabled:List.of(false,true)) {
             try (var app=(ServletWebServerApplicationContext)new SpringApplicationBuilder(ServerApplication.class).run(
                     "--server.address=127.0.0.1","--server.port=0","--spring.datasource.url="+url,
@@ -54,7 +55,9 @@ class CacheBenchmarkTest {
                     for (String id:ids) {
                         var request=HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+helper.port+"/api/posts/"+id)).GET().build();
                         requests.add(request);
-                        String body=helper.client.send(request,HttpResponse.BodyHandlers.ofString()).body();
+                        var response=helper.client.send(request,HttpResponse.BodyHandlers.ofString());
+                        assertEquals(200,response.statusCode());
+                        String body=response.body();
                         if (!enabled) baseline.put(id,body); else assertEquals(baseline.get(id),body);
                     }
                     for (int i=0;i<300;i++) assertEquals(200,helper.client.send(requests.get(i%10),HttpResponse.BodyHandlers.discarding()).statusCode());
@@ -65,7 +68,7 @@ class CacheBenchmarkTest {
                     try {
                         List<Callable<Long>> calls=new ArrayList<>();
                         for (int i=0;i<3000;i++) {
-                            int index=i%10==0 ? i%100 : i%10;
+                            int index=i%10==0 ? 10+(i/10)%90 : (i-i/10-1)%10;
                             calls.add(() -> {
                                 long start=System.nanoTime();
                                 var response=helper.client.send(requests.get(index),HttpResponse.BodyHandlers.discarding());
@@ -81,13 +84,14 @@ class CacheBenchmarkTest {
                             "CACHE_BENCHMARK enabled=%s posts=100 requests=3000 concurrency=8 p50_ms=%.3f p95_ms=%.3f hits=%d misses=%d hit_rate=%.6f average_load_ns=%.0f%n",
                             enabled,times.get(1499)/1e6,times.get(2849)/1e6,delta.hitCount(),delta.missCount(),
                             delta.requestCount()==0 ? 0 : delta.hitRate(),delta.averageLoadPenalty());
-                } catch (Throwable failure) {
-                    if (!enabled) {
-                        try { helper.cleanup(); } catch (Exception cleanup) { failure.addSuppressed(cleanup); }
-                    }
-                    throw failure;
                 } finally { if (enabled) helper.cleanup(); }
             }
+        }
+        } finally {
+            var source=new org.springframework.jdbc.datasource.DriverManagerDataSource(url,
+                    System.getenv().getOrDefault("MYSQL_TEST_USER","root"),System.getenv().getOrDefault("MYSQL_TEST_PASSWORD",""));
+            helper.db=new JdbcTemplate(source);
+            helper.cleanup();
         }
     }
 }

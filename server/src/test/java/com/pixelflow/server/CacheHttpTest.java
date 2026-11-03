@@ -30,8 +30,14 @@ class CacheHttpTest extends PostLifecycleHttpTest {
                 var cache=app.getBean(PostContentCache.class);
                 detail(id,author); long hits=cache.stats().hitCount(); detail(id,author);
                 assertTrue(cache.stats().hitCount()>hits);
-                body(send("PUT","/api/posts/"+id,author,null,draft("新标题","新正文",List.of(media))),200);
-                assertEquals("新标题",detail(id,author).get("title").asText());
+                String replacement=upload("png").get("mediaId").asText();
+                body(send("PUT","/api/posts/"+id,author,null,draft("新标题","新正文",List.of(replacement,media))),200);
+                var edited=detail(id,author);
+                assertEquals("新标题",edited.get("title").asText());
+                assertEquals("新正文",edited.get("content").asText());
+                assertEquals(json.valueToTree(List.of(replacement,media)),edited.get("media_ids"));
+                assertEquals(2,edited.get("clips").size());
+                assertTrue(edited.get("clips").get(0).get("url").asText().contains(replacement));
                 var posts=app.getBean(PostService.class);
                 var actor=new com.pixelflow.server.auth.AuthService.Actor(authorId,"CREATOR","unused");
                 new TransactionTemplate(app.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> {
@@ -48,6 +54,10 @@ class CacheHttpTest extends PostLifecycleHttpTest {
                 assertFalse(detail(id,author).get("is_liked").asBoolean());
                 assertFalse(detail(id,null).get("is_liked").asBoolean());
                 assertEquals(1,detail(id,null).get("like_count").asInt());
+                body(send("PUT","/api/interactions/favorites",visitor,null,json.writeValueAsString(Map.of("targetId",id,"active",true))),200);
+                assertTrue(detail(id,visitor).get("is_favorited").asBoolean());
+                assertFalse(detail(id,author).get("is_favorited").asBoolean());
+                assertFalse(detail(id,null).get("is_favorited").asBoolean());
                 String comment=body(send("POST","/api/posts/"+id+"/comments",visitor,null,"{\"content\":\"评论\"}"),200).get("comment_id").asText();
                 assertEquals(1,detail(id,null).get("comment_count").asInt());
                 body(send("PUT","/api/admin/comments/"+comment+"/status",admin,null,"{\"status\":\"HIDDEN\"}"),200);
