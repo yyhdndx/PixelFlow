@@ -667,6 +667,45 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/AutoReplyRule'}
         default: {$ref: '#/components/responses/Error'}
+  /api/posts/{id}/auto-replies/suggest:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    post:
+      description: 仅作品作者（或 ADMIN）。Agent 依据作品标题/正文，把作者的一句话描述拆成 1–5 条「场景 → 答案」候选；不落库，由作者挑选后再 POST 规则。事实只能来自作者描述与作品正文。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [prompt]
+              properties:
+                prompt: {type: string, minLength: 1, maxLength: 500}
+      responses:
+        '200':
+          description: '{status_code, suggestions: [{question, answer}], degraded, reason}'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, suggestions, degraded]
+                properties:
+                  status_code: {type: integer}
+                  degraded: {type: boolean}
+                  reason: {type: string}
+                  suggestions:
+                    type: array
+                    maxItems: 5
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [question, answer]
+                      properties:
+                        question: {type: string, minLength: 1, maxLength: 200}
+                        answer: {type: string, minLength: 1, maxLength: 300}
+        '503': {description: Agent 不可用，界面应提示手动填写}
+        default: {$ref: '#/components/responses/Error'}
   /api/posts/{id}/auto-replies/{ruleId}:
     parameters:
       - {$ref: '#/components/parameters/Id'}

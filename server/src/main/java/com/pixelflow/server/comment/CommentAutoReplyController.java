@@ -23,12 +23,16 @@ public class CommentAutoReplyController {
             @NotBlank @Size(max=300) String answer) {}
     public record RuleUpdate(@NotBlank @Size(max=200) String question,
             @NotBlank @Size(max=300) String answer, @NotNull Boolean enabled) {}
+    public record SuggestInput(@NotBlank @Size(max=500) String prompt) {}
 
     static final int MAX_RULES_PER_POST = 10;
 
     private final JdbcTemplate db;
+    private final AutoReplySuggester suggester;
 
-    public CommentAutoReplyController(JdbcTemplate db) { this.db = db; }
+    public CommentAutoReplyController(JdbcTemplate db, AutoReplySuggester suggester) {
+        this.db = db; this.suggester = suggester;
+    }
 
     @GetMapping("/api/posts/{postId}/auto-replies")
     public Map<String,Object> list(@PathVariable long postId,@AuthenticationPrincipal Actor actor) {
@@ -72,6 +76,28 @@ public class CommentAutoReplyController {
                 Instant.now().getEpochSecond(),ruleId);
         return view(db.queryForMap("SELECT id,question,answer,enabled,create_time,update_time "
                 + "FROM comment_auto_replies WHERE id=?",ruleId));
+    }
+
+    /** 用 Agent 按作品上下文把作者描述拆成若干「场景 → 答案」候选。 */
+    @PostMapping("/api/posts/{postId}/auto-replies/suggest") @Transactional(readOnly = true)
+    public Map<String,Object> suggest(@PathVariable long postId,@Valid @RequestBody SuggestInput input,
+            @AuthenticationPrincipal Actor actor) {
+        requireOwner(postId,actor);
+        var posts = db.queryForList("SELECT title,content FROM posts WHERE id=?",postId);
+        if (posts.isEmpty()) throw new ApiException(404,"POST_NOT_FOUND","作品不存在");
+        var post = posts.get(0);
+        var result = suggester.suggest(postId,String.valueOf(post.get("title")),
+                String.valueOf(post.get("content")),input.prompt().trim());
+        if (result.isEmpty()) throw new ApiException(503,"AI_UNAVAILABLE","AI 提炼暂不可用，请手动填写场景和回复");
+        var rules = result.get().rules().stream()
+                .map(rule -> Map.of("question",rule.question(),"answer",rule.answer()))
+                .toList();
+        Map<String,Object> response = new LinkedHashMap<>();
+        response.put("status_code",0);
+        response.put("suggestions",rules);
+        response.put("degraded",result.get().degraded());
+        response.put("reason",result.get().reason());
+        return response;
     }
 
     @DeleteMapping("/api/posts/{postId}/auto-replies/{ruleId}") @Transactional
