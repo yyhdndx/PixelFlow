@@ -800,6 +800,17 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 @Override public void onSuccess(CurrentUser user) {
                     selfUserId = user.id;
                     if (commentAdapter != null) commentAdapter.setSelfId(selfUserId);
+                    // 作品作者才会看到「自动回复」入口
+                    String authorId = workItem.getAuthor() == null ? null : workItem.getAuthor().getUserId();
+                    if (authorId != null && authorId.equals(selfUserId)) {
+                        View entry = findViewById(R.id.auto_reply_entry);
+                        if (entry != null) {
+                            entry.setVisibility(View.VISIBLE);
+                            entry.setOnClickListener(v -> startActivity(new Intent(WorkDetailActivity.this,
+                                    com.PixelFlow.app.AutoReplyActivity.class)
+                                    .putExtra(com.PixelFlow.app.AutoReplyActivity.EXTRA_POST_ID, workItem.getId())));
+                        }
+                    }
                 }
                 @Override public void onFailure(String message) { }
             });
@@ -987,6 +998,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                         replyTarget = null;
                         commentInput.setHint(R.string.comments_input_hint);
                         commentAdapter.prepend(item);
+                        // 一级评论命中自动回复时服务端会再插一条，重新拉一遍才看得到
+                        reloadComments();
                         updateCommentViews();
                         isChanged = true;
                     }
