@@ -27,4 +27,9 @@
     <string name="auto_reply_delete">删除</string>
     <string name="auto_reply_badge">自动回复</string>
     <string name="auto_reply_agent_note">由 Agent 判断评论是否属于该场景，命中才回复，答案逐字使用你填写的内容。</string>
-</resources>
+    <string name="auto_reply_ai_title">✨ 让 AI 帮你写（会参考这篇作品）</string>
+    <string name="auto_reply_ai_hint">用一句话说想法，例如：有人问价格就回 99 元，问发货就说 48 小时内发</string>
+    <string name="auto_reply_ai_generate">生成候选</string>
+    <string name="auto_reply_ai_generating">生成中…</string>
+    <string name="auto_reply_manual_hint">或手动填写：</string>
+    <string name="auto_reply_ai_candidate">「%1$s」→ %2$s</string></resources>

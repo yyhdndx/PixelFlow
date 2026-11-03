@@ -16,6 +16,7 @@ from ..clients.deepseek import DeepSeekAssist
 from ..agents.search import answer_question
 from ..agents.moderation import suggest_moderation
 from ..agents.comment_reply import decide_reply
+from ..agents.auto_reply_suggest import suggest_rules
 
 
 class ProfileRefreshInput(BaseModel):
@@ -89,6 +90,14 @@ class CommentReplyRequest(BaseModel):
     content: str = Field(max_length=5000)
     comment: str = Field(min_length=1, max_length=500)
     rules: list[CommentReplyRule] = Field(min_length=1, max_length=10)
+
+
+class AutoReplySuggestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    post_id: str = Field(min_length=1, max_length=18, pattern=r"^[1-9][0-9]*$")
+    title: str = Field(max_length=120)
+    content: str = Field(max_length=5000)
+    prompt: str = Field(min_length=1, max_length=500)
 
 
 HISTORY_COUNT_DEFAULT = 20
@@ -272,6 +281,23 @@ def create_app(settings=None, upstream=None):
         except (ValueError, KeyError, TypeError, *DATABASE_ERRORS):
             raise HTTPException(502, "Comment reply store unavailable") from None
         return {"status_code": 0, "reply": decision}
+
+    @app.post("/internal/auto-reply-suggest")
+    def auto_reply_suggest(body: AutoReplySuggestRequest,
+                           credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        verify_maintenance(credentials)
+        actor = "auto-reply-suggest-service"
+        context = Context(actor, frozenset({"comment:reply"}), int(time.time()),
+                          time.monotonic() + 25)
+        try:
+            result = suggest_rules(post_id=body.post_id, post_title=body.title,
+                                   post_content=body.content, prompt=body.prompt,
+                                   settings=settings, store=store, context=context)
+        except (SkillError, TimeoutError, ValidationError):
+            raise HTTPException(502, "Auto reply suggestion unavailable") from None
+        except (ValueError, KeyError, TypeError, *DATABASE_ERRORS):
+            raise HTTPException(502, "Auto reply suggestion store unavailable") from None
+        return {"status_code": 0, "suggestion": result}
 
     @app.get("/profiles/me")
     def profile(response: Response, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):

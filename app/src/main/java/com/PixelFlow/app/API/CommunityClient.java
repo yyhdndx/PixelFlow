@@ -5,6 +5,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -427,6 +428,26 @@ public class CommunityClient implements AutoCloseable {
         }, callback);
     }
 
+    /** 让 Agent 按作品上下文把作者描述拆成若干「场景 → 答案」候选。 */
+    public Job suggestAutoReplies(String postId, String prompt, Callback<List<AutoReplyRule>> callback) {
+        return submit((job, expected) -> {
+            if (prompt == null || prompt.trim().isEmpty() || prompt.trim().length() > 500)
+                throw new ApiError(400, "请用一句话描述你想自动回复什么");
+            JsonObject input = new JsonObject();
+            input.addProperty("prompt", prompt.trim());
+            JsonObject result = gson.fromJson(authenticated(job,
+                    "/api/posts/" + postId + "/auto-replies/suggest", "POST", input, expected, true),
+                    JsonObject.class);
+            List<AutoReplyRule> suggestions = new ArrayList<>();
+            if (result.has("suggestions") && result.get("suggestions").isJsonArray()) {
+                JsonArray array = result.getAsJsonArray("suggestions");
+                for (int i = 0; i < array.size(); i++) {
+                    if (array.get(i).isJsonObject()) suggestions.add(AutoReplyRule.parse(array.get(i).getAsJsonObject()));
+                }
+            }
+            return suggestions;
+        }, callback);
+    }
     private JsonObject autoReplyInput(String question, String answer) throws IOException {
         if (question == null || question.trim().isEmpty() || question.trim().length() > 200)
             throw new ApiError(400, "场景描述应为 1–200 字");
