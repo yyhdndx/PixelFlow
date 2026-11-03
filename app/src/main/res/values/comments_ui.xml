@@ -16,4 +16,15 @@
     <string name="comments_dialog_cancel">取消</string>
     <string name="comments_deleted_toast">评论已删除</string>
     <string name="comments_copied">已复制</string>
+    <string name="auto_reply_title">评论自动回复</string>
+    <string name="auto_reply_entry">自动回复</string>
+    <string name="auto_reply_add">新增规则</string>
+    <string name="auto_reply_empty">还没有规则。配置「什么场景 → 回什么」，Agent 会在有人问到时自动回复。</string>
+    <string name="auto_reply_question_hint">场景，例如：有人问价格</string>
+    <string name="auto_reply_answer_hint">回复内容，例如：99 元，链接在主页</string>
+    <string name="auto_reply_save">保存</string>
+    <string name="auto_reply_cancel">取消</string>
+    <string name="auto_reply_delete">删除</string>
+    <string name="auto_reply_badge">自动回复</string>
+    <string name="auto_reply_agent_note">由 Agent 判断评论是否属于该场景，命中才回复，答案逐字使用你填写的内容。</string>
 </resources>

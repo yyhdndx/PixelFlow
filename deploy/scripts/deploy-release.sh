@@ -45,10 +45,52 @@ tar --no-same-owner --no-same-permissions -xzf "$archive" -C "$release"
 [[ "$(cat "$release/RELEASE_COMMIT")" == "$sha" ]]
 [[ -s "$release/server/target/pixelflow-server-0.1.0.jar" ]]
 
-# Automatic rollback is only safe for schema-compatible updates. Fail before restart.
-diff -qr "$previous/server/src/main/resources/db/mysql" "$release/server/src/main/resources/db/mysql" || {
-  echo 'Java migration changed: manual migration/backup review required' >&2; exit 4;
-}
+# Automatic rollback is only safe for schema-compatible updates. The running JAR
+# is authoritative: manual releases may omit the duplicate source directory.
+# Compare names AND bytes; missing/corrupt/empty JARs must never bypass the gate.
+"$python_bin" - "$previous" "$release" <<'PY'
+import hashlib
+from pathlib import Path, PurePosixPath
+import sys
+import zipfile
+
+def migrations(release):
+    prefix = 'BOOT-INF/classes/db/mysql/'
+    manifest = {}
+    with zipfile.ZipFile(release / 'server/target/pixelflow-server-0.1.0.jar') as jar:
+        for entry in jar.infolist():
+            if not entry.filename.startswith(prefix) or entry.is_dir():
+                continue
+            name = entry.filename[len(prefix):]
+            path = PurePosixPath(name)
+            if path.is_absolute() or '..' in path.parts or str(path) != name or name in manifest:
+                raise ValueError('invalid or duplicate migration entry')
+            manifest[name] = hashlib.sha256(jar.read(entry)).hexdigest()
+    if not manifest or not any(name.endswith('.sql') for name in manifest):
+        raise ValueError('JAR has no MySQL migrations')
+    directory = release / 'server/src/main/resources/db/mysql'
+    if directory.exists():
+        if not directory.is_dir():
+            raise ValueError('migration source path is not a directory')
+        sources = {p.relative_to(directory).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                   for p in directory.rglob('*') if p.is_file()}
+        if sources != manifest:
+            raise ValueError('migration source directory differs from packaged JAR')
+    return manifest
+
+try:
+    previous, current = (migrations(Path(value)) for value in sys.argv[1:])
+except (OSError, ValueError, RuntimeError, zipfile.BadZipFile) as error:
+    print(f'Cannot verify Java migrations: {error}', file=sys.stderr)
+    sys.exit(4)
+if previous != current:
+    print('Java migration changed: manual migration/backup review required', file=sys.stderr)
+    for name in sorted(previous.keys() | current.keys()):
+        if previous.get(name) != current.get(name):
+            print(f'Changed migration: {name}', file=sys.stderr)
+    sys.exit(4)
+print(f'Java migration check passed: {len(current)} packaged resources match')
+PY
 cmp "$previous/intelligence/src/pixelflow_intelligence/analytics/mysql_schema.py" \
     "$release/intelligence/src/pixelflow_intelligence/analytics/mysql_schema.py" || {
   echo 'Python schema changed: manual migration/backup review required' >&2; exit 4;

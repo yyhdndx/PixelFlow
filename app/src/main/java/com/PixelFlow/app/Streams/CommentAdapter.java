@@ -146,6 +146,7 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> 
         }
 
         holder.nickname.setText(item.authorNickname);
+        holder.auto.setVisibility(item.auto ? View.VISIBLE : View.GONE);
         Glide.with(context).load(item.authorAvatar.isEmpty() ? null : item.authorAvatar)
                 .placeholder(R.drawable.profile_avatar).error(R.drawable.profile_avatar)
                 .circleCrop().into(holder.avatar);
@@ -186,7 +187,7 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> 
 
     static class Holder extends RecyclerView.ViewHolder {
         ImageView avatar;
-        TextView nickname, content, time, reply;
+        TextView nickname, content, time, reply, auto;
         Holder(@NonNull View itemView) {
             super(itemView);
             avatar = itemView.findViewById(R.id.c_avatar);
@@ -194,6 +195,7 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.Holder> 
             content = itemView.findViewById(R.id.c_content);
             time = itemView.findViewById(R.id.c_time);
             reply = itemView.findViewById(R.id.c_reply);
+            auto = itemView.findViewById(R.id.c_auto);
         }
     }
 }

@@ -634,6 +634,65 @@ paths:
       responses:
         '200': {description: '{commentId, status}'}
         default: {$ref: '#/components/responses/Error'}
+  /api/posts/{id}/auto-replies:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    get:
+      description: 仅作品作者（或 ADMIN）可读；返回该作品的「场景 → 答案」规则，按创建顺序。
+      responses:
+        '200':
+          description: '{status_code, rules}'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, rules]
+                properties:
+                  status_code: {type: integer}
+                  rules: {type: array, items: {$ref: '#/components/schemas/AutoReplyRule'}}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      description: 新增一条自动回复规则；每篇作品最多 10 条。是否命中场景由 Agent 判定，不做关键词匹配。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [question, answer]
+              properties:
+                question: {type: string, minLength: 1, maxLength: 200, description: 场景描述，例如“有人问价格”}
+                answer: {type: string, minLength: 1, maxLength: 300, description: 命中后逐字发送的答案}
+      responses:
+        '200': {$ref: '#/components/responses/AutoReplyRule'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/posts/{id}/auto-replies/{ruleId}:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+      - {name: ruleId, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
+    put:
+      description: 修改场景、答案或启停；禁用后该规则不再参与 Agent 判定。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [question, answer, enabled]
+              properties:
+                question: {type: string, minLength: 1, maxLength: 200}
+                answer: {type: string, minLength: 1, maxLength: 300}
+                enabled: {type: boolean}
+      responses:
+        '200': {$ref: '#/components/responses/AutoReplyRule'}
+        default: {$ref: '#/components/responses/Error'}
+    delete:
+      description: 删除一条规则；重复删除返回 404。
+      responses:
+        '200': {description: '{ruleId, deleted: true}'}
+        default: {$ref: '#/components/responses/Error'}
   /api/users/me/notifications:
     get:
       description: 登录用户按类型查看通知（@我/回复/赞），notification_id 倒序游标分页；被屏蔽类型返回空列表。
@@ -1200,6 +1259,7 @@ components:
     Posts: {description: 作品列表，续页取末项 post_id；空数组表示结束, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Post'}}}}}
     PostStatus: {description: 作品状态, content: {application/json: {schema: {type: object, properties: {postId: {type: string}, status: {type: string}}}}}}
     Comment: {description: 评论对象, content: {application/json: {schema: {$ref: '#/components/schemas/Comment'}}}}
+    AutoReplyRule: {description: 评论自动回复规则, content: {application/json: {schema: {$ref: '#/components/schemas/AutoReplyRule'}}}}
   schemas:
     FollowingFeedPage:
       type: object
@@ -1220,6 +1280,7 @@ components:
         parent_comment_id: {type: string, nullable: true, pattern: '^[1-9][0-9]*$', description: 仅回复评论时存在，值是所属一级评论 id}
         root_comment_id: {type: string, nullable: true, pattern: '^[1-9][0-9]*$', description: 仅回复评论时存在，等于所属一级评论 id；创建回复的响应也会带}
         parent_nickname: {type: string, nullable: true, description: 回复时被回复者昵称，用于渲染“回复 @某人”}
+        auto: {type: boolean, description: 为 true 表示这条回复是 Agent 按作者规则自动发出的，客户端需标注“自动回复”}
         reply_count: {type: integer, minimum: 0, description: 仅列表接口的一级评论返回，该评论下的可见回复数}
         replies:
           type: array
@@ -1236,6 +1297,17 @@ components:
             user_id: {type: string, maxLength: 36}
             nickname: {type: string, maxLength: 40}
             avatar: {type: string}
+    AutoReplyRule:
+      type: object
+      additionalProperties: false
+      required: [id, question, answer, enabled, create_time, update_time]
+      properties:
+        id: {type: string, pattern: '^[1-9][0-9]*$'}
+        question: {type: string, minLength: 1, maxLength: 200, description: 场景描述}
+        answer: {type: string, minLength: 1, maxLength: 300, description: 命中后逐字发送的答案}
+        enabled: {type: boolean}
+        create_time: {type: integer, format: int64, minimum: 0}
+        update_time: {type: integer, format: int64, minimum: 0}
     Notification:
       type: object
       additionalProperties: false

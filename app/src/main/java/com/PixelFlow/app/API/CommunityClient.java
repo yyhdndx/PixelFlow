@@ -388,6 +388,56 @@ public class CommunityClient implements AutoCloseable {
             return null;
         }, callback);
     }
+
+    /** 作品作者读取自己配置的「场景 → 答案」规则。 */
+    public Job getAutoReplies(String postId, Callback<List<AutoReplyRule>> callback) {
+        return submit((job, expected) -> {
+            if (postId == null || !postId.matches("[1-9][0-9]{0,18}"))
+                throw new ApiError(400, "作品 ID 无效");
+            return AutoReplyRule.parseList(gson.fromJson(
+                    authenticated(job, "/api/posts/" + postId + "/auto-replies", "GET", null, expected, true),
+                    JsonObject.class));
+        }, callback);
+    }
+
+    public Job createAutoReply(String postId, String question, String answer,
+                               Callback<AutoReplyRule> callback) {
+        return submit((job, expected) -> {
+            JsonObject input = autoReplyInput(question, answer);
+            return AutoReplyRule.parse(gson.fromJson(authenticated(job,
+                    "/api/posts/" + postId + "/auto-replies", "POST", input, expected, true), JsonObject.class));
+        }, callback);
+    }
+
+    public Job updateAutoReply(String postId, String ruleId, String question, String answer,
+                               boolean enabled, Callback<AutoReplyRule> callback) {
+        return submit((job, expected) -> {
+            JsonObject input = autoReplyInput(question, answer);
+            input.addProperty("enabled", enabled);
+            return AutoReplyRule.parse(gson.fromJson(authenticated(job,
+                    "/api/posts/" + postId + "/auto-replies/" + ruleId, "PUT", input, expected, true),
+                    JsonObject.class));
+        }, callback);
+    }
+
+    public Job deleteAutoReply(String postId, String ruleId, Callback<Void> callback) {
+        return submit((job, expected) -> {
+            authenticated(job, "/api/posts/" + postId + "/auto-replies/" + ruleId, "DELETE", null, expected, true);
+            return null;
+        }, callback);
+    }
+
+    private JsonObject autoReplyInput(String question, String answer) throws IOException {
+        if (question == null || question.trim().isEmpty() || question.trim().length() > 200)
+            throw new ApiError(400, "场景描述应为 1–200 字");
+        if (answer == null || answer.trim().isEmpty() || answer.trim().length() > 300)
+            throw new ApiError(400, "回复内容应为 1–300 字");
+        JsonObject input = new JsonObject();
+        input.addProperty("question", question.trim());
+        input.addProperty("answer", answer.trim());
+        return input;
+    }
+
     public Job getUserProfile(String userId, Callback<UserProfile> callback) {
         return submit((job, expected) -> {
             if (userId == null || !userId.matches("[A-Za-z0-9_-]{1,36}"))
