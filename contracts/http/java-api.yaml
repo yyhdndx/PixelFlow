@@ -425,6 +425,41 @@ paths:
                   next_cursor: {type: string, nullable: true}
                   post_list: {type: array, items: {$ref: '#/components/schemas/Post'}}
         default: {$ref: '#/components/responses/Error'}
+  /api/feed/following:
+    get:
+      summary: 当前用户关注作者的公开作品流
+      description: |
+        仅查询认证用户关注的作者，返回 PUBLISHED 且作者存在并启用的作品，图片和视频均返回。
+        最新优先（按作品数字 ID 倒序），重新发布不改变排序位置；cursor 为上页 next_cursor，按 id < cursor 续页。
+        不应用推荐屏蔽或不感兴趣偏好，不接受客户端指定查询身份。无关注或无公开作品返回空页。
+        卡片与 /feed/ 相同，包含 V13 时间字段及当前访问者的点赞、收藏状态。响应 Cache-Control: no-store。
+      parameters:
+        - name: count
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 50, default: 20}
+          description: 显式空值、非十进制正整数及越界均为 400 INVALID_ARGUMENT
+        - name: cursor
+          in: query
+          schema: {type: string, pattern: '^[0-9]+$'}
+          description: 可省略；提供时须为正整数且不超过 9223372036854775807，空值或非法值为 400
+      responses:
+        '200':
+          description: 关注作品分页；末页 next_cursor 为 null
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FollowingFeedPage'}
+              examples:
+                empty: {value: {status_code: 0, post_list: [], has_more: 0, next_cursor: null}}
+                nextPage:
+                  value:
+                    status_code: 0
+                    post_list: [{post_id: '123', title: 示例作品, status: PUBLISHED, is_liked: false, is_favorited: false}]
+                    has_more: 1
+                    next_cursor: '123'
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
   /api/search/posts:
     get:
       summary: 按关键词搜索公开作品
@@ -1166,6 +1201,14 @@ components:
     PostStatus: {description: 作品状态, content: {application/json: {schema: {type: object, properties: {postId: {type: string}, status: {type: string}}}}}}
     Comment: {description: 评论对象, content: {application/json: {schema: {$ref: '#/components/schemas/Comment'}}}}
   schemas:
+    FollowingFeedPage:
+      type: object
+      required: [status_code, post_list, has_more, next_cursor]
+      properties:
+        status_code: {type: integer, enum: [0]}
+        post_list: {type: array, items: {$ref: '#/components/schemas/Post'}}
+        has_more: {type: integer, enum: [0, 1]}
+        next_cursor: {type: string, nullable: true, description: 存在下一页时为本页末条作品数字 ID，否则为 null}
     Comment:
       type: object
       additionalProperties: false

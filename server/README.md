@@ -40,6 +40,29 @@ java -jar target/pixelflow-server-0.1.0.jar
 
 审核演示需启动前从私有配置注入 `PIXELFLOW_ADMIN_PASSWORD`，首次创建用户名 `admin` 的账号。密码至少 10 字符、UTF-8 不超过 72 字节；该变量不会重置已有账号。不要将真实密码保存到 Git、截图或共享终端历史。
 
+## 关注作品流
+
+`GET /api/feed/following?count=20` 需要现有 Bearer 认证。只查询当前用户关注作者的 `PUBLISHED` 作品，作者须存在并启用；无关注或无公开作品返回 200 空页。图片、视频均返回，卡片复用 Feed，包含 V13 时间字段与访问者的点赞/收藏状态。推荐屏蔽与不感兴趣偏好不参与过滤。响应禁止缓存。
+
+排序为「最新优先（按作品数字 ID 倒序），重新发布不改变排序位置」，不按 `publish_time` 排序。`count` 默认 20，范围 1–50；`cursor` 首次省略，续页使用 `next_cursor`（正整数 long 的字符串）。显式空值、非十进制正整数或越界返回 400 `INVALID_ARGUMENT`。末页 `has_more=0`、`next_cursor=null`；翻页期间数据变动不保证快照。
+
+```powershell
+curl.exe -H "Authorization: Bearer $env:ACCESS_TOKEN" 'http://127.0.0.1:8080/api/feed/following?count=2'
+# 若上页 next_cursor 为 "123"：
+curl.exe -H "Authorization: Bearer $env:ACCESS_TOKEN" 'http://127.0.0.1:8080/api/feed/following?count=2&cursor=123'
+```
+
+双库专项使用独占本地 MySQL 8.4 库 `pf_following_feed_test`，配置 `MYSQL_TEST_FOLLOWING_FEED_URL`（JDBC MySQL URL，库名必须以 `_test` 结尾）及私有注入的 `MYSQL_TEST_USER` / `MYSQL_TEST_PASSWORD`：
+
+```powershell
+mvn -B -ntp -f server/pom.xml -Dtest=FollowingFeedApiTest,MySqlFollowingFeedApiTest,FollowingFeedHttpTest,OpenApiContractTest test
+mvn -B -ntp -f server/pom.xml package
+```
+
+未设置 URL 时 MySQL 专项会跳过，跳过不算通过。HTTP 专项在随机端口和独立 H2 内存库运行注册、登录、关注、分页和取关；公开作品由测试夹具提供，不代替 Android Tab 接入或设备验收。CI 增加独立库及变量，不改动部署流程。
+
+2026-11-03 本地验证：基线 `7a2f784` 加当前工作区，Java 17.0.12 / MySQL 8.4.13；新增 H2 6 项、MySQL 6 项、真实 HTTP 1 项均通过，0 失败、0 跳过。关注专项库测试后账号、作品、互动记录均为 0。启用本任务及业务 Feed、关注、收藏、作者作品、搜索 MySQL 专项后的 `mvn package` 成功：386 项中实际通过 328、失败/错误 0、跳过 58（其他未启用 MySQL 专项 57 项及既有 Agent 条件测试 1 项，跳过不计通过）；Redis profile 未运行。日志位于本地 `server/target/following-feed-verified.log`，不提交构建产物。全量回归中发现并最小修正既有测试的 V15 最新迁移断言和通知外键清理遗漏，未改业务实现。远程 CI 和 Android 设备联调尚未执行。
+
 ## 作品搜索
 
 `GET /api/search/posts?q=摄影&count=20` 游客可用；后续携带响应中的 `next_cursor`。关键词去首尾空白后为 1–60 个 UTF-16 单位，可带一个开头 `#`，整体短语不拆词，大小写不敏感地匹配标题前缀或正文 `#话题` 前缀。普通正文不参与搜索，`%` / `_` 按字面匹配。图文、视频均返回，卡片与 Feed 一致；登录时点赞/收藏状态属于当前用户。

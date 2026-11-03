@@ -37,6 +37,7 @@ jobs:
       MYSQL_TEST_PREFERENCES_URL: jdbc:mysql://127.0.0.1:3306/pf_preferences_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_STATS_URL: jdbc:mysql://127.0.0.1:3306/pf_stats_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_CONNECTIONS_URL: jdbc:mysql://127.0.0.1:3306/pf_connections_test?useSSL=false&allowPublicKeyRetrieval=true
+      MYSQL_TEST_FOLLOWING_FEED_URL: jdbc:mysql://127.0.0.1:3306/pf_following_feed_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_FAVORITES_URL: jdbc:mysql://127.0.0.1:3306/pf_favorites_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_PUBLIC_PROFILE_URL: jdbc:mysql://127.0.0.1:3306/pf_public_profile_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_USER_POSTS_URL: jdbc:mysql://127.0.0.1:3306/pf_user_posts_test?useSSL=false&allowPublicKeyRetrieval=true
@@ -73,7 +74,7 @@ jobs:
           import pymysql
           with pymysql.connect(host='127.0.0.1', user='root', password='ci-only-password') as db:
               with db.cursor() as cursor:
-                  for name in ('business', 'preferences', 'stats', 'connections', 'favorites', 'public_profile', 'user_posts', 'post_idempotency', 'post_idempotency_restart', 'migration', 'migration_v7', 'post_lifecycle', 'analytics', 'comments', 'notifications'):
+                  for name in ('business', 'preferences', 'stats', 'connections', 'following_feed', 'favorites', 'public_profile', 'user_posts', 'post_idempotency', 'post_idempotency_restart', 'migration', 'migration_v7', 'post_lifecycle', 'analytics', 'comments', 'notifications'):
                       cursor.execute(f'CREATE DATABASE pf_{name}_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin')
           PY
       - name: Java tests and package (including MySQL and mandatory real Redis suites)
