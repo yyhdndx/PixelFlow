@@ -634,6 +634,28 @@ paths:
       responses:
         '200': {description: '{commentId, status}'}
         default: {$ref: '#/components/responses/Error'}
+  /api/posts/{id}/summary:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    get:
+      description: 登录用户对已公开作品做长文提炼；只读正文（不读评论、不跨作品），正文不足 200 字返回 400。模型不可用返回 503，界面应提示“先读原文”。
+      responses:
+        '200':
+          description: '{status_code, summary, points, content_length, trace_id}'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, summary, points]
+                properties:
+                  status_code: {type: integer}
+                  summary: {type: string, maxLength: 200, description: 一句话概括}
+                  points: {type: array, maxItems: 5, items: {type: string, maxLength: 200}}
+                  content_length: {type: integer, minimum: 0}
+                  trace_id: {type: string, nullable: true}
+        '400': {description: 正文过短（SHORT_TEXT），客户端应隐藏入口}
+        '503': {description: AI 不可用，客户端提示先读原文}
+        default: {$ref: '#/components/responses/Error'}
   /api/posts/{id}/auto-replies:
     parameters:
       - {$ref: '#/components/parameters/Id'}

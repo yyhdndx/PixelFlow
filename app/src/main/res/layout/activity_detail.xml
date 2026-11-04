@@ -179,6 +179,23 @@
                         android:textColor="@color/profile_ink"
                         android:lineSpacingExtra="6dp"/>
 
+                    <!-- 长文才有：AI 提炼要点 -->
+                    <TextView
+                        android:id="@+id/summarize_entry"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/edittext_rounded_bg"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:text="@string/summarize_entry"
+                        android:textColor="@color/primary_color"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+
                     <!-- 话题标签容器 -->
                     <com.nex3z.flowlayout.FlowLayout
                         android:id="@+id/tags_container"

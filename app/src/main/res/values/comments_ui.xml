@@ -41,4 +41,8 @@
     <string name="auto_reply_manual_title">或手动填写一条</string>    <string name="auto_reply_ai_need_prompt">先用一句话描述你想自动回复什么</string>
     <string name="auto_reply_ai_empty">AI 没有提炼出规则，把想法说得更具体些试试</string>
     <string name="auto_reply_apply_empty">请先勾选要应用的候选</string>
-    <string name="auto_reply_need_both">场景和回复内容都要填写</string></resources>
+    <string name="auto_reply_need_both">场景和回复内容都要填写</string>    <string name="summarize_entry">✨ 提炼要点</string>
+    <string name="summarize_loading">AI 正在读这篇作品…</string>
+    <string name="summarize_title">AI 提炼</string>
+    <string name="summarize_note">只依据本文正文，保留原文关键条件；AI 归纳，仅供参考。</string>
+    <string name="summarize_close">收起</string></resources>
