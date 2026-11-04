@@ -390,6 +390,15 @@ public class CommunityClient implements AutoCloseable {
         }, callback);
     }
 
+    /** 长文提炼：只读正文，正文不足 200 字服务端会直接 400，界面不该显示入口。 */
+    public Job getPostSummary(String postId, Callback<PostSummary> callback) {
+        return submit((job, expected) -> {
+            if (postId == null || !postId.matches("[1-9][0-9]{0,18}"))
+                throw new ApiError(400, "作品 ID 无效");
+            return PostSummary.parse(gson.fromJson(authenticated(job,
+                    "/api/posts/" + postId + "/summary", "GET", null, expected, true), JsonObject.class));
+        }, callback);
+    }
     /** 作品作者读取自己配置的「场景 → 答案」规则。 */
     public Job getAutoReplies(String postId, Callback<List<AutoReplyRule>> callback) {
         return submit((job, expected) -> {
