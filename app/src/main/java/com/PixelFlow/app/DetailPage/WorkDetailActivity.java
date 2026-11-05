@@ -655,16 +655,10 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
     /** AI 提炼：先展示加载态，成功后列出概括与要点，失败只提示“先读原文”，不影响阅读。 */
     private void showSummaryDialog() {
-        LinearLayout holder = new LinearLayout(this);
-        holder.setOrientation(LinearLayout.VERTICAL);
-        int pad = Math.round(20 * getResources().getDisplayMetrics().density);
-        holder.setPadding(pad, pad, pad, 0);
-        TextView body = new TextView(this);
-        body.setText(R.string.summarize_loading);
-        body.setTextSize(14);
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(body);
-        holder.addView(scroll);
+        View holder = getLayoutInflater().inflate(R.layout.dialog_post_summary, null);
+        TextView body = holder.findViewById(R.id.summary_body);
+        TextView note = holder.findViewById(R.id.summary_note);
+        note.setVisibility(View.GONE);
 
         android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
                 .setTitle(R.string.summarize_title)
@@ -680,8 +674,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 for (int i = 0; i < value.points.size(); i++) {
                     sb.append(i + 1).append(". ").append(value.points.get(i)).append("\n");
                 }
-                sb.append("\n").append(getString(R.string.summarize_note));
-                body.setText(sb.toString());
+                body.setText(sb.toString().trim());
+                note.setVisibility(View.VISIBLE);
             }
             @Override public void onFailure(String message) {
                 body.setText(message);
