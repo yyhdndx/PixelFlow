@@ -617,12 +617,14 @@ public class PreloadManager implements ComponentCallbacks2 {
             case ComponentCallbacks2.TRIM_MEMORY_COMPLETE:
                 // 应用在后台，内存极低
                 clearAllPreloads();
+                Glide.get(context).clearMemory();
                 break;
 
             case ComponentCallbacks2.TRIM_MEMORY_MODERATE:
             case ComponentCallbacks2.TRIM_MEMORY_BACKGROUND:
                 // 应用在后台，内存较低
                 clearAllPreloads();
+                Glide.get(context).clearMemory();
                 break;
 
             case ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE:
@@ -642,6 +644,7 @@ public class PreloadManager implements ComponentCallbacks2 {
             case ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL:
                 // 应用在前台，内存极低
                 clearAllPreloads();
+                Glide.get(context).clearMemory();
                 break;
         }
     }

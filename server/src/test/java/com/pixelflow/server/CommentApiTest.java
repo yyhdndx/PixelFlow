@@ -23,7 +23,7 @@ class CommentApiTest {
     @Autowired JdbcTemplate db;
     private static final String PASSWORD="test-password-2026";
     @BeforeEach void clean() {
-        for (String table:List.of("notifications","comments","moderation_records","post_media","media","behavior_events","interactions","posts","sessions","users")) db.update("DELETE FROM "+table);
+        for (String table:List.of("notifications","comment_auto_replies","comments","moderation_records","post_media","media","behavior_events","interactions","posts","sessions","users")) db.update("DELETE FROM "+table);
     }
     private JsonNode body(MvcResult r) throws Exception { return json.readTree(r.getResponse().getContentAsString()); }
     private String encode(Object v) throws Exception { return json.writeValueAsString(v); }

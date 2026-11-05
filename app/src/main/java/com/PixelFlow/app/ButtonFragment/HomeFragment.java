@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import com.PixelFlow.app.API.CommunityClient;
+import com.PixelFlow.app.Streams.FeedCache;
 import com.PixelFlow.app.Streams.FeedItems;
 import java.util.Collections;
 import android.util.Log;
@@ -410,6 +411,10 @@ public class HomeFragment extends Fragment {
                         adapter.setData(unique);
                         currentPage = 1;
                         recyclerView.scheduleLayoutAnimation();
+                        // 仅社区 Tab（公开流）写磁盘缓存；关注流是个性化的，只用内存 FeedState
+                        if (source != FOLLOWING_TAB) {
+                            FeedCache.forAccount(requireContext(), feedCacheKey()).save(unique);
+                        }
                     } else {
                         adapter.addData(unique);
                         currentPage++;
@@ -472,8 +477,17 @@ public class HomeFragment extends Fragment {
         hideEmptyState();
         if (selectedTab == FOLLOWING_TAB && !ApiClient.getInstance(requireContext()).isLoggedIn()) {
             showLoginState();
-        } else if (!state.initialized) loadData(true);
-        else if (feedError != null) renderFeedError();
+        } else if (!state.initialized) {
+            // 社区 Tab 冷启动秒开：先展示磁盘缓存首屏，随后网络刷新覆盖；关注流是个性化的，不走磁盘缓存
+            if (selectedTab != FOLLOWING_TAB && state.items.isEmpty()) {
+                List<WorkItem> cached = FeedCache.forAccount(requireContext(), feedCacheKey()).load();
+                if (cached != null && !cached.isEmpty()) {
+                    adapter.setData(cached);
+                    hideEmptyState();
+                }
+            }
+            loadData(true);
+        } else if (feedError != null) renderFeedError();
         else if (state.items.isEmpty()) showEmptyState();
         else {
             if (state.scroll != null) recyclerView.getLayoutManager().onRestoreInstanceState(state.scroll);
@@ -520,6 +534,12 @@ public class HomeFragment extends Fragment {
     private String accountKey() {
         ApiClient api = ApiClient.getInstance(requireContext());
         return api.username() + "@" + api.sessionVersion();
+    }
+
+    /** 磁盘缓存的稳定键：账号 + 服务环境，跨进程重启稳定；会话编号不参与，避免重启后读不到缓存。 */
+    private String feedCacheKey() {
+        ApiClient api = ApiClient.getInstance(requireContext());
+        return api.username() + "@" + api.baseUrl();
     }
 
     private void syncAccount() {
