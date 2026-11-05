@@ -16,6 +16,6 @@
         android:layout_marginTop="8dp"
         android:text="@string/loadingMore"
         android:textSize="12sp"
-        android:textColor="#666666" />
+        android:textColor="@color/profile_muted" />
 
 </LinearLayout>
