@@ -22,7 +22,7 @@
             android:gravity="center"
             android:text="←"
             android:textSize="22sp"
-            android:textColor="#1A1A1A" />
+            android:textColor="@color/profile_ink" />
 
         <TextView
             android:layout_width="0dp"
@@ -31,27 +31,35 @@
             android:text="@string/auto_reply_title"
             android:textSize="17sp"
             android:textStyle="bold"
-            android:textColor="#1A1A1A" />
+            android:textColor="@color/profile_ink" />
 
         <TextView
             android:id="@+id/auto_add"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:padding="8dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
             android:text="@string/auto_reply_add"
-            android:textColor="@color/primary_color"
+            android:textColor="@color/profile_accent"
             android:textStyle="bold" />
     </LinearLayout>
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="12dp"
+        android:layout_marginStart="@dimen/page_padding"
+        android:layout_marginEnd="@dimen/page_padding"
+        android:layout_marginBottom="10dp"
+        android:background="@drawable/bg_ai_info_card"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
         android:text="@string/auto_reply_agent_note"
         android:textSize="12sp"
-        android:textColor="#9A9AA0" />
+        android:lineSpacingExtra="2dp"
+        android:textColor="@color/profile_muted" />
 
     <ProgressBar
         android:id="@+id/auto_loading"
@@ -65,10 +73,15 @@
         android:id="@+id/auto_empty"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="24dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="48dp"
+        android:paddingBottom="48dp"
         android:gravity="center"
         android:text="@string/auto_reply_empty"
-        android:textColor="#9A9AA0"
+        android:textSize="13sp"
+        android:lineSpacingExtra="3dp"
+        android:textColor="@color/profile_muted"
         android:visibility="gone" />
 
     <androidx.recyclerview.widget.RecyclerView

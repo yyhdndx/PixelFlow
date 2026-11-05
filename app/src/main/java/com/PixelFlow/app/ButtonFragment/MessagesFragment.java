@@ -34,7 +34,9 @@ public class MessagesFragment extends Fragment {
     private SwipeRefreshLayout refresh;
     private RecyclerView list;
     private TextView empty;
+    private View emptyGroup;
     private TextView loginView;
+    private View loginGroup;
     private final TextView[] tabs = new TextView[3];
 
     private int activeTab = 0;
@@ -62,7 +64,9 @@ public class MessagesFragment extends Fragment {
         refresh = view.findViewById(R.id.messages_refresh);
         list = view.findViewById(R.id.messages_list);
         empty = view.findViewById(R.id.messages_empty);
+        emptyGroup = view.findViewById(R.id.messages_empty_group);
         loginView = view.findViewById(R.id.messages_login);
+        loginGroup = view.findViewById(R.id.messages_login_group);
         tabs[0] = view.findViewById(R.id.messages_tab_mention);
         tabs[1] = view.findViewById(R.id.messages_tab_reply);
         tabs[2] = view.findViewById(R.id.messages_tab_like);
@@ -99,7 +103,7 @@ public class MessagesFragment extends Fragment {
         if (!api.isLoggedIn()) {
             showLoginRequired();
         } else {
-            loginView.setVisibility(View.GONE);
+            loginGroup.setVisibility(View.GONE);
             list.setVisibility(View.VISIBLE);
             reload();
         }
@@ -107,9 +111,10 @@ public class MessagesFragment extends Fragment {
 
     private void showLoginRequired() {
         adapter.setData(Arrays.asList());
-        empty.setVisibility(View.GONE);
+        emptyGroup.setVisibility(View.GONE);
         list.setVisibility(View.GONE);
         loginView.setVisibility(View.VISIBLE);
+        loginGroup.setVisibility(View.VISIBLE);
     }
 
     private void switchTab(int index) {
@@ -117,8 +122,9 @@ public class MessagesFragment extends Fragment {
         activeTab = index;
         for (int i = 0; i < tabs.length; i++) {
             boolean selected = i == index;
-            tabs[i].setBackgroundResource(selected ? R.drawable.bg_ai_candidate_on : 0);
-            tabs[i].setTextColor(requireContext().getColor(selected ? R.color.profile_accent : R.color.black));
+            tabs[i].setBackgroundResource(selected ? R.drawable.bg_segment_selected : 0);
+            tabs[i].setTextColor(requireContext().getColor(selected ? R.color.profile_ink : R.color.profile_muted));
+            tabs[i].setTypeface(null, selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
         }
         reload();
     }
@@ -169,7 +175,7 @@ public class MessagesFragment extends Fragment {
 
     private void updateEmpty() {
         boolean isEmpty = adapter.getItemCount() == 0;
-        empty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        emptyGroup.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
         if (isEmpty) {
             int res = activeTab == 1 ? R.string.messages_empty_reply
                     : activeTab == 2 ? R.string.messages_empty_like
