@@ -40,6 +40,7 @@ import android.content.ClipData;
 import com.PixelFlow.app.AudioPlayer;
 import com.PixelFlow.app.DAO.PersistState.LikeStatus;
 import com.PixelFlow.app.API.ApiClient;
+import com.PixelFlow.app.API.AiTaskRegistry;
 import com.PixelFlow.app.API.CommentPage;
 import com.PixelFlow.app.API.CommunityClient;
 import com.PixelFlow.app.API.CurrentUser;
@@ -131,6 +132,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private CommunityClient.Job favoriteReadJob;
     private int favoriteVersion;
     private long favoriteSession;
+    private AiTaskRegistry.Task summaryTask;
+    private String summaryKey;
     private boolean favoriteActive;
     private boolean favorited;
     private boolean favoriteLoaded;
@@ -673,20 +676,46 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 .create();
         dialog.show();
 
-        ApiClient.getInstance(this).getPostSummary(workItem.getId(), new CommunityClient.Callback<PostSummary>() {
+        summaryKey = "summary:" + workItem.getId();
+        AiTaskRegistry.Task task = AiTaskRegistry.get().getOrCreate(summaryKey);
+        summaryTask = task;
+
+        // 恢复：同一作品已有完成总结，直接展示，不重复请求
+        if (task.state == AiTaskRegistry.State.COMPLETED && task.result instanceof PostSummary) {
+            body.setText(formatSummary((PostSummary) task.result));
+            return;
+        }
+        // 仍在生成：保持加载态，回调稍后更新
+        if (task.isRunning()) return;
+
+        final int generation = ++task.generation;
+        task.state = AiTaskRegistry.State.GENERATING;
+        task.result = null;
+        task.error = null;
+        task.job = ApiClient.getInstance(this).getPostSummary(workItem.getId(), new CommunityClient.Callback<PostSummary>() {
             @Override public void onSuccess(PostSummary value) {
-                StringBuilder sb = new StringBuilder();
-                sb.append(value.summary).append("\n\n");
-                for (int i = 0; i < value.points.size(); i++) {
-                    sb.append(i + 1).append(". ").append(value.points.get(i)).append("\n");
-                }
-                sb.append("\n").append(getString(R.string.summarize_note));
-                body.setText(sb.toString());
+                if (generation != task.generation) return;
+                task.state = AiTaskRegistry.State.COMPLETED;
+                task.result = value;
+                if (!isDestroyed()) body.setText(formatSummary(value));
             }
             @Override public void onFailure(String message) {
-                body.setText(message);
+                if (generation != task.generation) return;
+                task.state = AiTaskRegistry.State.FAILED;
+                task.error = message;
+                if (!isDestroyed()) body.setText(message);
             }
         });
+    }
+
+    private String formatSummary(PostSummary value) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(value.summary).append("\n\n");
+        for (int i = 0; i < value.points.size(); i++) {
+            sb.append(i + 1).append(". ").append(value.points.get(i)).append("\n");
+        }
+        sb.append("\n").append(getString(R.string.summarize_note));
+        return sb.toString();
     }
 
     private void highlightHashtagsInContent(String content, List<WorkItem.Hashtag> hashtags) {

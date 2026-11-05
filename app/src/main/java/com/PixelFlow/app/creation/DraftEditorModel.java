@@ -36,8 +36,8 @@ public final class DraftEditorModel extends AndroidViewModel {
     public CreationSuggestion suggestion;
     public String assistMessage = "";
     private String assistSnapshot;
-    private CommunityClient.Job assistJob;
-    private int assistGeneration;
+    private AiTaskRegistry.Task assistTask;
+    private String assistKey;
     private final ApiClient api;
     private final ExecutorService images = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -95,32 +95,67 @@ public final class DraftEditorModel extends AndroidViewModel {
     private String textSnapshot() { return new Gson().toJson(Arrays.asList(state.title, state.content, state.tags)); }
     public void requestAssist(String goal, String prompt, String audience) {
         if (!editable() || assistBusy) return;
-        suggestion = null; assistSnapshot = textSnapshot(); assistBusy = true;
+        suggestion = null;
+        assistSnapshot = textSnapshot();
+        assistKey = "assist:" + state.editorId + ":" + assistSnapshot.hashCode();
+        AiTaskRegistry.Task task = AiTaskRegistry.get().getOrCreate(assistKey);
+        assistTask = task;
+
+        // 恢复：同一草稿同一输入已有完成建议，直接复用
+        if (task.state == AiTaskRegistry.State.COMPLETED && task.result instanceof CreationSuggestion) {
+            suggestion = (CreationSuggestion) task.result;
+            assistBusy = false;
+            assistMessage = "建议已生成，确认后才会填入草稿。";
+            changes.setValue(changes.getValue() + 1);
+            return;
+        }
+        // 仍在生成：重新绑定进度，不重复请求
+        if (task.isRunning()) {
+            assistBusy = true;
+            assistMessage = "正在生成建议…";
+            changes.setValue(changes.getValue() + 1);
+            return;
+        }
+
+        assistBusy = true;
         assistMessage = "正在生成建议…";
-        int request = ++assistGeneration;
+        final int generation = ++task.generation;
+        task.state = AiTaskRegistry.State.GENERATING;
+        task.result = null;
+        task.error = null;
         changes.setValue(changes.getValue() + 1);
         java.util.List<String> tags = new ArrayList<>();
         for (String tag : state.tags.split("\\s+")) if (!tag.isEmpty() && tag.length() <= 32 && tags.size() < 20) tags.add(tag);
-        assistJob = api.createAssist(state.title, state.content, tags, goal, prompt, audience,
+        task.job = api.createAssist(state.title, state.content, tags, goal, prompt, audience,
                 new CommunityClient.Callback<CreationSuggestion>() {
             public void onSuccess(CreationSuggestion value) {
-                if (!current() || request != assistGeneration) return;
-                assistBusy = false;
-                if (!assistSnapshot.equals(textSnapshot())) {
-                    assistMessage = "草稿已修改，请重新生成建议。";
-                } else { suggestion = value; assistMessage = "建议已生成，确认后才会填入草稿。"; }
-                changes.setValue(changes.getValue() + 1);
+                main.post(() -> {
+                    if (generation != task.generation) return;
+                    task.state = AiTaskRegistry.State.COMPLETED;
+                    task.result = value;
+                    if (!current()) return;
+                    assistBusy = false;
+                    if (!assistSnapshot.equals(textSnapshot())) {
+                        assistMessage = "草稿已修改，请重新生成建议。";
+                    } else { suggestion = value; assistMessage = "建议已生成，确认后才会填入草稿。"; }
+                    changes.setValue(changes.getValue() + 1);
+                });
             }
             public void onFailure(String error) {
-                if (!current() || request != assistGeneration) return;
-                assistBusy = false; assistMessage = "生成失败，原稿已保留。可重试或继续手动编辑。";
-                changes.setValue(changes.getValue() + 1);
+                main.post(() -> {
+                    if (generation != task.generation) return;
+                    task.state = AiTaskRegistry.State.FAILED;
+                    task.error = error;
+                    if (!current()) return;
+                    assistBusy = false;
+                    assistMessage = "生成失败，原稿已保留。可重试或继续手动编辑。";
+                    changes.setValue(changes.getValue() + 1);
+                });
             }
         });
     }
     public void cancelAssist() {
-        ++assistGeneration;
-        if (assistJob != null) assistJob.cancel();
+        if (assistKey != null) AiTaskRegistry.get().cancel(assistKey);
         assistBusy = false; suggestion = null; assistMessage = "";
         changes.setValue(changes.getValue() + 1);
     }
@@ -286,7 +321,7 @@ public final class DraftEditorModel extends AndroidViewModel {
     }
     @Override protected void onCleared() {
         cleared = true;
-        if (assistJob != null) assistJob.cancel();
+        // AI 辅助任务交由 AiTaskRegistry 页面外管理，关闭编辑页时不取消（P03）
         images.shutdownNow();
         // Already-issued server writes are not cancelled. No later stage starts after this editor closes.
     }

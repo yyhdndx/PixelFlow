@@ -11,6 +11,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.PixelFlow.app.API.ApiClient;
+import com.PixelFlow.app.API.AiTaskRegistry;
 import com.PixelFlow.app.API.AutoReplyRule;
 import com.PixelFlow.app.API.CommunityClient;
 import java.util.ArrayList;
@@ -41,6 +42,8 @@ public class AutoReplyEditActivity extends AppCompatActivity {
     private TextView selectedCount;
 
     private final List<Candidate> candidateList = new ArrayList<>();
+    private AiTaskRegistry.Task suggestTask;
+    private String suggestKey;
 
     private static final class Candidate {
         final AutoReplyRule rule;
@@ -92,19 +95,50 @@ public class AutoReplyEditActivity extends AppCompatActivity {
     private void generate() {
         String prompt = aiPrompt.getText() == null ? "" : aiPrompt.getText().toString().trim();
         if (prompt.isEmpty()) { toast(getString(R.string.auto_reply_ai_need_prompt)); return; }
+        suggestKey = "suggest:" + postId + ":" + prompt.hashCode();
+        AiTaskRegistry.Task task = AiTaskRegistry.get().getOrCreate(suggestKey);
+        suggestTask = task;
+
+        // 恢复：同一作品同一描述已有候选
+        if (task.state == AiTaskRegistry.State.COMPLETED && task.result instanceof List) {
+            @SuppressWarnings("unchecked") List<AutoReplyRule> restored = (List<AutoReplyRule>) task.result;
+            renderCandidates(restored);
+            return;
+        }
+        // 仍在生成：重新绑定进度
+        if (task.isRunning()) {
+            aiGenerate.setEnabled(false);
+            aiLoading.setVisibility(View.VISIBLE);
+            return;
+        }
+
         aiGenerate.setEnabled(false);
         aiLoading.setVisibility(View.VISIBLE);
-        ApiClient.getInstance(this).suggestAutoReplies(postId, prompt,
+        final int generation = ++task.generation;
+        task.state = AiTaskRegistry.State.GENERATING;
+        task.result = null;
+        task.error = null;
+        task.job = ApiClient.getInstance(this).suggestAutoReplies(postId, prompt,
                 new CommunityClient.Callback<List<AutoReplyRule>>() {
                     @Override public void onSuccess(List<AutoReplyRule> suggestions) {
-                        aiGenerate.setEnabled(true);
-                        aiLoading.setVisibility(View.GONE);
-                        renderCandidates(suggestions);
+                        if (generation != task.generation) return;
+                        task.state = AiTaskRegistry.State.COMPLETED;
+                        task.result = suggestions;
+                        if (!isDestroyed()) {
+                            aiGenerate.setEnabled(true);
+                            aiLoading.setVisibility(View.GONE);
+                            renderCandidates(suggestions);
+                        }
                     }
                     @Override public void onFailure(String message) {
-                        aiGenerate.setEnabled(true);
-                        aiLoading.setVisibility(View.GONE);
-                        toast(message);
+                        if (generation != task.generation) return;
+                        task.state = AiTaskRegistry.State.FAILED;
+                        task.error = message;
+                        if (!isDestroyed()) {
+                            aiGenerate.setEnabled(true);
+                            aiLoading.setVisibility(View.GONE);
+                            toast(message);
+                        }
                     }
                 });
     }

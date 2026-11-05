@@ -27,6 +27,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 
 import com.PixelFlow.app.API.AgentSearchResult;
+import com.PixelFlow.app.API.AiTaskRegistry;
 import com.PixelFlow.app.API.ApiClient;
 import com.PixelFlow.app.API.ApiResponse;
 import com.PixelFlow.app.API.CommunityClient;
@@ -93,9 +94,9 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
     private LinearLayout aiSourcesView;
     private int aiState = AI_NONE;
     private boolean aiDismissed;
-    private int aiGeneration;
     private AgentSearchResult aiResult;
-    private CommunityClient.Job aiCall;
+    private AiTaskRegistry.Task aiTask;
+    private String aiKey;
     private final Map<String, String> aiSessions = new HashMap<>(); // query -> session_id，追问复用
 
     private WaterfallAdapter adapter;
@@ -116,7 +117,7 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
 
     @Override
     protected void onDestroy() {
-        if (aiCall != null) aiCall.cancel();
+        // AI 任务交由 AiTaskRegistry 页面外管理，销毁页面时不取消（P03）；普通请求仍随页面取消
         if (activeCall != null) activeCall.cancel();
         super.onDestroy();
     }
@@ -318,26 +319,51 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
     // ---------- AI 综合回答（Agent 智能搜索，POST /api/agent/search） ----------
 
     private void runAgentSearch(String query) {
-        if (aiCall != null) aiCall.cancel();
-        final int generation = ++aiGeneration;
+        aiKey = "search:" + query;
+        AiTaskRegistry.Task task = AiTaskRegistry.get().getOrCreate(aiKey);
+        aiTask = task;
+
+        // 恢复：同一问题已有完成结果，直接展示，不重复请求
+        if (task.state == AiTaskRegistry.State.COMPLETED && task.result instanceof AgentSearchResult) {
+            AgentSearchResult restored = (AgentSearchResult) task.result;
+            aiResult = restored;
+            aiState = AI_ANSWER;
+            if (restored.session_id != null && !restored.session_id.isEmpty())
+                aiSessions.put(query, restored.session_id);
+            updateAiCard();
+            return;
+        }
+        // 仍在生成：重新绑定进度，不重新发起
+        if (task.isRunning()) {
+            aiState = AI_LOADING;
+            aiDismissed = false;
+            updateAiCard();
+            return;
+        }
+
+        final int generation = ++task.generation;
+        task.state = AiTaskRegistry.State.GENERATING;
+        task.result = null;
+        task.error = null;
         aiState = AI_LOADING;
         aiDismissed = false;
         aiResult = null;
         updateAiCard();
-        aiCall = ApiClient.getInstance(this).agentSearch(query, aiSessions.get(query),
+        task.job = ApiClient.getInstance(this).agentSearch(query, aiSessions.get(query),
                 new CommunityClient.Callback<AgentSearchResult>() {
                     @Override public void onSuccess(AgentSearchResult result) {
                         handler.post(() -> {
-                            if (generation != aiGeneration) return;
+                            if (generation != task.generation) return;
                             if (result != null && result.valid()) {
                                 if (result.session_id != null && !result.session_id.isEmpty())
                                     aiSessions.put(query, result.session_id);
-                                aiResult = result;
-                                aiState = AI_ANSWER;
+                                task.state = AiTaskRegistry.State.COMPLETED;
+                                task.result = result;
+                                if (!isDestroyed()) { aiResult = result; aiState = AI_ANSWER; updateAiCard(); }
                             } else {
-                                aiState = AI_DEGRADED;
+                                task.state = AiTaskRegistry.State.FAILED;
+                                if (!isDestroyed()) { aiState = AI_DEGRADED; updateAiCard(); }
                             }
-                            updateAiCard();
                         });
                     }
 
@@ -347,11 +373,12 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
 
                     @Override public void onFailure(int status, String errorMessage) {
                         handler.post(() -> {
-                            if (generation != aiGeneration) return;
+                            if (generation != task.generation) return;
                             // 401（未登录）/404/501（接口未部署）/502（Python 故障）/超时：
                             // 统一降级文案，普通搜索结果不受影响。
-                            aiState = AI_DEGRADED;
-                            updateAiCard();
+                            task.state = AiTaskRegistry.State.FAILED;
+                            task.error = errorMessage;
+                            if (!isDestroyed()) { aiState = AI_DEGRADED; updateAiCard(); }
                         });
                     }
                 });

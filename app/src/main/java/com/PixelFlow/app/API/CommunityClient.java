@@ -86,6 +86,8 @@ public class CommunityClient implements AutoCloseable {
         if (listener != null) listener.onTokens(access, refresh, username);
     }
     private synchronized void notifyCleared() {
+        // 退出登录：清空页面外的 AI 任务，避免旧账号结果串入（P03/P05）
+        AiTaskRegistry.get().clearForAccount();
         TokenListener listener = tokenListener;
         if (listener != null) listener.onCleared();
     }
@@ -94,9 +96,12 @@ public class CommunityClient implements AutoCloseable {
         check(expected);
         if (tokens == null || !tokens.has("accessToken") || !tokens.has("refreshToken"))
             throw new ApiError(0, "登录响应不完整，请重新登录");
+        String previous = username;
         access = tokens.get("accessToken").getAsString();
         refresh = tokens.get("refreshToken").getAsString();
         username = name;
+        // 登录为不同账号：清空旧账号的 AI 任务（token 刷新时 previous==name，不清）
+        if (previous != null && !previous.equals(name)) AiTaskRegistry.get().clearForAccount();
         notifyTokens();
     }
     private <T> Job submit(Task<T> task, Callback<T> callback) {
