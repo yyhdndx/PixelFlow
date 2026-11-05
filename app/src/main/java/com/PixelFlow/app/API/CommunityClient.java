@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,23 +38,34 @@ public class CommunityClient implements AutoCloseable {
     private final HttpUrl base;
     private final Executor delivery;
     private final ExecutorService queue = Executors.newSingleThreadExecutor();
-    private final OkHttpClient http = new OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS).callTimeout(20, TimeUnit.SECONDS)
-            .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build();
+    private final OkHttpClient http;
     private String access, refresh, username;
     private long generation;
     private TokenListener tokenListener;
     private final java.util.concurrent.atomic.AtomicInteger pendingEvents = new java.util.concurrent.atomic.AtomicInteger();
 
     public CommunityClient(String baseUrl, Executor delivery) {
+        this(baseUrl, delivery, null);
+    }
+
+    public CommunityClient(String baseUrl, Executor delivery, File cacheDir) {
         HttpUrl parsed = HttpUrl.parse(baseUrl);
         base = parsed != null && parsed.username().isEmpty() && parsed.password().isEmpty()
                 && parsed.query() == null && parsed.fragment() == null && parsed.encodedPath().equals("/")
                 ? parsed : null;
         this.delivery = delivery;
+        OkHttpClient.Builder builder = new OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS).callTimeout(20, TimeUnit.SECONDS)
+                .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false);
+        if (cacheDir != null) {
+            builder.cache(new Cache(cacheDir, 50L * 1024 * 1024)); // 50MB HTTP 缓存
+        }
+        this.http = builder.build();
     }
     public synchronized boolean isLoggedIn() { return access != null; }
     public synchronized String username() { return username == null ? "游客" : username; }
+    /** 服务环境标识（base URL），用于磁盘缓存键，跨进程稳定。 */
+    public String baseUrl() { return base == null ? "" : base.toString(); }
     public synchronized long sessionVersion() { return generation; }
     private synchronized void check(long expected) throws IOException {
         if (expected != generation) throw new ApiError(0, "账号状态已变化，请重试");
@@ -118,7 +130,11 @@ public class CommunityClient implements AutoCloseable {
     }
     private String send(Job job, String path, String method, RequestBody body, String token) throws IOException {
         Request.Builder builder = new Request.Builder().url(base.resolve(path));
-        if (token != null) builder.header("Authorization", "Bearer " + token);
+        if (token != null) {
+            builder.header("Authorization", "Bearer " + token);
+            // 登录请求绕过 HTTP 缓存：公开响应按游客缓存过，命中会把游客的点赞/收藏状态带给登录用户
+            builder.header("Cache-Control", "no-cache");
+        }
         if ("POST".equals(method) && "/api/posts".equals(path) && job.creationKey != null)
             builder.header("Idempotency-Key", job.creationKey);
         builder.method(method, body);

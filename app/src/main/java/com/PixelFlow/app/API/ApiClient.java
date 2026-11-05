@@ -3,13 +3,15 @@ package com.PixelFlow.app.API;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import java.io.File;
 import java.io.InputStream;
 import java.util.Properties;
 
 public final class ApiClient extends CommunityClient {
     private static ApiClient instance;
     private ApiClient(Context context) {
-        this(configuredUrl(context));
+        super(configuredUrl(context), command -> new Handler(Looper.getMainLooper()).post(command),
+                new File(context.getCacheDir(), "http-cache"));
         String[] saved = TokenStore.load(context);
         if (saved != null) restore(saved[0], saved[1], saved[2]);
         setTokenListener(new TokenListener() {
