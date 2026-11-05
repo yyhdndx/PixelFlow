@@ -16,4 +16,33 @@
     <string name="comments_dialog_cancel">取消</string>
     <string name="comments_deleted_toast">评论已删除</string>
     <string name="comments_copied">已复制</string>
-</resources>
+    <string name="auto_reply_title">评论自动回复</string>
+    <string name="auto_reply_entry">自动回复</string>
+    <string name="auto_reply_add">新增规则</string>
+    <string name="auto_reply_empty">还没有规则。配置「什么场景 → 回什么」，Agent 会在有人问到时自动回复。</string>
+    <string name="auto_reply_question_hint">场景，例如：有人问价格</string>
+    <string name="auto_reply_answer_hint">回复内容，例如：99 元，链接在主页</string>
+    <string name="auto_reply_save">保存</string>
+    <string name="auto_reply_cancel">取消</string>
+    <string name="auto_reply_delete">删除</string>
+    <string name="auto_reply_badge">自动回复</string>
+    <string name="auto_reply_agent_note">由 Agent 判断评论是否属于该场景，命中才回复，答案逐字使用你填写的内容。</string>
+    <string name="auto_reply_ai_title">✨ 让 AI 帮你写（会参考这篇作品）</string>
+    <string name="auto_reply_ai_hint">用一句话说想法，例如：有人问价格就回 99 元，问发货就说 48 小时内发</string>
+    <string name="auto_reply_ai_generate">生成候选</string>
+    <string name="auto_reply_ai_generating">生成中…</string>
+    <string name="auto_reply_manual_hint">或手动填写：</string>
+    <string name="auto_reply_ai_candidate">「%1$s」→ %2$s</string>    <string name="auto_reply_edit_title">编辑规则</string>
+    <string name="auto_reply_ai_help">AI 会参考这篇作品，把你的一句话拆成多条「场景 → 答案」；生成后勾选你想要的，再点「应用选中」。</string>
+    <string name="auto_reply_select_all">全选</string>
+    <string name="auto_reply_apply">应用选中</string>
+    <string name="auto_reply_selected_count">已选 %1$d / %2$d 条</string>
+    <string name="auto_reply_applied">已添加 %1$d 条规则</string>
+    <string name="auto_reply_manual_title">或手动填写一条</string>    <string name="auto_reply_ai_need_prompt">先用一句话描述你想自动回复什么</string>
+    <string name="auto_reply_ai_empty">AI 没有提炼出规则，把想法说得更具体些试试</string>
+    <string name="auto_reply_apply_empty">请先勾选要应用的候选</string>
+    <string name="auto_reply_need_both">场景和回复内容都要填写</string>    <string name="summarize_entry">✨ 提炼要点</string>
+    <string name="summarize_loading">AI 正在读这篇作品…</string>
+    <string name="summarize_title">AI 提炼</string>
+    <string name="summarize_note">只依据本文正文，保留原文关键条件；AI 归纳，仅供参考。</string>
+    <string name="summarize_close">收起</string></resources>

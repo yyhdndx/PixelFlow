@@ -26,9 +26,11 @@ public class CommentController {
     private final JdbcTemplate db;
     private final PostService posts;
     private final com.pixelflow.server.notify.NotificationService notifications;
+    private final CommentReplyAdvisor replyAdvisor;
     public CommentController(JdbcTemplate db, PostService posts,
-            com.pixelflow.server.notify.NotificationService notifications) {
-        this.db=db; this.posts=posts; this.notifications=notifications;
+            com.pixelflow.server.notify.NotificationService notifications,
+            CommentReplyAdvisor replyAdvisor) {
+        this.db=db; this.posts=posts; this.notifications=notifications; this.replyAdvisor=replyAdvisor;
     }
 
     @PostMapping("/api/posts/{postId}/comments") @Transactional
@@ -66,7 +68,53 @@ public class CommentController {
         if (replyToUser!=null)
             notifications.notify(replyToUser,"REPLY",actor.id(),postId,commentId);
         notifyMentions(content,actor,postId,commentId,replyToUser);
-        return view(commentId);
+        Map<String,Object> created=view(commentId);
+        // 一级评论交给 Agent 判定是否命中作者配置的场景，命中才以作者身份自动回一条二级评论
+        if (parentId==null) {
+            var autoReply=autoReplyIfMatched(postId,commentId,content,actor);
+            if (autoReply!=null) created.put("auto_reply",autoReply);
+        }
+        posts.invalidateContentAfterCommit(postId);
+        return created;
+    }
+
+    /** 由 Agent 判定场景；模型不可用或没命中时返回 null（不猜、不乱回）。 */
+    private Map<String,Object> autoReplyIfMatched(long postId,long rootCommentId,String content,Actor commenter) {
+        var posts=db.queryForList("SELECT author_id,title,content FROM posts WHERE id=?",postId);
+        if (posts.isEmpty()) return null;
+        var post=posts.get(0);
+        String ownerId=(String)post.get("author_id");
+        if (ownerId==null || ownerId.equals(commenter.id())) return null;
+        var rules=db.queryForList("SELECT id,question,answer FROM comment_auto_replies "
+                + "WHERE post_id=? AND enabled=TRUE ORDER BY id",postId);
+        if (rules.isEmpty()) return null;
+        var advisorRules=new java.util.ArrayList<CommentReplyAdvisor.Rule>(rules.size());
+        for (int i=0;i<rules.size();i++) {
+            advisorRules.add(new CommentReplyAdvisor.Rule(i,String.valueOf(rules.get(i).get("question")),
+                    String.valueOf(rules.get(i).get("answer"))));
+        }
+        CommentReplyAdvisor.Match match;
+        try {
+            match=replyAdvisor.decide(postId,String.valueOf(post.get("title")),
+                    String.valueOf(post.get("content")),content,advisorRules).orElse(null);
+        } catch (RuntimeException e) {
+            return null;
+        }
+        if (match==null || match.answer()==null || match.answer().isBlank()) return null;
+        String replyText=match.answer();
+        var key=new GeneratedKeyHolder();
+        db.update(connection -> {
+            var statement=connection.prepareStatement(
+                    "INSERT INTO comments(post_id,author_id,content,parent_comment_id,reply_to_user_id,status,create_time,auto_reply)"
+                            + " VALUES(?,?,?,?,?,'VISIBLE',?,TRUE)", new String[]{"comment_id"});
+            statement.setLong(1,postId); statement.setString(2,ownerId); statement.setString(3,replyText);
+            statement.setLong(4,rootCommentId); statement.setString(5,commenter.id());
+            statement.setLong(6,Instant.now().getEpochSecond()); return statement;
+        },key);
+        long replyId=key.getKey().longValue();
+        db.update("UPDATE posts SET comment_count=comment_count+1 WHERE id=?",postId);
+        notifications.notify(commenter.id(),"REPLY",ownerId,postId,replyId);
+        return view(replyId);
     }
 
     /** 解析 @昵称 生成 MENTION 通知；被回复者已由 REPLY 通知则不再重复。 */
@@ -155,6 +203,7 @@ public class CommentController {
                     + placeholders(scope.size())+")",scope.toArray());
             db.update("UPDATE posts SET comment_count=comment_count-? WHERE id=?",removed,postId);
         }
+        posts.invalidateContentAfterCommit(postId);
         return Map.of("commentId",Long.toString(commentId),"status","DELETED","removed",removed);
     }
 
@@ -177,6 +226,7 @@ public class CommentController {
             int delta="VISIBLE".equals(after) ? affected : -affected;
             db.update("UPDATE posts SET comment_count=comment_count+? WHERE id=?",delta,postId);
         }
+        posts.invalidateContentAfterCommit(postId);
         return Map.of("commentId",Long.toString(commentId),"status",after);
     }
 
@@ -225,6 +275,9 @@ public class CommentController {
         result.put("content",row.get("content"));
         result.put("status",row.get("status"));
         result.put("create_time",row.get("create_time"));
+        Object auto=row.get("auto_reply");
+        boolean isAuto=auto instanceof Boolean ? (Boolean)auto : (auto instanceof Number && ((Number)auto).intValue()!=0);
+        if (isAuto) result.put("auto",true);
         result.put("author",Map.of("user_id",row.get("author_id"),"nickname",row.get("nickname"),
                 "avatar",row.getOrDefault("avatar","")));
         return result;

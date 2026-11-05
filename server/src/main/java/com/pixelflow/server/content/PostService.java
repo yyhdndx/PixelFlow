@@ -28,7 +28,11 @@ public class PostService {
     private final JdbcTemplate db;
     private final ObjectMapper json;
     private final MediaService media;
-    public PostService(JdbcTemplate db,ObjectMapper json,MediaService media) { this.db=db; this.json=json; this.media=media; }
+    private final PostContentCache contentCache;
+    public PostService(JdbcTemplate db,ObjectMapper json,MediaService media,PostContentCache contentCache) {
+        this.db=db; this.json=json; this.media=media; this.contentCache=contentCache;
+    }
+    public void invalidateContentAfterCommit(long id) { contentCache.invalidateAfterCommit(id); }
 
     private List<Clip> resolve(Actor actor,Draft draft) {
         if (!draft.clips().isEmpty() && !draft.mediaIds().isEmpty())
@@ -59,6 +63,7 @@ public class PostService {
         },key);
         long id=key.getKey().longValue();
         media.attach(id,draft.mediaIds());
+        invalidateContentAfterCommit(id);
         return detail(id,actor);
     }
 
@@ -72,6 +77,7 @@ public class PostService {
         db.update("UPDATE posts SET title=?,content=?,clips_json=?,has_video=?,status='DRAFT',content_version=content_version+1 WHERE id=?",
                 draft.title(),draft.content(),encode(clips),clips.stream().anyMatch(c -> c.type()==1),id);
         media.attach(id,draft.mediaIds());
+        invalidateContentAfterCommit(id);
         return detail(id,actor);
     }
 
@@ -83,6 +89,7 @@ public class PostService {
         if (((Number)post.get("content_version")).longValue()!=expectedVersion)
             throw new ApiException(409,"VERSION_CONFLICT","草稿已被修改，请刷新后重试");
         db.update("UPDATE posts SET title=?,content=?,content_version=content_version+1 WHERE id=?",title,content,id);
+        invalidateContentAfterCommit(id);
         return detail(id,actor);
     }
 
@@ -99,6 +106,7 @@ public class PostService {
             db.update("UPDATE posts SET status=?,submit_time=? WHERE id=?",next,Instant.now().getEpochSecond(),id);
         else
             db.update("UPDATE posts SET status=? WHERE id=?",next,id);
+        invalidateContentAfterCommit(id);
         return Map.of("postId",Long.toString(id),"status",next);
     }
 
@@ -116,7 +124,12 @@ public class PostService {
         var row=rows.get(0);
         if ((!"PUBLISHED".equals(row.get("status")) || !Boolean.TRUE.equals(row.get("enabled")))
                 && (actor==null || (!actor.id().equals(row.get("author_id")) && !actor.role().equals("ADMIN")))) throw missing();
-        var result=withViewerState(view(row),actor);
+        var content=contentCache.get(id,() -> {
+            var current=db.queryForList("SELECT title,content,clips_json,id FROM posts WHERE id=?",id);
+            if (current.isEmpty()) throw missing();
+            return loadContent(current.get(0));
+        });
+        var result=withViewerState(view(row,content),actor);
         // 仅作者本人可见内容版本，用于建议采纳的乐观并发控制；公开卡片不暴露。
         if (actor!=null && actor.id().equals(row.get("author_id")))
             result.put("content_version",((Number)row.get("content_version")).intValue());
@@ -161,17 +174,27 @@ public class PostService {
     public void requirePublished(String id) {
         if (!id.matches("[1-9][0-9]{0,17}") || db.queryForObject("SELECT COUNT(*) FROM posts p JOIN users u ON p.author_id=u.id WHERE p.id=? AND p.status='PUBLISHED' AND u.enabled=TRUE",Integer.class,Long.parseLong(id))==0) throw missing();
     }
-    public Map<String,Object> view(Map<String,Object> row) {
+    public Map<String,Object> view(Map<String,Object> row) { return view(row,loadContent(row)); }
+    private PostContentCache.Content loadContent(Map<String,Object> row) {
+        try {
+            List<Clip> clips=json.readValue((String)row.get("clips_json"),new TypeReference<List<Clip>>(){});
+            var ids=db.queryForList("SELECT media_id FROM post_media WHERE post_id=? ORDER BY position",String.class,
+                    ((Number)row.get("id")).longValue());
+            return new PostContentCache.Content((String)row.get("title"),(String)row.get("content"),clips,ids);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("Invalid stored media metadata",e);
+        }
+    }
+    private Map<String,Object> view(Map<String,Object> row,PostContentCache.Content content) {
         String id=row.get("id").toString();
         Map<String,Object> result=new LinkedHashMap<>();
-        result.put("post_id",id); result.put("title",row.get("title")); result.put("content",row.get("content"));
+        result.put("post_id",id); result.put("title",content.title()); result.put("content",content.content());
         result.put("create_time",row.get("create_time")); result.put("status",row.get("status"));
         result.put("submit_time",row.get("submit_time")); result.put("review_time",row.get("review_time"));
         result.put("publish_time",row.get("publish_time"));
-        result.put("media_ids",db.queryForList("SELECT media_id FROM post_media WHERE post_id=? ORDER BY position",String.class,Long.parseLong(id)));
+        result.put("media_ids",content.mediaIds());
         result.put("author",Map.of("user_id",row.get("author_id"),"nickname",row.get("nickname"),"avatar",row.getOrDefault("avatar","")));
-        try { result.put("clips",json.readValue((String)row.get("clips_json"),new TypeReference<List<Clip>>(){})); }
-        catch (Exception e) { throw new IllegalStateException("Invalid stored media metadata",e); }
+        result.put("clips",content.clips());
         result.put("hashtag",List.of()); result.put("music",null);
         result.put("like_count",db.queryForObject("SELECT COUNT(*) FROM interactions WHERE kind='likes' AND target_id=?",Long.class,id));
         result.put("comment_count",row.get("comment_count")==null ? 0 : ((Number)row.get("comment_count")).intValue());

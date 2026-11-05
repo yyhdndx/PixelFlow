@@ -245,3 +245,20 @@ Java 复用 `PIXELFLOW_INTELLIGENCE_BASE_URL` 指向 Python，并从私有运行
 Python 需要提供 `GET /internal/traces?count=...&cursor=...` 和 `GET /internal/traces/{trace_id}`。当前 dev 基线尚未提供这些端点，真实联调及管理页面接线仍需协调方完成。字段与边界见 OpenAPI 和 [任务22验收记录](../docs/testing/Issue22-Agent轨迹查询接口验收.md)。
 
 count 省略默认 20，取值 1–50；cursor 为正整数 long，第一页省略。显式空值、重复参数、未知参数或非法 UUID 为 400；详情不存在为 404；未配置内部服务、上游故障或响应无效为 502。完整上游响应等待预算 10 秒，响应体上限 64 KiB。Java 不直连 analytics 库，不新增表，不改搜索接口。
+
+## 服务端本地缓存
+
+Caffeine 仅缓存作品详情的标题、正文、解析后 clips 和有序 media_ids；可见性、作者信息、状态与时间、计数及访问者互动仍实时查询。默认 `PIXELFLOW_LOCAL_CACHE_ENABLED=true`、`PIXELFLOW_LOCAL_CACHE_MAXIMUM_SIZE=1000`、`PIXELFLOW_LOCAL_CACHE_TTL=10s`。写操作提交后主动失效，同实例写后立即读取新内容；跨实例静态内容可能陈旧至剩余 TTL，权限不受 TTL 影响。关闭开关并重启可回滚，无数据库迁移。
+
+Java17 本地验证使用独占 `_test` 库，凭据注入 `MYSQL_TEST_USER` / `MYSQL_TEST_PASSWORD`：
+
+```powershell
+$env:MYSQL_TEST_CACHE_URL = 'jdbc:mysql://127.0.0.1:3306/pf_cache_test?allowPublicKeyRetrieval=true&sslMode=DISABLED'
+mvn -B -ntp -f server/pom.xml -Predis-integration verify
+# 可选真实 HTTP 性能对比：要求上述独占库没有已有管理员或作品
+$env:CACHE_BENCHMARK = 'true'
+mvn -B -ntp -f server/pom.xml '-Dtest=CacheBenchmarkTest' test
+Remove-Item Env:CACHE_BENCHMARK
+```
+
+Redis 专项必须连接真实 Redis（`REDIS_TEST_HOST/PORT/USERNAME/PASSWORD/DATABASE`），缺失会失败。缓存 MySQL 专项未提供 URL 会明确跳过，不能作为通过；性能测试默认不运行。图、失效策略、降级矩阵和实测 P95 见 [缓存设计与工作原理](../docs/architecture/缓存设计与工作原理.md)。

@@ -20,6 +20,7 @@ import android.view.ViewConfiguration;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.*;
+import androidx.appcompat.app.AlertDialog;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -43,6 +44,7 @@ import com.PixelFlow.app.API.CommentPage;
 import com.PixelFlow.app.API.CommunityClient;
 import com.PixelFlow.app.API.CurrentUser;
 import com.PixelFlow.app.API.PostItem;
+import com.PixelFlow.app.API.PostSummary;
 import com.PixelFlow.app.API.UserProfile;
 import com.PixelFlow.app.Hashtag.HashtagActivity;
 import com.PixelFlow.app.MainActivity;
@@ -634,6 +636,57 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         } else {
             contentText.setVisibility(View.GONE);
         }
+        setupSummarizeEntry(content);
+    }
+
+    /** 正文足够长时才提供「提炼要点」；短文强行摘要会比原文还长。 */
+    private static final int MIN_SUMMARY_LENGTH = 200;
+
+    private void setupSummarizeEntry(String content) {
+        View entry = findViewById(R.id.summarize_entry);
+        if (entry == null) return;
+        if (content == null || content.trim().length() < MIN_SUMMARY_LENGTH) {
+            entry.setVisibility(View.GONE);
+            return;
+        }
+        entry.setVisibility(View.VISIBLE);
+        entry.setOnClickListener(v -> showSummaryDialog());
+    }
+
+    /** AI 提炼：先展示加载态，成功后列出概括与要点，失败只提示“先读原文”，不影响阅读。 */
+    private void showSummaryDialog() {
+        LinearLayout holder = new LinearLayout(this);
+        holder.setOrientation(LinearLayout.VERTICAL);
+        int pad = Math.round(20 * getResources().getDisplayMetrics().density);
+        holder.setPadding(pad, pad, pad, 0);
+        TextView body = new TextView(this);
+        body.setText(R.string.summarize_loading);
+        body.setTextSize(14);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(body);
+        holder.addView(scroll);
+
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+                .setTitle(R.string.summarize_title)
+                .setView(holder)
+                .setNegativeButton(R.string.summarize_close, null)
+                .create();
+        dialog.show();
+
+        ApiClient.getInstance(this).getPostSummary(workItem.getId(), new CommunityClient.Callback<PostSummary>() {
+            @Override public void onSuccess(PostSummary value) {
+                StringBuilder sb = new StringBuilder();
+                sb.append(value.summary).append("\n\n");
+                for (int i = 0; i < value.points.size(); i++) {
+                    sb.append(i + 1).append(". ").append(value.points.get(i)).append("\n");
+                }
+                sb.append("\n").append(getString(R.string.summarize_note));
+                body.setText(sb.toString());
+            }
+            @Override public void onFailure(String message) {
+                body.setText(message);
+            }
+        });
     }
 
     private void highlightHashtagsInContent(String content, List<WorkItem.Hashtag> hashtags) {
@@ -800,6 +853,17 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 @Override public void onSuccess(CurrentUser user) {
                     selfUserId = user.id;
                     if (commentAdapter != null) commentAdapter.setSelfId(selfUserId);
+                    // 作品作者才会看到「自动回复」入口
+                    String authorId = workItem.getAuthor() == null ? null : workItem.getAuthor().getUserId();
+                    if (authorId != null && authorId.equals(selfUserId)) {
+                        View entry = findViewById(R.id.auto_reply_entry);
+                        if (entry != null) {
+                            entry.setVisibility(View.VISIBLE);
+                            entry.setOnClickListener(v -> startActivity(new Intent(WorkDetailActivity.this,
+                                    com.PixelFlow.app.AutoReplyActivity.class)
+                                    .putExtra(com.PixelFlow.app.AutoReplyActivity.EXTRA_POST_ID, workItem.getId())));
+                        }
+                    }
                 }
                 @Override public void onFailure(String message) { }
             });
@@ -987,6 +1051,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                         replyTarget = null;
                         commentInput.setHint(R.string.comments_input_hint);
                         commentAdapter.prepend(item);
+                        // 一级评论命中自动回复时服务端会再插一条，重新拉一遍才看得到
+                        reloadComments();
                         updateCommentViews();
                         isChanged = true;
                     }

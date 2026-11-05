@@ -25,6 +25,8 @@ public final class CommentPage {
         /** 仅一级评论有：该评论下的回复（时间正序）。 */
         public final List<CommentItem> replies;
         public final int replyCount;
+        /** 是否为 Agent 按作者规则自动发出的回复。 */
+        public final boolean auto;
 
         private CommentItem(JsonObject value) {
             id = string(value, "comment_id");
@@ -52,6 +54,8 @@ public final class CommentPage {
                 }
             }
             replies = parsed;
+            auto = value.has("auto") && value.get("auto").isJsonPrimitive()
+                    && value.get("auto").getAsJsonPrimitive().isBoolean() && value.get("auto").getAsBoolean();
             replyCount = value.has("reply_count") && value.get("reply_count").isJsonPrimitive()
                     && value.getAsJsonPrimitive("reply_count").isNumber()
                     ? value.getAsJsonPrimitive("reply_count").getAsInt() : parsed.size();

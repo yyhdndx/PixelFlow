@@ -5,6 +5,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -276,13 +277,16 @@ public class CommunityClient implements AutoCloseable {
             return result;
         }, callback);
     }
-    public Job getRecommendationFeed(Callback<RecommendationFeed> callback) {
+    public Job getFollowingFeed(int count, String cursor, Callback<ApiResponse> callback) {
         return submit((job, expected) -> {
-            RecommendationFeed feed = gson.fromJson(
-                    authenticated(job, "/api/recommendations/me/feed", "GET", null, expected, true),
-                    RecommendationFeed.class);
-            if (feed == null || feed.getPostList() == null)
-                throw new ApiError(0, "推荐列表响应不完整");
+            if (count < 1 || count > 50 || (cursor != null && !cursor.matches("[1-9][0-9]{0,18}")))
+                throw new ApiError(400, "分页参数无效");
+            if (cursor != null && (cursor.length() == 19 && cursor.compareTo("9223372036854775807") > 0))
+                throw new ApiError(400, "分页参数无效");
+            ApiResponse feed = gson.fromJson(authenticated(job, "/api/feed/following?count=" + count
+                    + (cursor == null ? "" : "&cursor=" + cursor), "GET", null, expected, true), ApiResponse.class);
+            if (feed == null || feed.getStatusCode() != 0 || feed.getPostList() == null)
+                throw new ApiError(0, "作品列表响应不完整");
             return feed;
         }, callback);
     }
@@ -388,6 +392,111 @@ public class CommunityClient implements AutoCloseable {
             return null;
         }, callback);
     }
+
+    /** 长文提炼：只读正文，正文不足 200 字服务端会直接 400，界面不该显示入口。 */
+    public Job getPostSummary(String postId, Callback<PostSummary> callback) {
+        return submit((job, expected) -> {
+            if (postId == null || !postId.matches("[1-9][0-9]{0,18}"))
+                throw new ApiError(400, "作品 ID 无效");
+            return PostSummary.parse(gson.fromJson(authenticated(job,
+                    "/api/posts/" + postId + "/summary", "GET", null, expected, true), JsonObject.class));
+        }, callback);
+    }
+    /** 作品作者读取自己配置的「场景 → 答案」规则。 */
+    public Job getAutoReplies(String postId, Callback<List<AutoReplyRule>> callback) {
+        return submit((job, expected) -> {
+            if (postId == null || !postId.matches("[1-9][0-9]{0,18}"))
+                throw new ApiError(400, "作品 ID 无效");
+            return AutoReplyRule.parseList(gson.fromJson(
+                    authenticated(job, "/api/posts/" + postId + "/auto-replies", "GET", null, expected, true),
+                    JsonObject.class));
+        }, callback);
+    }
+
+    public Job createAutoReply(String postId, String question, String answer,
+                               Callback<AutoReplyRule> callback) {
+        return submit((job, expected) -> {
+            JsonObject input = autoReplyInput(question, answer);
+            return AutoReplyRule.parse(gson.fromJson(authenticated(job,
+                    "/api/posts/" + postId + "/auto-replies", "POST", input, expected, true), JsonObject.class));
+        }, callback);
+    }
+
+    public Job updateAutoReply(String postId, String ruleId, String question, String answer,
+                               boolean enabled, Callback<AutoReplyRule> callback) {
+        return submit((job, expected) -> {
+            JsonObject input = autoReplyInput(question, answer);
+            input.addProperty("enabled", enabled);
+            return AutoReplyRule.parse(gson.fromJson(authenticated(job,
+                    "/api/posts/" + postId + "/auto-replies/" + ruleId, "PUT", input, expected, true),
+                    JsonObject.class));
+        }, callback);
+    }
+
+    public Job deleteAutoReply(String postId, String ruleId, Callback<Void> callback) {
+        return submit((job, expected) -> {
+            authenticated(job, "/api/posts/" + postId + "/auto-replies/" + ruleId, "DELETE", null, expected, true);
+            return null;
+        }, callback);
+    }
+
+    /** 让 Agent 按作品上下文把作者描述拆成若干「场景 → 答案」候选。 */
+    public Job suggestAutoReplies(String postId, String prompt, Callback<List<AutoReplyRule>> callback) {
+        return submit((job, expected) -> {
+            if (prompt == null || prompt.trim().isEmpty() || prompt.trim().length() > 500)
+                throw new ApiError(400, "请用一句话描述你想自动回复什么");
+            JsonObject input = new JsonObject();
+            input.addProperty("prompt", prompt.trim());
+            JsonObject result = gson.fromJson(authenticated(job,
+                    "/api/posts/" + postId + "/auto-replies/suggest", "POST", input, expected, true),
+                    JsonObject.class);
+            List<AutoReplyRule> suggestions = new ArrayList<>();
+            if (result.has("suggestions") && result.get("suggestions").isJsonArray()) {
+                JsonArray array = result.getAsJsonArray("suggestions");
+                for (int i = 0; i < array.size(); i++) {
+                    if (array.get(i).isJsonObject()) suggestions.add(AutoReplyRule.parse(array.get(i).getAsJsonObject()));
+                }
+            }
+            return suggestions;
+        }, callback);
+    }
+    /** 批量创建规则（AI 候选多选后一次应用）。 */
+    public Job batchCreateAutoReplies(String postId, List<AutoReplyRule> rules,
+                                      Callback<List<AutoReplyRule>> callback) {
+        return submit((job, expected) -> {
+            if (rules == null || rules.isEmpty()) throw new ApiError(400, "请先勾选要应用的规则");
+            JsonArray array = new JsonArray();
+            for (AutoReplyRule rule : rules) {
+                JsonObject item = autoReplyInput(rule.question, rule.answer);
+                array.add(item);
+            }
+            JsonObject input = new JsonObject();
+            input.add("rules", array);
+            JsonObject result = gson.fromJson(authenticated(job,
+                    "/api/posts/" + postId + "/auto-replies/batch", "POST", input, expected, true),
+                    JsonObject.class);
+            List<AutoReplyRule> created = new ArrayList<>();
+            if (result.has("created") && result.get("created").isJsonArray()) {
+                JsonArray createdArray = result.getAsJsonArray("created");
+                for (int i = 0; i < createdArray.size(); i++) {
+                    if (createdArray.get(i).isJsonObject())
+                        created.add(AutoReplyRule.parse(createdArray.get(i).getAsJsonObject()));
+                }
+            }
+            return created;
+        }, callback);
+    }
+    private JsonObject autoReplyInput(String question, String answer) throws IOException {
+        if (question == null || question.trim().isEmpty() || question.trim().length() > 200)
+            throw new ApiError(400, "场景描述应为 1–200 字");
+        if (answer == null || answer.trim().isEmpty() || answer.trim().length() > 300)
+            throw new ApiError(400, "回复内容应为 1–300 字");
+        JsonObject input = new JsonObject();
+        input.addProperty("question", question.trim());
+        input.addProperty("answer", answer.trim());
+        return input;
+    }
+
     public Job getUserProfile(String userId, Callback<UserProfile> callback) {
         return submit((job, expected) -> {
             if (userId == null || !userId.matches("[A-Za-z0-9_-]{1,36}"))
