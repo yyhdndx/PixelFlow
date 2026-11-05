@@ -11,11 +11,8 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import com.PixelFlow.app.MainActivity;
 import com.PixelFlow.app.AvatarModel;
 import com.PixelFlow.app.R;
-import com.PixelFlow.app.ButtonFragment.HomeFragment;
 import com.PixelFlow.app.ButtonFragment.ProfileFragment;
-import com.PixelFlow.app.Streams.WaterfallAdapter;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.android.material.tabs.TabLayout;
 import okhttp3.mockwebserver.*;
 import org.junit.*;
 import org.junit.runner.RunWith;
@@ -26,7 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import static org.junit.Assert.*;
 
-/** Avatar lifecycle/account isolation and feed-source regression tests. */
+/** Avatar lifecycle and account isolation regression tests. */
 @RunWith(AndroidJUnit4.class)
 public class AvatarRecommendationFlowTest {
     private MockWebServer server;
@@ -38,9 +35,9 @@ public class AvatarRecommendationFlowTest {
     private final CountDownLatch feedEntered = new CountDownLatch(1);
     private final CountDownLatch uploadEntered = new CountDownLatch(1), releaseUpload = new CountDownLatch(1);
     private volatile boolean holdFeed;
-    private volatile boolean holdUpload, failFeed, failAvatar, recommendationsOk, emptyRecommendations;
+    private volatile boolean holdUpload, failFeed, failAvatar;
     private volatile String serverAvatar = "";
-    private final AtomicInteger uploads = new AtomicInteger(), sets = new AtomicInteger(), deletes = new AtomicInteger(), recommendations = new AtomicInteger();
+    private final AtomicInteger uploads = new AtomicInteger(), sets = new AtomicInteger(), deletes = new AtomicInteger();
     private static final String FEED = "{\"status_code\":0,\"has_more\":0,\"next_cursor\":null,\"post_list\":[{\"post_id\":\"30\",\"title\":\"Community item\",\"content\":\"ordinary feed\",\"status\":\"PUBLISHED\",\"author\":{\"user_id\":\"alice\",\"nickname\":\"Alice\",\"avatar\":\"\"},\"clips\":[],\"create_time\":1,\"is_liked\":false,\"like_count\":0}]}";
     private MockResponse ok(String body) { return new MockResponse().setHeader("Content-Type", "application/json").setBody(body); }
     @Before public void setup() throws Exception {
@@ -50,7 +47,7 @@ public class AvatarRecommendationFlowTest {
                 String path = r.getRequestUrl().encodedPath();
                 boolean bob = "Bearer bob".equals(r.getHeader("Authorization"));
                 String user = bob ? "bob" : "alice";
-                if (path.startsWith("/feed/")) {
+                if (path.startsWith("/feed/") || path.equals("/api/feed/following")) {
                     if (holdFeed) { holdFeed = false; feedEntered.countDown(); releaseFeed.await(15, TimeUnit.SECONDS); }
                     if (failFeed) return ok("{}").setResponseCode(503);
                     return ok(FEED);
@@ -67,12 +64,6 @@ public class AvatarRecommendationFlowTest {
                     serverAvatar = "DELETE".equals(r.getMethod()) ? "" : server.url("/image").toString();
                     if (failAvatar) return ok("{\"message\":\"头像结果待确认\"}").setResponseCode(503);
                     return ok("{\"user_id\":\"" + user + "\",\"avatar\":\"" + serverAvatar + "\"}");
-                }
-                if (path.equals("/api/recommendations/me/feed")) {
-                    recommendations.incrementAndGet();
-                    if (!recommendationsOk) return ok("{}").setResponseCode(503);
-                    return ok("{\"strategy\":\"popular\",\"reason\":\"cold_start\",\"profile_version\":0,\"preferences_changed\":false,\"post_list\":"
-                            + (emptyRecommendations ? "[]" : new com.google.gson.JsonParser().parse(FEED).getAsJsonObject().get("post_list").toString()) + "}");
                 }
                 if (path.equals("/api/events") || path.equals("/api/auth/logout")) return ok("{}");
                 return ok("{}").setResponseCode(404);
@@ -129,16 +120,6 @@ public class AvatarRecommendationFlowTest {
         assertTrue(drained.await(10, TimeUnit.SECONDS));
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
-    private void selectTab(int index) {
-        screen.onActivity(a -> ((TabLayout) a.findViewById(R.id.tab_layout)).getTabAt(index).select());
-    }
-    private void feedReady(int count) {
-        await(a -> {
-            HomeFragment f = fragment(a, HomeFragment.class);
-            assertFalse((Boolean) field(f, "requestInFlight"));
-            assertEquals(count, ((WaterfallAdapter) field(f, "adapter")).getData().size());
-        });
-    }
     private void blockImages(MainActivity a) {
         ((ExecutorService) field(model(a), "images")).execute(() -> {
             try { releaseWorker.await(15, TimeUnit.SECONDS); }
@@ -188,22 +169,6 @@ public class AvatarRecommendationFlowTest {
         });
         assertTrue(drained.await(10, TimeUnit.SECONDS));
         assertEquals("confirmed avatar clear must reach server after navigation", 1, deletes.get());
-    }
-    @Test public void failedRecommendationMustNotDisplayCommunityItems() {
-        screen = ActivityScenario.launch(MainActivity.class);
-        await(a -> {
-            HomeFragment f = fragment(a, HomeFragment.class);
-            assertFalse((Boolean) field(f, "requestInFlight"));
-            assertEquals(1, ((WaterfallAdapter) field(f, "adapter")).getData().size());
-        });
-        screen.onActivity(a -> ((TabLayout) a.findViewById(R.id.tab_layout)).getTabAt(1).select());
-        await(a -> { assertEquals(1, recommendations.get()); assertFalse((Boolean) field(fragment(a, HomeFragment.class), "requestInFlight")); });
-        screen.onActivity(a -> assertEquals("failed recommendation must not reuse another tab's rows", 0,
-                ((WaterfallAdapter) field(fragment(a, HomeFragment.class), "adapter")).getData().size()));
-        screen.onActivity(a -> {
-            assertEquals(View.VISIBLE, a.findViewById(R.id.retry_button).getVisibility());
-            assertTrue(((android.widget.TextView) a.findViewById(R.id.feed_state_message)).getText().toString().contains("503"));
-        });
     }
     @Test public void uploadSurvivesRotationAndReconcilesNewView() throws Exception {
         launchProfile(); Uri uri = image();
@@ -258,26 +223,5 @@ public class AvatarRecommendationFlowTest {
             assertEquals(1, deletes.get()); assertFalse(model(a).isBusy()); assertNull(model(a).error);
             assertEquals("", field(fragment(a, ProfileFragment.class), "avatarUrl"));
         });
-    }
-    @Test public void recommendationRetryShowsResultsAndCommunityFailureDoesNotKeepThem() {
-        screen = ActivityScenario.launch(MainActivity.class); feedReady(1); selectTab(1); feedReady(0);
-        recommendationsOk = true;
-        screen.onActivity(a -> a.findViewById(R.id.retry_button).performClick()); feedReady(1);
-        screen.onActivity(a -> assertEquals(View.VISIBLE, a.findViewById(R.id.rec_banner).getVisibility()));
-        failFeed = true; selectTab(0); feedReady(0);
-        screen.onActivity(a -> {
-            assertEquals(View.GONE, a.findViewById(R.id.rec_banner).getVisibility());
-            assertEquals(View.VISIBLE, a.findViewById(R.id.empty_state_layout).getVisibility());
-        });
-    }
-    @Test public void emptyRecommendationShowsEmptyStateWithoutRepeatedAutoLoads() {
-        recommendationsOk = true; emptyRecommendations = true;
-        screen = ActivityScenario.launch(MainActivity.class); feedReady(1); selectTab(1); feedReady(0);
-        screen.onActivity(a -> {
-            assertEquals(a.getString(R.string.home_empty_recommendations), ((android.widget.TextView) a.findViewById(R.id.feed_state_message)).getText().toString());
-            assertFalse((Boolean) field(fragment(a, HomeFragment.class), "hasMoreData"));
-            invoke(fragment(a, HomeFragment.class), "loadData", new Class<?>[]{boolean.class}, false);
-        });
-        assertEquals(1, recommendations.get());
     }
 }

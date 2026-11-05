@@ -277,13 +277,16 @@ public class CommunityClient implements AutoCloseable {
             return result;
         }, callback);
     }
-    public Job getRecommendationFeed(Callback<RecommendationFeed> callback) {
+    public Job getFollowingFeed(int count, String cursor, Callback<ApiResponse> callback) {
         return submit((job, expected) -> {
-            RecommendationFeed feed = gson.fromJson(
-                    authenticated(job, "/api/recommendations/me/feed", "GET", null, expected, true),
-                    RecommendationFeed.class);
-            if (feed == null || feed.getPostList() == null)
-                throw new ApiError(0, "推荐列表响应不完整");
+            if (count < 1 || count > 50 || (cursor != null && !cursor.matches("[1-9][0-9]{0,18}")))
+                throw new ApiError(400, "分页参数无效");
+            if (cursor != null && (cursor.length() == 19 && cursor.compareTo("9223372036854775807") > 0))
+                throw new ApiError(400, "分页参数无效");
+            ApiResponse feed = gson.fromJson(authenticated(job, "/api/feed/following?count=" + count
+                    + (cursor == null ? "" : "&cursor=" + cursor), "GET", null, expected, true), ApiResponse.class);
+            if (feed == null || feed.getStatusCode() != 0 || feed.getPostList() == null)
+                throw new ApiError(0, "作品列表响应不完整");
             return feed;
         }, callback);
     }
