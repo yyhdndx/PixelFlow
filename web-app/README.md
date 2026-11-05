@@ -33,6 +33,24 @@ npm run preview
 | 点赞 / 收藏 | `PUT /api/interactions/likes`、`PUT /api/interactions/favorites` |
 | 评论 / 回复 / 删除 | `GET|POST /api/posts/{id}/comments`、`DELETE /api/comments/{commentId}` |
 
+## 新增浏览路由
+
+路由采用 Hash，例如 `http://127.0.0.1:5173/#/search?q=咖啡`。
+
+| 路由 | 内容与接口 | 登录要求 |
+| --- | --- | --- |
+| `/search?q=` | 标题/话题搜索，`GET /api/search/posts` | 游客可用 |
+| `/me` | 当前账号昵称、头像，`GET /api/users/me` | 需登录 |
+| `/me/favorites` | 收藏作品，`GET /api/users/me/favorites` | 需登录 |
+| `/me/following` | 只读关注名单，`GET /api/users/me/following` | 需登录 |
+| `/author/:id` | 作者公开资料与作品，`GET /api/users/{id}/profile`、`GET /api/users/{id}/posts` | 既有接口要求登录 |
+
+搜索、收藏、作者作品复用卡片及游标分页，关注名单支持分页；首屏/续页失败均可重试，续页失败保留已加载内容。空白搜索不请求。首页卡片及详情作者名可进入作者页。
+
+详情关注状态使用作者资料的 `is_following`，不遍历关注名单；通过 `PUT /api/interactions/follows` 成功后更新按钮。游客点击跳登录并回到原详情，本人作品隐藏按钮。受保护路由保留登录回跳，退出或会话改变后清空新页面的私有列表，忽略旧响应。不提供资料编辑、发布、通知或推荐偏好功能。
+
+截图与实际联调边界见 [浏览闭环验收](../docs/testing/Web用户端浏览闭环验收-20261105.md)。
+
 ## 说明
 
 - 令牌保存在当前标签页 `sessionStorage`，遇到 401 会尝试一次共享刷新，失败回到登录页。
