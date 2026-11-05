@@ -380,7 +380,7 @@ public class HomeFragment extends Fragment {
         syncAccount();
         // 冷启动/切账号后秒开：先展示磁盘缓存的首屏，随后网络刷新覆盖
         if (isRefresh && adapter.getData().isEmpty()) {
-            List<WorkItem> cached = FeedCache.forAccount(requireContext(), accountKey()).load();
+            List<WorkItem> cached = FeedCache.forAccount(requireContext(), feedCacheKey()).load();
             if (cached != null && !cached.isEmpty()) {
                 adapter.setData(cached);
                 hideEmptyState();
@@ -417,7 +417,7 @@ public class HomeFragment extends Fragment {
                         currentPage = 1;
                         recyclerView.scheduleLayoutAnimation();
                         // 首屏成功后写入磁盘缓存，供下次冷启动秒开/弱网兜底
-                        FeedCache.forAccount(requireContext(), accountKey()).save(unique);
+                        FeedCache.forAccount(requireContext(), feedCacheKey()).save(unique);
                     } else {
                         adapter.addData(unique);
                         currentPage++;
@@ -532,6 +532,12 @@ public class HomeFragment extends Fragment {
     private String accountKey() {
         ApiClient api = ApiClient.getInstance(requireContext());
         return api.username() + "@" + api.sessionVersion();
+    }
+
+    /** 磁盘缓存的稳定键：账号 + 服务环境，跨进程重启稳定；会话编号不参与，避免重启后读不到缓存。 */
+    private String feedCacheKey() {
+        ApiClient api = ApiClient.getInstance(requireContext());
+        return api.username() + "@" + api.baseUrl();
     }
 
     private void syncAccount() {

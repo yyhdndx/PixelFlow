@@ -64,6 +64,8 @@ public class CommunityClient implements AutoCloseable {
     }
     public synchronized boolean isLoggedIn() { return access != null; }
     public synchronized String username() { return username == null ? "游客" : username; }
+    /** 服务环境标识（base URL），用于磁盘缓存键，跨进程稳定。 */
+    public String baseUrl() { return base == null ? "" : base.toString(); }
     public synchronized long sessionVersion() { return generation; }
     private synchronized void check(long expected) throws IOException {
         if (expected != generation) throw new ApiError(0, "账号状态已变化，请重试");
@@ -128,7 +130,11 @@ public class CommunityClient implements AutoCloseable {
     }
     private String send(Job job, String path, String method, RequestBody body, String token) throws IOException {
         Request.Builder builder = new Request.Builder().url(base.resolve(path));
-        if (token != null) builder.header("Authorization", "Bearer " + token);
+        if (token != null) {
+            builder.header("Authorization", "Bearer " + token);
+            // 登录请求绕过 HTTP 缓存：公开响应按游客缓存过，命中会把游客的点赞/收藏状态带给登录用户
+            builder.header("Cache-Control", "no-cache");
+        }
         if ("POST".equals(method) && "/api/posts".equals(path) && job.creationKey != null)
             builder.header("Idempotency-Key", job.creationKey);
         builder.method(method, body);

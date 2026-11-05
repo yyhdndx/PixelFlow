@@ -49,7 +49,11 @@ public class PostController {
     }
     /** 游客的公开只读响应可缓存；登录用户的点赞/收藏状态是个性化的，禁止缓存。 */
     private static void cacheHeader(Actor actor,HttpServletResponse response) {
-        if (actor == null) response.setHeader("Cache-Control","public, max-age=60");
-        else response.setHeader("Cache-Control","no-store");
+        if (actor == null) {
+            response.setHeader("Cache-Control","public, max-age=60");
+            response.setHeader("Vary","Authorization");
+        } else {
+            response.setHeader("Cache-Control","no-store");
+        }
     }
 }

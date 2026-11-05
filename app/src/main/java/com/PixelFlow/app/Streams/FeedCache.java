@@ -11,6 +11,8 @@ import java.util.List;
  * 缓存失败静默降级，不影响主流程。
  */
 public final class FeedCache {
+    /** 缓存有效期：超过后不再返回，避免弱网时持续展示已下架/删除的旧作品。 */
+    private static final long MAX_AGE_MS = 24 * 60 * 60 * 1000L;
     private final File file;
 
     private FeedCache(File file) { this.file = file; }
@@ -22,8 +24,13 @@ public final class FeedCache {
     }
 
     public synchronized void save(List<WorkItem> items) {
-        if (items == null || items.isEmpty()) return;
+        if (items == null) return;
         try {
+            if (items.isEmpty()) {
+                // 空结果覆盖旧缓存：作品被撤回/删除后不再恢复旧作品
+                file.delete();
+                return;
+            }
             File dir = file.getParentFile();
             if (dir != null && !dir.exists() && !dir.mkdirs()) return;
             try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(file))) {
@@ -37,6 +44,11 @@ public final class FeedCache {
     @SuppressWarnings("unchecked")
     public synchronized List<WorkItem> load() {
         if (!file.exists()) return null;
+        // 过期缓存直接删除，不返回
+        if (System.currentTimeMillis() - file.lastModified() > MAX_AGE_MS) {
+            file.delete();
+            return null;
+        }
         try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(file))) {
             Object value = in.readObject();
             if (value instanceof List) return (List<WorkItem>) value;

@@ -15,9 +15,13 @@ public class SearchPostsController {
     public SearchPostsQueryService.Page search(@RequestParam(required=false) String q,
             @RequestParam(required=false) String count,@RequestParam(required=false) String cursor,
             @AuthenticationPrincipal Actor actor,HttpServletResponse response) {
-        // 游客可缓存；登录用户的点赞/收藏状态个性化，禁止缓存
-        if (actor == null) response.setHeader("Cache-Control","public, max-age=60");
-        else response.setHeader("Cache-Control","no-store");
+        // 游客可缓存（Vary 按 Authorization 区分）；登录用户的点赞/收藏状态个性化，禁止缓存
+        if (actor == null) {
+            response.setHeader("Cache-Control","public, max-age=60");
+            response.setHeader("Vary","Authorization");
+        } else {
+            response.setHeader("Cache-Control","no-store");
+        }
         return queries.page(q,count,cursor,actor);
     }
 }
