@@ -329,45 +329,38 @@ public class CommunityClientTest {
         reply(200, "{\"user_id\":\"user-a\"}");
         Result<ProfileHistoryPage> r = new Result<>(); client.getProfileHistory(20, null, r); r.fails();
     }
-    @Test public void recommendationFeedParsesStrategyAndCardMetadata() throws Exception {
+    @Test public void followingFeedParsesCardsAndCursor() throws Exception {
         login();
-        reply(200, "{\"strategy\":\"personalized\",\"reason\":\"基于你的美食偏好\",\"profile_version\":42,"
-                + "\"preferences_changed\":false,\"post_list\":[{\"post_id\":\"8\",\"title\":\"作品\","
-                + "\"clips\":[],\"media_ids\":[],\"rec_reason\":\"喜欢美食\",\"rec_score\":0.812345}]}");
-        Result<RecommendationFeed> result = new Result<>(); client.getRecommendationFeed(result);
-        RecommendationFeed feed = result.get();
-        assertEquals("personalized", feed.getStrategy());
-        assertEquals("基于你的美食偏好", feed.getReason());
-        assertEquals(42L, feed.getProfileVersion());
-        assertFalse(feed.isPreferencesChanged());
-        assertEquals(1, feed.getPostList().size());
-        PostItem post = feed.getPostList().get(0);
-        assertEquals("8", post.getPostId());
-        assertEquals("喜欢美食", post.getRecReason());
-        assertEquals(0.812345, post.getRecScore(), 1e-9);
-        assertTrue(requests.get(1).startsWith("GET /api/recommendations/me/feed Bearer first"));
+        reply(200, "{\"status_code\":0,\"has_more\":1,\"next_cursor\":\"8\",\"post_list\":[{\"post_id\":\"8\",\"title\":\"作品\",\"clips\":[]}]}");
+        Result<ApiResponse> result = new Result<>(); client.getFollowingFeed(20, "100", result);
+        assertEquals("8", result.get().getNextCursor());
+        assertEquals("8", result.get().getPostList().get(0).getPostId());
+        assertTrue(requests.get(1).startsWith("GET /api/feed/following?count=20&cursor=100 Bearer first"));
     }
-    @Test public void recommendationFeedEmptyListAndPreferencesChangedAreValid() throws Exception {
-        login();
-        reply(200, "{\"strategy\":\"popular\",\"reason\":null,\"profile_version\":7,"
-                + "\"preferences_changed\":true,\"post_list\":[]}");
-        Result<RecommendationFeed> result = new Result<>(); client.getRecommendationFeed(result);
-        RecommendationFeed feed = result.get();
-        assertEquals("popular", feed.getStrategy());
-        assertTrue(feed.isPreferencesChanged());
-        assertTrue(feed.getPostList().isEmpty());
-    }
-    @Test public void recommendationFeedRequiresLoginAndRejectsIncomplete() throws Exception {
-        Result<RecommendationFeed> guest = new Result<>(); client.getRecommendationFeed(guest); guest.fails();
+    @Test public void followingFeedEmptyAndValidation() throws Exception {
+        Result<ApiResponse> guest = new Result<>(); client.getFollowingFeed(20, null, guest); guest.fails();
         assertEquals(0, requests.size());
         login();
-        for (String body : Arrays.asList("null", "{}", "not json", "{\"strategy\":\"popular\"}")) {
-            reply(200, body);
-            Result<RecommendationFeed> result = new Result<>(); client.getRecommendationFeed(result); result.fails();
+        for (int count : new int[]{0,51}) {
+            Result<ApiResponse> bad = new Result<>(); client.getFollowingFeed(count, null, bad); bad.fails();
         }
-        reply(503, "{}");
-        Result<RecommendationFeed> failed = new Result<>(); client.getRecommendationFeed(failed); failed.fails();
-        assertTrue(client.isLoggedIn());
+        assertEquals(1, requests.size());
+        reply(200, "{\"status_code\":0,\"post_list\":[],\"has_more\":0,\"next_cursor\":null}");
+        Result<ApiResponse> empty = new Result<>(); client.getFollowingFeed(50, null, empty);
+        assertTrue(empty.get().getPostList().isEmpty());
+        for (String body : Arrays.asList("null", "{}", "not json")) {
+            reply(200, body);
+            Result<ApiResponse> bad = new Result<>(); client.getFollowingFeed(20, null, bad); bad.fails();
+        }
+    }
+    @Test public void followingFeedRefreshesTokenAndClearsExpiredSession() throws Exception {
+        login(); reply(401, "{}");
+        reply(200, "{\"accessToken\":\"second\",\"refreshToken\":\"refresh-second\"}"); reply(200, FEED);
+        Result<ApiResponse> refreshed = new Result<>(); client.getFollowingFeed(20, null, refreshed); refreshed.get();
+        assertTrue(requests.get(3).contains("Bearer second"));
+        reply(401, "{}"); reply(401, "{}");
+        Result<ApiResponse> expired = new Result<>(); client.getFollowingFeed(20, null, expired); expired.fails();
+        assertFalse(client.isLoggedIn());
     }
     private static final String AVATAR_ID = "01234567-89ab-4cde-8f01-23456789abcd";
     @Test public void setAvatarSendsMediaIdAndReadsAuthoritativeAvatar() throws Exception {

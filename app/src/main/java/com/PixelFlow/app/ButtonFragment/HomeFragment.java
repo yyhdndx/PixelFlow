@@ -34,7 +34,7 @@ import com.PixelFlow.app.Streams.PreloadManager;
 import com.PixelFlow.app.API.ApiClient;
 import com.PixelFlow.app.API.ApiResponse;
 import com.PixelFlow.app.API.PostItem;
-import com.PixelFlow.app.API.RecommendationFeed;
+import android.os.Parcelable;
 import com.PixelFlow.app.Streams.WaterfallAdapter;
 import com.PixelFlow.app.Streams.WorkItem;
 import com.google.android.material.tabs.TabLayout;
@@ -52,14 +52,22 @@ public class HomeFragment extends Fragment {
         void onScrollToTop();   // 滚动到顶部
     }
 
-    private static final int RECOMMENDATION_TAB = 1;
-    private static final String SAVED_RECOMMENDATION = "home.recommendation";
+    private static final int FOLLOWING_TAB = 0;
+    private static final String SAVED_TAB = "home.selectedTab";
+    private int selectedTab = FOLLOWING_TAB;
+    private static final class FeedState {
+        List<WorkItem> items = new ArrayList<>();
+        String cursor;
+        boolean hasMore = true, initialized, paused, retryRefresh;
+        String error;
+        Parcelable scroll;
+    }
+    private final FeedState[] feeds = {new FeedState(), new FeedState()};
+    private String feedError;
     private TabLayout tabLayout;
     private SwipeRefreshLayout swipeRefreshLayout;
     private RecyclerView recyclerView;
     private View emptyStateLayout;
-    private TextView recommendationBanner;
-    private boolean recommendationMode;
     private View pageStatus;
     private TextView pageMessage;
     private Button pageRetry;
@@ -95,7 +103,7 @@ public class HomeFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (savedInstanceState != null) recommendationMode = savedInstanceState.getBoolean(SAVED_RECOMMENDATION);
+        if (savedInstanceState != null) selectedTab = savedInstanceState.getInt(SAVED_TAB, FOLLOWING_TAB) == 1 ? 1 : FOLLOWING_TAB;
 
         Window window = ((Activity)getContext()).getWindow();
         window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
@@ -132,7 +140,8 @@ public class HomeFragment extends Fragment {
         setupRecyclerView();
         setupSwipeRefresh();
         setupTabs();
-        loadData(true);
+        syncAccount();
+        restoreFeedState();
         return view;
     }
 
@@ -141,7 +150,6 @@ public class HomeFragment extends Fragment {
         swipeRefreshLayout = view.findViewById(R.id.swipe_refresh_layout);
         recyclerView = view.findViewById(R.id.recycler_view);
         emptyStateLayout = view.findViewById(R.id.empty_state_layout);
-        recommendationBanner = view.findViewById(R.id.rec_banner);
         pageStatus = view.findViewById(R.id.feed_page_status);
         pageMessage = view.findViewById(R.id.feed_page_message);
         pageRetry = view.findViewById(R.id.feed_page_retry);
@@ -328,32 +336,22 @@ public class HomeFragment extends Fragment {
     }
 
     private void setupTabs() {
-        String[] tabNames = {getString(R.string.home_community), getString(R.string.home_recommendations)};
+        String[] tabNames = {getString(R.string.home_following), getString(R.string.home_community)};
         for (String tabName : tabNames) {
             tabLayout.addTab(tabLayout.newTab().setText(tabName));
         }
 
-        TabLayout.Tab selectedTab = tabLayout.getTabAt(recommendationMode ? RECOMMENDATION_TAB : 0);
-        if (selectedTab != null) {
-            selectedTab.select();
-        }
+        TabLayout.Tab restoredTab = tabLayout.getTabAt(selectedTab);
+        if (restoredTab != null) restoredTab.select();
 
         tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
             public void onTabSelected(TabLayout.Tab tab) {
-                // 切换Tab时重新加载数据
-                recommendationMode = tab.getPosition() == RECOMMENDATION_TAB;
-                currentPage = 0;
-                nextCursor = null;
-                hasMoreData = !recommendationMode;
-                paginationPaused = false;
-                hidePageStatus();
-                adapter.setLoading(false);
-                adapter.setEndVisible(false);
-                adapter.setData(Collections.emptyList());
-                hideRecommendationBanner();
-                hideEmptyState();
-                loadData(true);
+                saveFeedState();
+                cancelFeedRequest();
+                selectedTab = tab.getPosition();
+                syncAccount();
+                restoreFeedState();
             }
 
             @Override
@@ -368,8 +366,13 @@ public class HomeFragment extends Fragment {
     }
 
     private void loadData(boolean isRefresh) {
-        if (recommendationMode) { loadRecommendations(isRefresh); return; }
         if (adapter == null || recyclerView == null) return;
+        syncAccount();
+        if (selectedTab == FOLLOWING_TAB && !ApiClient.getInstance(requireContext()).isLoggedIn()) {
+            cancelFeedRequest();
+            showLoginState();
+            return;
+        }
         if (!isRefresh && (requestInFlight || !hasMoreData || paginationPaused)) return;
         if (activeFeedCall != null) activeFeedCall.cancel();
         final int generation = ++feedGeneration;
@@ -377,15 +380,6 @@ public class HomeFragment extends Fragment {
         isRefreshing = isRefresh;
         adapter.setLoading(false);
         adapter.setEndVisible(false);
-        syncAccount();
-        // 冷启动/切账号后秒开：先展示磁盘缓存的首屏，随后网络刷新覆盖
-        if (isRefresh && adapter.getData().isEmpty()) {
-            List<WorkItem> cached = FeedCache.forAccount(requireContext(), feedCacheKey()).load();
-            if (cached != null && !cached.isEmpty()) {
-                adapter.setData(cached);
-                hideEmptyState();
-            }
-        }
         paginationPaused = false;
         hidePageStatus();
         hideEmptyState();
@@ -393,8 +387,8 @@ public class HomeFragment extends Fragment {
         else adapter.setLoading(true);
 
         final String requestedCursor = isRefresh ? null : nextCursor;
-        activeFeedCall = ApiClient.getInstance(requireContext()).getFeed(50, requestedCursor,
-                new CommunityClient.Callback<ApiResponse>() {
+        final int source = selectedTab;
+        CommunityClient.Callback<ApiResponse> callback = new CommunityClient.Callback<ApiResponse>() {
             @Override
             public void onSuccess(ApiResponse response) {
                 handler.post(() -> {
@@ -406,8 +400,9 @@ public class HomeFragment extends Fragment {
                     }
                     List<WorkItem> unique = FeedItems.unique(incoming,
                             isRefresh ? Collections.emptyList() : adapter.getData());
-                    // 刷新后打乱卡片顺序，让每次下拉都呈现不同排布
-                    if (isRefresh) Collections.shuffle(unique);
+                    if (isRefresh && source != FOLLOWING_TAB) Collections.shuffle(unique);
+                    feeds[source].initialized = true;
+                    feedError = null;
                     finishFeedRequest();
                     nextCursor = response.getNextCursor();
                     hasMoreData = response.getHasMore() == 1 && nextCursor != null
@@ -416,8 +411,10 @@ public class HomeFragment extends Fragment {
                         adapter.setData(unique);
                         currentPage = 1;
                         recyclerView.scheduleLayoutAnimation();
-                        // 首屏成功后写入磁盘缓存，供下次冷启动秒开/弱网兜底
-                        FeedCache.forAccount(requireContext(), feedCacheKey()).save(unique);
+                        // 仅社区 Tab（公开流）写磁盘缓存；关注流是个性化的，只用内存 FeedState
+                        if (source != FOLLOWING_TAB) {
+                            FeedCache.forAccount(requireContext(), feedCacheKey()).save(unique);
+                        }
                     } else {
                         adapter.addData(unique);
                         currentPage++;
@@ -426,6 +423,7 @@ public class HomeFragment extends Fragment {
                     }
                     if (adapter.getData().isEmpty()) showEmptyState();
                     else hideEmptyState();
+                    saveFeedState();
                     showPageAvailability();
                     if (!unique.isEmpty() && preloadManager != null) {
                         preloadManager.preloadWorkItems(unique, PreloadManager.PRIORITY_LOW);
@@ -439,84 +437,88 @@ public class HomeFragment extends Fragment {
                     if (!canApplyFeed(generation)) return;
                     finishFeedRequest();
                     syncAccount();
-                    if (adapter.getData().isEmpty()) showFeedError(errorMessage);
-                    else {
-                        hideEmptyState();
-                        paginationPaused = true;
-                        retryRefresh = isRefresh;
-                        pageMessage.setText(getString(isRefresh ? R.string.home_refresh_failed : R.string.home_page_failed, errorMessage));
-                        pageRetry.setText(R.string.home_retry);
-                        pageRetry.setVisibility(View.VISIBLE);
-                        pageStatus.setVisibility(View.VISIBLE);
-                    }
+                    feeds[source].initialized = true;
+                    feedError = errorMessage;
+                    paginationPaused = true;
+                    retryRefresh = isRefresh;
+                    saveFeedState();
+                    renderFeedError();
                 });
             }
-        });
+        };
+        ApiClient api = ApiClient.getInstance(requireContext());
+        activeFeedCall = source == FOLLOWING_TAB ? api.getFollowingFeed(50, requestedCursor, callback)
+                : api.getFeed(50, requestedCursor, callback);
     }
 
-    private void loadRecommendations(boolean isRefresh) {
-        if (adapter == null || recyclerView == null) return;
-        if (!isRefresh) return; // Single page; retries are explicit refreshes.
-        if (activeFeedCall != null) activeFeedCall.cancel();
-        final int generation = ++feedGeneration;
-        requestInFlight = true;
-        isRefreshing = isRefresh;
-        adapter.setLoading(false);
+    private void saveFeedState() {
+        if (adapter == null) return;
+        FeedState state = feeds[selectedTab];
+        state.items = new ArrayList<>(adapter.getData());
+        state.cursor = nextCursor;
+        state.hasMore = hasMoreData;
+        state.paused = paginationPaused;
+        state.retryRefresh = retryRefresh;
+        state.error = feedError;
+        if (recyclerView.getLayoutManager() != null)
+            state.scroll = recyclerView.getLayoutManager().onSaveInstanceState();
+    }
+
+    private void restoreFeedState() {
+        FeedState state = feeds[selectedTab];
+        nextCursor = state.cursor;
+        hasMoreData = state.hasMore;
+        paginationPaused = state.paused;
+        retryRefresh = state.retryRefresh;
+        feedError = state.error;
+        adapter.setData(state.items);
         adapter.setEndVisible(false);
-        syncAccount();
-        paginationPaused = false;
         hidePageStatus();
-        hasMoreData = false;
         hideEmptyState();
-        hideRecommendationBanner();
-        if (isRefresh) swipeRefreshLayout.setRefreshing(true);
-        activeFeedCall = ApiClient.getInstance(requireContext()).getRecommendationFeed(
-                new CommunityClient.Callback<RecommendationFeed>() {
-                    @Override public void onSuccess(RecommendationFeed feed) {
-                        handler.post(() -> {
-                            if (!canApplyFeed(generation)) return;
-                            List<WorkItem> incoming = new ArrayList<>();
-                            for (PostItem post : feed.getPostList()) {
-                                if (post == null || post.getPostId() == null) continue;
-                                incoming.add(new WorkItem(post));
-                            }
-                            finishFeedRequest();
-                            nextCursor = null;
-                            hasMoreData = false; // 推荐单页，无分页
-                            adapter.setData(incoming);
-                            showRecommendationBanner(feed);
-                            if (adapter.getData().isEmpty()) showEmptyState();
-                            else hideEmptyState();
-                        });
-                    }
-                    @Override public void onFailure(String errorMessage) {
-                        onFailure(0, errorMessage);
-                    }
-                    @Override public void onFailure(int status, String errorMessage) {
-                        handler.post(() -> {
-                            if (!canApplyFeed(generation)) return;
-                            finishFeedRequest();
-                            syncAccount();
-                            adapter.setData(Collections.emptyList());
-                            nextCursor = null;
-                            hasMoreData = false;
-                            hideRecommendationBanner();
-                            showFeedError(status == 404 ? getString(R.string.home_recommendations_unavailable) : errorMessage);
-                        });
-                    }
-                });
+        if (selectedTab == FOLLOWING_TAB && !ApiClient.getInstance(requireContext()).isLoggedIn()) {
+            showLoginState();
+        } else if (!state.initialized) {
+            // 社区 Tab 冷启动秒开：先展示磁盘缓存首屏，随后网络刷新覆盖；关注流是个性化的，不走磁盘缓存
+            if (selectedTab != FOLLOWING_TAB && state.items.isEmpty()) {
+                List<WorkItem> cached = FeedCache.forAccount(requireContext(), feedCacheKey()).load();
+                if (cached != null && !cached.isEmpty()) {
+                    adapter.setData(cached);
+                    hideEmptyState();
+                }
+            }
+            loadData(true);
+        } else if (feedError != null) renderFeedError();
+        else if (state.items.isEmpty()) showEmptyState();
+        else {
+            if (state.scroll != null) recyclerView.getLayoutManager().onRestoreInstanceState(state.scroll);
+            showPageAvailability();
+        }
     }
 
-    private void showRecommendationBanner(RecommendationFeed feed) {
-        if (recommendationBanner == null) return;
-        String label = "popular".equals(feed.getStrategy())
-                ? getString(R.string.rec_popular) : getString(R.string.rec_personalized);
-        String reason = feed.getReason();
-        recommendationBanner.setText(reason == null || reason.isEmpty() ? label : label + " · " + reason);
-        recommendationBanner.setVisibility(View.VISIBLE);
+    private void cancelFeedRequest() {
+        ++feedGeneration;
+        if (activeFeedCall != null) activeFeedCall.cancel();
+        if (adapter != null && swipeRefreshLayout != null) finishFeedRequest();
     }
-    private void hideRecommendationBanner() {
-        if (recommendationBanner != null) recommendationBanner.setVisibility(View.GONE);
+
+    private void renderFeedError() {
+        if (adapter.getData().isEmpty()) showFeedError(feedError);
+        else {
+            hideEmptyState();
+            pageMessage.setText(getString(retryRefresh ? R.string.home_refresh_failed : R.string.home_page_failed, feedError));
+            pageRetry.setText(R.string.home_retry);
+            pageRetry.setVisibility(View.VISIBLE);
+            pageStatus.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void showLoginState() {
+        ((TextView) emptyStateLayout.findViewById(R.id.feed_state_title)).setText(R.string.home_login_title);
+        ((TextView) emptyStateLayout.findViewById(R.id.feed_state_message)).setText(R.string.home_login_message);
+        Button button = emptyStateLayout.findViewById(R.id.retry_button);
+        button.setText(R.string.home_login);
+        button.setOnClickListener(v -> startActivity(new Intent(requireContext(), com.PixelFlow.app.AccountActivity.class)));
+        showStatePanel();
     }
 
     private boolean canApplyFeed(int generation) {
@@ -545,9 +547,11 @@ public class HomeFragment extends Fragment {
         if (!account.equals(displayedAccount)) {
             adapter.setData(Collections.emptyList());
             adapter.setEndVisible(false);
-            hideRecommendationBanner();
+            feeds[0] = new FeedState();
+            feeds[1] = new FeedState();
             nextCursor = null;
-            hasMoreData = !recommendationMode;
+            hasMoreData = true;
+            feedError = null;
             paginationPaused = false;
             hidePageStatus();
             displayedAccount = account;
@@ -669,15 +673,22 @@ public class HomeFragment extends Fragment {
     private void showEmptyState() {
         ((TextView) emptyStateLayout.findViewById(R.id.feed_state_title)).setText(R.string.home_empty_title);
         ((TextView) emptyStateLayout.findViewById(R.id.feed_state_message)).setText(
-                recommendationMode ? R.string.home_empty_recommendations : R.string.home_empty_community);
-        ((Button) emptyStateLayout.findViewById(R.id.retry_button)).setText(R.string.home_refresh);
+                selectedTab == FOLLOWING_TAB ? R.string.home_empty_following : R.string.home_empty_community);
+        Button button = emptyStateLayout.findViewById(R.id.retry_button);
+        button.setText(selectedTab == FOLLOWING_TAB ? R.string.home_go_community : R.string.home_refresh);
+        button.setOnClickListener(v -> {
+            if (selectedTab == FOLLOWING_TAB) tabLayout.getTabAt(1).select();
+            else loadData(true);
+        });
         showStatePanel();
     }
 
     private void showFeedError(String message) {
         ((TextView) emptyStateLayout.findViewById(R.id.feed_state_title)).setText(R.string.home_error_title);
         ((TextView) emptyStateLayout.findViewById(R.id.feed_state_message)).setText(message);
-        ((Button) emptyStateLayout.findViewById(R.id.retry_button)).setText(R.string.home_retry);
+        Button button = emptyStateLayout.findViewById(R.id.retry_button);
+        button.setText(R.string.home_retry);
+        button.setOnClickListener(v -> loadData(true));
         showStatePanel();
     }
 
@@ -707,8 +718,9 @@ public class HomeFragment extends Fragment {
         adapter.setEndVisible(!hasMoreData);
         if (hasMoreData) {
             // A short first page may not scroll; fill the viewport without a manual button.
+            final int generation = feedGeneration;
             recyclerView.post(() -> {
-                if (isResumed() && !recommendationMode && !requestInFlight
+                if (generation == feedGeneration && recyclerView != null && adapter != null && isResumed() && !requestInFlight
                         && hasMoreData && !paginationPaused && !adapter.getData().isEmpty()
                         && !recyclerView.canScrollVertically(1)) {
                     loadData(false);
@@ -719,13 +731,12 @@ public class HomeFragment extends Fragment {
 
     @Override public void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putBoolean(SAVED_RECOMMENDATION, recommendationMode);
+        outState.putInt(SAVED_TAB, selectedTab);
     }
 
     @Override public void onStop() {
-        ++feedGeneration;
-        if (activeFeedCall != null) activeFeedCall.cancel();
-        if (adapter != null && swipeRefreshLayout != null) finishFeedRequest();
+        saveFeedState();
+        cancelFeedRequest();
         super.onStop();
     }
 
@@ -779,7 +790,6 @@ public class HomeFragment extends Fragment {
         swipeRefreshLayout = null;
         tabLayout = null;
         emptyStateLayout = null;
-        recommendationBanner = null;
         pageStatus = null;
         pageMessage = null;
         pageRetry = null;
@@ -789,8 +799,8 @@ public class HomeFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        // 仅账户变化时刷新；从详情页返回时保留滚动位置，卡片状态由 handleDetailResult 更新。
-        if (adapter != null && !accountKey().equals(displayedAccount)) loadData(true);
+        if (adapter != null && (!accountKey().equals(displayedAccount)
+                || (!requestInFlight && !feeds[selectedTab].initialized))) loadData(true);
     }
 
     @Override

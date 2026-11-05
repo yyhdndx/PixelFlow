@@ -24,7 +24,9 @@ class FavoritePostsApiTest {
     @Autowired ObjectMapper json;
     String alice,bob,aliceId,bobId;
 
+    @Autowired com.pixelflow.server.content.PostContentCache contentCache;
     @BeforeEach void setup() throws Exception {
+        contentCache.clear();
         for (String table:List.of("recommendation_suppressed_topics","recommendation_blocked_authors","recommendation_preferences",
                 "event_export_audit","post_media","media","user_status_audit","moderation_records","behavior_events",
                 "interactions","posts","sessions","users")) db.update("DELETE FROM "+table);
