@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import com.PixelFlow.app.API.CommunityClient;
+import com.PixelFlow.app.Streams.FeedCache;
 import com.PixelFlow.app.Streams.FeedItems;
 import java.util.Collections;
 import android.util.Log;
@@ -377,6 +378,14 @@ public class HomeFragment extends Fragment {
         adapter.setLoading(false);
         adapter.setEndVisible(false);
         syncAccount();
+        // 冷启动/切账号后秒开：先展示磁盘缓存的首屏，随后网络刷新覆盖
+        if (isRefresh && adapter.getData().isEmpty()) {
+            List<WorkItem> cached = FeedCache.forAccount(requireContext(), accountKey()).load();
+            if (cached != null && !cached.isEmpty()) {
+                adapter.setData(cached);
+                hideEmptyState();
+            }
+        }
         paginationPaused = false;
         hidePageStatus();
         hideEmptyState();
@@ -407,6 +416,8 @@ public class HomeFragment extends Fragment {
                         adapter.setData(unique);
                         currentPage = 1;
                         recyclerView.scheduleLayoutAnimation();
+                        // 首屏成功后写入磁盘缓存，供下次冷启动秒开/弱网兜底
+                        FeedCache.forAccount(requireContext(), accountKey()).save(unique);
                     } else {
                         adapter.addData(unique);
                         currentPage++;

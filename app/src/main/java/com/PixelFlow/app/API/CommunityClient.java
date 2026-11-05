@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,20 +38,29 @@ public class CommunityClient implements AutoCloseable {
     private final HttpUrl base;
     private final Executor delivery;
     private final ExecutorService queue = Executors.newSingleThreadExecutor();
-    private final OkHttpClient http = new OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS).callTimeout(20, TimeUnit.SECONDS)
-            .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build();
+    private final OkHttpClient http;
     private String access, refresh, username;
     private long generation;
     private TokenListener tokenListener;
     private final java.util.concurrent.atomic.AtomicInteger pendingEvents = new java.util.concurrent.atomic.AtomicInteger();
 
     public CommunityClient(String baseUrl, Executor delivery) {
+        this(baseUrl, delivery, null);
+    }
+
+    public CommunityClient(String baseUrl, Executor delivery, File cacheDir) {
         HttpUrl parsed = HttpUrl.parse(baseUrl);
         base = parsed != null && parsed.username().isEmpty() && parsed.password().isEmpty()
                 && parsed.query() == null && parsed.fragment() == null && parsed.encodedPath().equals("/")
                 ? parsed : null;
         this.delivery = delivery;
+        OkHttpClient.Builder builder = new OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS).callTimeout(20, TimeUnit.SECONDS)
+                .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false);
+        if (cacheDir != null) {
+            builder.cache(new Cache(cacheDir, 50L * 1024 * 1024)); // 50MB HTTP 缓存
+        }
+        this.http = builder.build();
     }
     public synchronized boolean isLoggedIn() { return access != null; }
     public synchronized String username() { return username == null ? "游客" : username; }

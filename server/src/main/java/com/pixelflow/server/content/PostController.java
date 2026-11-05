@@ -1,6 +1,7 @@
 package com.pixelflow.server.content;
 
 import com.pixelflow.server.auth.AuthService.Actor;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -14,10 +15,13 @@ public class PostController {
     @GetMapping("/health") public Map<String,String> health() { return Map.of("status","UP"); }
     @GetMapping("/feed/") public Map<String,Object> feed(@RequestParam(defaultValue="20") int count,
             @RequestParam(required=false) Long cursor,@RequestParam(defaultValue="false") boolean accept_video_clip,
-            @AuthenticationPrincipal Actor actor) {
+            @AuthenticationPrincipal Actor actor,HttpServletResponse response) {
+        cacheHeader(actor,response);
         return posts.feed(count,cursor,accept_video_clip,actor);
     }
-    @GetMapping("/api/posts/{id}") public Map<String,Object> detail(@PathVariable long id,@AuthenticationPrincipal Actor actor) {
+    @GetMapping("/api/posts/{id}") public Map<String,Object> detail(@PathVariable long id,@AuthenticationPrincipal Actor actor,
+            HttpServletResponse response) {
+        cacheHeader(actor,response);
         return posts.detail(id,actor);
     }
     @GetMapping("/api/posts") public List<Map<String,Object>> mine(@AuthenticationPrincipal Actor actor,
@@ -42,5 +46,10 @@ public class PostController {
     }
     @PostMapping("/api/posts/{id}/withdraw") public Map<String,Object> withdraw(@PathVariable long id,@AuthenticationPrincipal Actor actor) {
         return posts.transition(id,actor,false);
+    }
+    /** 游客的公开只读响应可缓存；登录用户的点赞/收藏状态是个性化的，禁止缓存。 */
+    private static void cacheHeader(Actor actor,HttpServletResponse response) {
+        if (actor == null) response.setHeader("Cache-Control","public, max-age=60");
+        else response.setHeader("Cache-Control","no-store");
     }
 }
