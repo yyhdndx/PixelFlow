@@ -37,7 +37,10 @@ public class CommunityClient implements AutoCloseable {
     private final Gson gson = new Gson();
     private final HttpUrl base;
     private final Executor delivery;
-    private final ExecutorService queue = Executors.newSingleThreadExecutor();
+    /** 普通业务请求串行执行，保证刷新/写操作的顺序。 */
+    private final ExecutorService regularQueue = Executors.newSingleThreadExecutor();
+    /** 耗时 AI 请求走独立队列，避免 AI 生成阻塞普通请求；首版并发 1，后续按服务能力可调。 */
+    private final ExecutorService aiQueue = Executors.newSingleThreadExecutor();
     private final OkHttpClient http;
     private String access, refresh, username;
     private long generation;
@@ -97,9 +100,16 @@ public class CommunityClient implements AutoCloseable {
         notifyTokens();
     }
     private <T> Job submit(Task<T> task, Callback<T> callback) {
+        return enqueue(regularQueue, task, callback);
+    }
+    /** 耗时 AI 请求走独立队列，不阻塞普通业务请求（P01 请求调度隔离）。 */
+    private <T> Job submitAi(Task<T> task, Callback<T> callback) {
+        return enqueue(aiQueue, task, callback);
+    }
+    private <T> Job enqueue(ExecutorService target, Task<T> task, Callback<T> callback) {
         Job job = new Job();
         long expected = sessionVersion();
-        queue.execute(() -> {
+        target.execute(() -> {
             if (job.cancelled) return;
             try {
                 check(expected);
@@ -159,7 +169,9 @@ public class CommunityClient implements AutoCloseable {
     }
     /** Agent 聚合类接口（LLM 综合，秒级响应），统一放宽读超时并允许 55s 整体超时。 */
     private static boolean isAgentAggregate(String path) {
-        return path.equals("/api/agent/create-assist") || path.equals("/api/agent/search");
+        return path.equals("/api/agent/create-assist") || path.equals("/api/agent/search")
+                || (path.startsWith("/api/posts/") && path.endsWith("/summary"))
+                || (path.startsWith("/api/posts/") && path.endsWith("/auto-replies/suggest"));
     }
     private String authenticated(Job job, String path, String method, Object body, long expected,
             boolean required) throws IOException {
@@ -411,7 +423,7 @@ public class CommunityClient implements AutoCloseable {
 
     /** 长文提炼：只读正文，正文不足 200 字服务端会直接 400，界面不该显示入口。 */
     public Job getPostSummary(String postId, Callback<PostSummary> callback) {
-        return submit((job, expected) -> {
+        return submitAi((job, expected) -> {
             if (postId == null || !postId.matches("[1-9][0-9]{0,18}"))
                 throw new ApiError(400, "作品 ID 无效");
             return PostSummary.parse(gson.fromJson(authenticated(job,
@@ -458,7 +470,7 @@ public class CommunityClient implements AutoCloseable {
 
     /** 让 Agent 按作品上下文把作者描述拆成若干「场景 → 答案」候选。 */
     public Job suggestAutoReplies(String postId, String prompt, Callback<List<AutoReplyRule>> callback) {
-        return submit((job, expected) -> {
+        return submitAi((job, expected) -> {
             if (prompt == null || prompt.trim().isEmpty() || prompt.trim().length() > 500)
                 throw new ApiError(400, "请用一句话描述你想自动回复什么");
             JsonObject input = new JsonObject();
@@ -669,7 +681,7 @@ public class CommunityClient implements AutoCloseable {
     }
     public Job createAssist(String title, String content, List<String> tags, String goal, String prompt,
             String audience, Callback<CreationSuggestion> callback) {
-        return submit((job, expected) -> {
+        return submitAi((job, expected) -> {
             if (title.length() > 120 || content.length() > 5000 || prompt.length() > 200 || audience.length() > 64)
                 throw new ApiError(400, "输入内容过长，请精简后重试");
             JsonObject draft = new JsonObject();
@@ -686,7 +698,7 @@ public class CommunityClient implements AutoCloseable {
 
     /** Agent 智能搜索与多帖总结；契约见 docs/issues/21-java-agent-搜索接口.md。仅登录用户，游客 401。 */
     public Job agentSearch(String question, String sessionId, Callback<AgentSearchResult> callback) {
-        return submit((job, expected) -> {
+        return submitAi((job, expected) -> {
             if (question == null || question.trim().isEmpty() || question.trim().length() > 200)
                 throw new ApiError(400, "问题需为 1–200 字");
             JsonObject input = new JsonObject();
@@ -839,5 +851,5 @@ public class CommunityClient implements AutoCloseable {
             public void onFailure(String ignored) { pendingEvents.set(0); }
         });
     }
-    @Override public void close() { queue.shutdownNow(); http.dispatcher().cancelAll(); http.connectionPool().evictAll(); }
+    @Override public void close() { regularQueue.shutdownNow(); aiQueue.shutdownNow(); http.dispatcher().cancelAll(); http.connectionPool().evictAll(); }
 }
