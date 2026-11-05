@@ -10,7 +10,7 @@ import json
 import time
 import uuid
 
-import httpx
+from ..clients.deepseek import chat_once
 
 # 低于这个长度不生成摘要：短文强行总结会变得比原文还长，没有意义。
 MIN_CONTENT_LENGTH = 200
@@ -36,19 +36,11 @@ class DeepSeekPostSummarizer:
         if remaining <= 0:
             raise TimeoutError()
         payload = {"title": title, "content": content}
-        with httpx.Client(timeout=httpx.Timeout(remaining, connect=4),
-                          follow_redirects=False, transport=self.transport) as client:
-            response = client.post(
-                "https://api.deepseek.com/chat/completions",
-                headers={"Authorization": "Bearer " + self.settings.deepseek_api_key},
-                json={"model": self.settings.deepseek_model, "stream": False,
-                      "thinking": {"type": "disabled"}, "max_tokens": 700,
-                      "response_format": {"type": "json_object"},
-                      "messages": [{"role": "system", "content": SYSTEM},
-                                   {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}]})
-            response.raise_for_status()
-            body = response.json()
-        return json.loads(body["choices"][0]["message"]["content"])
+        raw_content, _ = chat_once(self.settings, system=SYSTEM,
+                                   user_content=json.dumps(payload, ensure_ascii=False),
+                                   max_tokens=700, timeout=remaining,
+                                   transport=self.transport)
+        return json.loads(raw_content)
 
 
 def _clean(decision):
