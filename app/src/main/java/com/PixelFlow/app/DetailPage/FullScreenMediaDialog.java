@@ -84,11 +84,12 @@ public class FullScreenMediaDialog extends Dialog {
     }
 
     private void loadImage() {
-        // 使用Glide加载图片到PhotoView
+        // 使用Glide加载图片到PhotoView；最大边 2048，平衡 5x 缩放清晰度与内存峰值
         Glide.with(context)
                 .load(imageUrl)
                 .apply(new RequestOptions()
                         .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .override(2048, 2048)
                         .placeholder(R.drawable.ic_image_placeholder)
                         .error(R.drawable.ic_image_error))
                 .into(photoView);

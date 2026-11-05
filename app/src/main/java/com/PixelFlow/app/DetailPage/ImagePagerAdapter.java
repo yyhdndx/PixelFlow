@@ -229,7 +229,11 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                 if (imageClickListener != null) imageClickListener.onImageClick(clip.getUrl());
             });
             progressBar.setVisibility(View.VISIBLE);
-            Glide.with(itemView).load(clip.getUrl()).placeholder(R.drawable.ic_image_placeholder)
+            android.util.DisplayMetrics metrics = itemView.getResources().getDisplayMetrics();
+            // 按屏尺寸解码，避免大图按原图解码导致 OOM
+            Glide.with(itemView).load(clip.getUrl())
+                    .override(metrics.widthPixels, metrics.heightPixels)
+                    .placeholder(R.drawable.ic_image_placeholder)
                     .error(R.drawable.ic_image_error).dontTransform()
                     .listener(new RequestListener<android.graphics.drawable.Drawable>() {
                         @Override public boolean onLoadFailed(@Nullable GlideException error, Object model,
