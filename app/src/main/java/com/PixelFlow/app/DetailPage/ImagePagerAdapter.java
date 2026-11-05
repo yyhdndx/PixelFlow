@@ -332,6 +332,7 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
 
     @Override public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
         if (holder instanceof VideoViewHolder) ((VideoViewHolder) holder).detach();
+        else if (holder instanceof ImageViewHolder) Glide.with(((ImageViewHolder) holder).itemView).clear(((ImageViewHolder) holder).imageView);
         super.onViewRecycled(holder);
     }
 

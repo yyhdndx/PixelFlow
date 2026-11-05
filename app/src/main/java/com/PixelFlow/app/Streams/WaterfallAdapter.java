@@ -15,6 +15,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 
@@ -130,10 +131,12 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     // 数据操作方法
     public void setData(List<WorkItem> newItems) {
         exposed.clear();
+        List<WorkItem> oldItems = new ArrayList<>(workItems);
         workItems.clear();
         workItems.addAll(newItems);
-
-        notifyDataSetChanged();
+        // 差异更新：刷新打乱顺序时按 item 移动动画，避免 notifyDataSetChanged 全量重绑导致的闪烁
+        DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new WorkItemDiff(oldItems, workItems));
+        diff.dispatchUpdatesTo(this);
     }
 
     public void addData(List<WorkItem> newItems) {
@@ -174,6 +177,14 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         if (!released && position>=0 && position<workItems.size()) {
             String id=workItems.get(position).getId();
             if (exposed.add(id)) ApiClient.getInstance(context).trackEvent(id,"EXPOSURE",null,"HOME");
+        }
+    }
+
+    /** 回收时取消图片请求，滚出屏幕的图不再解码。 */
+    @Override public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+        super.onViewRecycled(holder);
+        if (holder instanceof WorkViewHolder) {
+            Glide.with(context).clear(((WorkViewHolder) holder).coverImage);
         }
     }
 
@@ -438,6 +449,27 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     static class EndViewHolder extends RecyclerView.ViewHolder {
         EndViewHolder(@NonNull View itemView) {
             super(itemView);
+        }
+    }
+
+    /** 按 id 判同一项，按展示字段判内容是否变化。 */
+    private static final class WorkItemDiff extends DiffUtil.Callback {
+        private final List<WorkItem> oldList, newList;
+        WorkItemDiff(List<WorkItem> oldList, List<WorkItem> newList) {
+            this.oldList = oldList; this.newList = newList;
+        }
+        @Override public int getOldListSize() { return oldList.size(); }
+        @Override public int getNewListSize() { return newList.size(); }
+        @Override public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
+            String a = oldList.get(oldItemPosition).getId();
+            String b = newList.get(newItemPosition).getId();
+            return a != null && a.equals(b);
+        }
+        @Override public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
+            WorkItem a = oldList.get(oldItemPosition), b = newList.get(newItemPosition);
+            return a.getLikeCount() == b.getLikeCount() && a.isLiked() == b.isLiked()
+                    && java.util.Objects.equals(a.getTitle(), b.getTitle())
+                    && java.util.Objects.equals(a.getCoverUrl(), b.getCoverUrl());
         }
     }
 

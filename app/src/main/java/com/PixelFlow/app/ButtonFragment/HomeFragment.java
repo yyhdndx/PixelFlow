@@ -26,6 +26,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.StaggeredGridLayoutManager;
+import com.bumptech.glide.Glide;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.PixelFlow.app.R;
@@ -172,6 +173,9 @@ public class HomeFragment extends Fragment {
         // 设置双列瀑布流布局
         StaggeredGridLayoutManager layoutManager = new StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL);
         recyclerView.setLayoutManager(layoutManager);
+        // 列表尺寸固定，跳过多余的 requestLayout；适当增大离屏 View 缓存减少滚动时的布局开销
+        recyclerView.setHasFixedSize(true);
+        recyclerView.setItemViewCacheSize(8);
 
         // 创建适配器
         adapter = new WaterfallAdapter(requireContext());
@@ -294,6 +298,13 @@ public class HomeFragment extends Fragment {
             @Override
             public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
                 super.onScrollStateChanged(recyclerView, newState);
+
+                // 快速滑动时暂停图片加载，停止后再恢复
+                if (newState == RecyclerView.SCROLL_STATE_SETTLING) {
+                    Glide.with(requireContext()).pauseRequests();
+                } else if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                    Glide.with(requireContext()).resumeRequests();
+                }
 
                 // 当停止滚动时，如果接近顶部，显示FAB
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
