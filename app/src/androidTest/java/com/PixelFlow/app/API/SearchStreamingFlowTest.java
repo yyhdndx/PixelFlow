@@ -48,7 +48,7 @@ public class SearchStreamingFlowTest {
             try (ActivityScenario<SearchActivity> screen = ActivityScenario.launch(intent)) {
                 screen.onActivity(activity -> {
                     ((EditText) activity.findViewById(R.id.et_search)).setText("咖啡");
-                    activity.findViewById(R.id.btn_submit).performClick();
+                    for (int i = 0; i < 5; i++) activity.findViewById(R.id.btn_submit).performClick();
                 });
                 awaitAnswer(screen);
                 screen.onActivity(activity -> assertEquals(InstrumentationRegistry.getInstrumentation().getTargetContext().getString(R.string.ai_stream_generating),

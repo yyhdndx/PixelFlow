@@ -70,6 +70,7 @@ public class SummaryStreamingFlowTest {
                     assertEquals(0, calls.get());
                     failReads.set(false);
                     a.findViewById(R.id.summary_retry).performClick();
+                    for (int click = 0; click < 4; click++) a.findViewById(R.id.summarize_entry).performClick();
                 });
                 awaitText(screen, "先看到概括");
                 screen.onActivity(a -> assertTrue(((TextView) a.findViewById(R.id.summary_body)).getText().toString()
