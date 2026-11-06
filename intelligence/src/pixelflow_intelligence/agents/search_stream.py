@@ -34,51 +34,84 @@ class PendingSearches:
         self._items = OrderedDict()
 
     def reserve(self, request_id, user, deadline):
+        self._expire()
         with self._lock:
-            self._expire()
             if request_id in self._items or len(self._items) >= 32:
                 raise ValueError("Search capacity exceeded")
-            self._items[request_id] = {"user": user, "deadline": deadline,
-                                       "cancelled": threading.Event(), "result": None,
-                                       "committed": False}
-            return self._items[request_id]
+            item = {"user": user, "deadline": deadline,
+                    "cancelled": threading.Event(), "result": None,
+                    "committed": False, "confirming": False, "lock": threading.Lock()}
+            self._items[request_id] = item
+            timer = threading.Timer(max(0, deadline - time.monotonic()), self._timeout,
+                                    args=(request_id, item))
+            timer.daemon = True
+            item["timer"] = timer
+            timer.start()
+            return item
+
+    def _timeout(self, request_id, item):
+        with self._lock:
+            if self._items.get(request_id) is not item:
+                return
+            item["cancelled"].set()
+            self._items.pop(request_id)
+            trace = not item["confirming"] and not item["committed"]
+        if trace and item.get("failure_trace"):
+            item["failure_trace"]()
 
     def _expire(self):
-        for key, item in list(self._items.items()):
-            if time.monotonic() >= item["deadline"]:
-                item["cancelled"].set()
-                if not item["committed"] and item.get("failure_trace"):
-                    item["failure_trace"]()
-                del self._items[key]
+        with self._lock:
+            expired = [(key, item) for key, item in self._items.items()
+                       if time.monotonic() >= item["deadline"]]
+        for key, item in expired:
+            self._timeout(key, item)
 
     def cancel(self, request_id, user):
         with self._lock:
             item = self._items.get(request_id)
-            if item is not None and item["user"] == user:
-                item["cancelled"].set()
-                if not item["committed"] and item.get("failure_trace"):
-                    item["failure_trace"]()
-                self._items.pop(request_id, None)
+            if item is None or item["user"] != user:
+                return
+            item["cancelled"].set()
+            item["timer"].cancel()
+            self._items.pop(request_id)
+            trace = not item["confirming"] and not item["committed"]
+        if trace and item.get("failure_trace"):
+            item["failure_trace"]()
 
     def confirm(self, request_id, user, trace_id, expected_digest, upstream, token, store):
         with self._lock:
-            self._expire()
             item = self._items.get(request_id)
-            if (item is None or item["user"] != user or item["cancelled"].is_set()
-                    or item["result"] is None or item["result"]["trace_id"] != trace_id
+        if item is None or item["user"] != user:
+            raise ValueError("Invalid search confirmation")
+
+        def checkpoint():
+            if item["cancelled"].is_set() or time.monotonic() >= item["deadline"]:
+                raise TimeoutError()
+
+        with item["lock"]:
+            checkpoint()
+            if (item["result"] is None or item["result"]["trace_id"] != trace_id
                     or digest(item["result"]) != expected_digest):
                 raise ValueError("Invalid search confirmation")
-            if not item["committed"]:
+            if item["committed"]:
+                return {"request_id": request_id, "trace_id": trace_id, "committed": True}
+            with self._lock:
+                checkpoint()
+                item["confirming"] = True
+            try:
                 validate_sources(upstream, token, item["result"]["sources"])
-                if time.monotonic() >= item["deadline"]:
-                    raise TimeoutError()
+                checkpoint()
                 if store is None:
                     raise ValueError("Search store unavailable")
-                result = item["result"]
-                store.commit_search_stream(result=result, user_id=user, question=item["question"],
-                                           history=item["history"], now=item["created"])
+                store.commit_search_stream(result=item["result"], user_id=user, question=item["question"],
+                                           history=item["history"], now=item["created"], checkpoint=checkpoint)
                 item["committed"] = True
-            return {"request_id": request_id, "trace_id": trace_id, "committed": True}
+                return {"request_id": request_id, "trace_id": trace_id, "committed": True}
+            finally:
+                with self._lock:
+                    item["confirming"] = False
+                if item["cancelled"].is_set() and not item["committed"] and item.get("failure_trace"):
+                    item["failure_trace"]()
 
 
 def search_events(*, question, session_id, user, token, upstream, settings, store,

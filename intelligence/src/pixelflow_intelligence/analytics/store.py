@@ -239,7 +239,7 @@ class Store:
                 json.dumps(steps, ensure_ascii=False), created_at, seq,
                 session_id, latency_ms, provider, degraded_reason))
 
-    def commit_search_stream(self, *, result, user_id, question, history, now):
+    def commit_search_stream(self, *, result, user_id, question, history, now, checkpoint=lambda: None):
         trace_id, session_id = result["trace_id"], result["session_id"]
         turns = history[-9:] + [{"question": question, "answer": result["answer"]}]
         sql = ("INSERT INTO agent_sessions VALUES(?,?,?,?,?) ON DUPLICATE KEY UPDATE "
@@ -268,6 +268,7 @@ class Store:
                 json.dumps([{"step": "stream", "status": "completed"}]), now, seq, session_id, 0, "", ""))
             db.execute(sql, (session_id, user_id, json.dumps(turns, ensure_ascii=False),
                             session["created_at"] if session else now, now))
+            checkpoint()
 
     @staticmethod
     def _trace_summary(row):

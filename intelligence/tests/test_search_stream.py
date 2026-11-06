@@ -151,3 +151,73 @@ def test_expired_stream_cannot_publish_or_commit():
     received = list(events)
     assert received[-1][0] == "error"
     assert item["result"] is None
+
+
+def test_pending_result_expires_without_another_request():
+    import threading
+    pending = PendingSearches()
+    expired = threading.Event()
+    item = pending.reserve("expires", "alice", time.monotonic() + 0.1)
+    item["failure_trace"] = expired.set
+    assert expired.wait(2)
+    assert item["cancelled"].is_set()
+    assert "expires" not in pending._items
+
+
+def test_cancel_during_source_validation_does_not_block_or_commit(tmp_path):
+    import threading
+    store = Store(str(tmp_path / "cancel-validation.db"))
+    pending, request, item, source, events = generate(store)
+    list(events)
+    result = item["result"]
+    entered, release = threading.Event(), threading.Event()
+    original = source._get
+
+    def blocked(path, token):
+        entered.set()
+        assert release.wait(3)
+        return original(path, token)
+
+    source._get = blocked
+    errors = []
+
+    def confirm():
+        try:
+            pending.confirm(request, "alice", result["trace_id"], digest(result), source, "test", store)
+        except Exception as error:
+            errors.append(error)
+
+    worker = threading.Thread(target=confirm)
+    worker.start()
+    try:
+        assert entered.wait(2)
+        pending.cancel(request, "alice")
+        assert item["cancelled"].is_set()
+        other = pending.reserve("other", "bob", time.monotonic() + 5)
+        pending.cancel("other", "bob")
+        assert other["cancelled"].is_set()
+    finally:
+        release.set()
+        worker.join(3)
+    assert not worker.is_alive()
+    assert errors and isinstance(errors[0], TimeoutError)
+    assert store.load_agent_session(result["session_id"], "alice") is None
+    with store.connect() as db:
+        assert db.execute("SELECT degraded FROM agent_traces WHERE trace_id=?", (result["trace_id"],)).fetchone()[0] == 1
+
+
+def test_cancel_checkpoint_rolls_back_successful_session_and_trace(tmp_path):
+    store = Store(str(tmp_path / "cancel-transaction.db"))
+    _, _, item, _, events = generate()
+    list(events)
+    result = item["result"]
+
+    def cancelled():
+        raise InterruptedError()
+
+    with pytest.raises(InterruptedError):
+        store.commit_search_stream(result=result, user_id="alice", question="咖啡", history=[],
+                                   now=1, checkpoint=cancelled)
+    assert store.load_agent_session(result["session_id"], "alice") is None
+    with store.connect() as db:
+        assert db.execute("SELECT COUNT(*) FROM agent_traces").fetchone()[0] == 0
