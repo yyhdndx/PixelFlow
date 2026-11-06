@@ -147,15 +147,20 @@ public final class DraftEditorModel extends AndroidViewModel {
                 suggestion = (CreationSuggestion) value.result;
                 assistMessage = getApplication().getString(com.PixelFlow.app.R.string.ai_assist_ready);
             } else if (value.error != null) assistMessage = value.error;
-            else assistMessage = assistBusy ? getApplication().getString(value.state == AiTaskRegistry.State.WAITING
-                    ? com.PixelFlow.app.R.string.ai_waiting : com.PixelFlow.app.R.string.ai_preparing) : "";
+            else assistMessage = getApplication().getString(value.state == AiTaskRegistry.State.EXPIRED
+                    ? com.PixelFlow.app.R.string.ai_expired
+                    : value.state == AiTaskRegistry.State.CANCELLED ? com.PixelFlow.app.R.string.ai_cancelled
+                    : value.state == AiTaskRegistry.State.WAITING ? com.PixelFlow.app.R.string.ai_waiting
+                    : com.PixelFlow.app.R.string.ai_preparing);
             changes.setValue(changes.getValue() + 1);
         });
     }
 
     public void cancelAssist() {
         if (assistKey != null) AiTaskRegistry.get().cancel(assistKey);
-        assistBusy = false; suggestion = null; assistMessage = "";
+        assistBusy = false;
+        suggestion = null;
+        assistMessage = assistKey == null ? "" : getApplication().getString(com.PixelFlow.app.R.string.ai_cancelled);
         changes.setValue(changes.getValue() + 1);
     }
     public boolean acceptAssist(String title, String content, boolean includeTags) {
@@ -197,6 +202,11 @@ public final class DraftEditorModel extends AndroidViewModel {
                 assistKey = state.assistIdentity;
                 assistSnapshot = state.assistInputSnapshot;
                 observeAssist(task);
+            } else {
+                assistBusy = false;
+                suggestion = null;
+                assistMessage = getApplication().getString(com.PixelFlow.app.R.string.ai_expired);
+                changes.setValue(changes.getValue() + 1);
             }
         }
         if (state.postId != null) reconcile();

@@ -111,8 +111,35 @@ public class CreationAssistFlowTest {
     @Test public void skipDiscardsLateResponse() throws Exception {
         request(new MockResponse().setBody(RESPONSE).setBodyDelay(400,TimeUnit.MILLISECONDS));
         screen.onActivity(a -> model(a).cancelAssist()); Thread.sleep(600);
-        screen.onActivity(a -> { assertNull(model(a).suggestion); assertFalse(model(a).assistBusy); assertEquals("原正文",model(a).state.content); });
+        screen.onActivity(a -> {
+            assertNull(model(a).suggestion);
+            assertFalse(model(a).assistBusy);
+            assertEquals("原正文", model(a).state.content);
+            assertEquals(a.getString(R.string.ai_cancelled), model(a).assistMessage);
+        });
     }
+    @Test public void expiredAssistanceRestoresFeedbackWithoutAnotherRequest() throws Exception {
+        request(new MockResponse().setBody(RESPONSE)); awaitDone();
+        final DraftEditorModel.State[] saved = new DraftEditorModel.State[1];
+        screen.onActivity(a -> {
+            assertTrue(model(a).checkpoint());
+            saved[0] = new com.google.gson.Gson().fromJson(new com.google.gson.Gson().toJson(model(a).state), DraftEditorModel.State.class);
+            AiTaskRegistry.get().remove(saved[0].assistIdentity);
+        });
+        screen.close(); screen = null;
+        DraftEditorModel restored = new DraftEditorModel((android.app.Application) InstrumentationRegistry.getInstrumentation().getTargetContext().getApplicationContext());
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            restored.initialize(saved[0], true);
+            restored.resume();
+            assertNull(restored.suggestion);
+            assertFalse(restored.assistBusy);
+            assertEquals(InstrumentationRegistry.getInstrumentation().getTargetContext().getString(R.string.ai_expired), restored.assistMessage);
+            assertEquals("原正文", restored.state.content);
+            restored.discard();
+        });
+        assertEquals(1, server.getRequestCount());
+    }
+
     @Test public void previewDialogAppliesSelectedCandidateToVisibleEditor() throws Exception {
         request(new MockResponse().setBody(RESPONSE)); awaitDone();
         screen.onActivity(a -> a.findViewById(R.id.creation_assist_preview).performClick());
