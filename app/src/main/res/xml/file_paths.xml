@@ -2,4 +2,5 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 拍摄新作品的临时输出位置 -->
     <cache-path name="camera" path="camera/" />
+    <external-path name="share_pictures" path="Pictures/PixelFlow/" />
 </paths>

@@ -197,6 +197,15 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             return;
         }
 
+        shareController = new com.PixelFlow.app.share.PostShareController(this, workItem.getId());
+        getLifecycle().addObserver(new androidx.lifecycle.DefaultLifecycleObserver() {
+            @Override public void onStop(@NonNull androidx.lifecycle.LifecycleOwner owner) {
+                shareController.cancel();
+            }
+            @Override public void onDestroy(@NonNull androidx.lifecycle.LifecycleOwner owner) {
+                shareController.close();
+            }
+        });
         initViews();
 
         // 初始化手势检测
@@ -1286,12 +1295,10 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         }
     }
 
+    private com.PixelFlow.app.share.PostShareController shareController;
+
     private void shareWork() {
-        // 分享功能
-        // Intent shareIntent = new Intent(Intent.ACTION_SEND);
-        // shareIntent.setType("text/plain");
-        // shareIntent.putExtra(Intent.EXTRA_TEXT, "分享作品: " + workItem.getTitle());
-        // startActivity(Intent.createChooser(shareIntent, "分享到"));
+        if (shareController != null) shareController.show();
     }
 
     // 返回结果并淡出退出

@@ -19,6 +19,10 @@ public class PostItem {
 
     @SerializedName("create_time")
     private long createTime;
+    @SerializedName("publish_time") private Long publishTime;
+    @SerializedName("comment_count") private Integer commentCount;
+    public Long getPublishTime() { return publishTime; }
+    public Integer getCommentCount() { return commentCount; }
 
     @SerializedName("status")
     private String status;
