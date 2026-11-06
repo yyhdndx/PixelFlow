@@ -351,15 +351,8 @@ with hold_state_lock(directory):
                 pass
         child.kill()
         child.wait(timeout=5)
-        deadline = time.monotonic() + 5
-        while True:
-            try:
-                with sm.hold_state_lock(tmp_path):
-                    break
-            except sm.StateLockBusy:
-                if time.monotonic() >= deadline:
-                    pytest.fail("OS lock was not released within 5 seconds after process termination")
-                time.sleep(0.02)
+        with sm.hold_state_lock(tmp_path):
+            pass
     finally:
         if child.poll() is None:
             child.kill()
