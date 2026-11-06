@@ -48,6 +48,29 @@ public class CreationAssistFlowTest {
         }
         fail("Assistance did not finish");
     }
+    @Test public void repeatedGenerateClicksSendOneRequestAndShowPreview() throws Exception {
+        server.enqueue(new MockResponse().setBody(RESPONSE).setBodyDelay(1, TimeUnit.SECONDS));
+        screen.onActivity(a -> a.findViewById(R.id.creation_assist).performClick());
+        screen.onActivity(a -> {
+            try {
+                Field field = CreateWorkActivity.class.getDeclaredField("assistDialog");
+                field.setAccessible(true);
+                android.app.Dialog dialog = (android.app.Dialog) field.get(a);
+                ((EditText) dialog.findViewById(R.id.et_ai_prompt)).setText("咖啡");
+                android.view.View generate = dialog.findViewById(R.id.btn_ai_generate);
+                for (int click = 0; click < 5; click++) generate.performClick();
+            } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
+        });
+        assertNotNull(server.takeRequest(3, TimeUnit.SECONDS));
+        awaitDone();
+        screen.onActivity(a -> {
+            assertNotNull(model(a).suggestion);
+            assertTrue(a.findViewById(R.id.creation_assist_preview).isShown());
+            assertEquals("原正文", model(a).state.content);
+        });
+        assertEquals(1, server.getRequestCount());
+    }
+
     @Test public void newEditorModelReattachesRunningTaskWithoutRepeatingRequest() throws Exception {
         request(new MockResponse().setBody(RESPONSE).setBodyDelay(1, TimeUnit.SECONDS));
         final DraftEditorModel.State[] saved = new DraftEditorModel.State[1];

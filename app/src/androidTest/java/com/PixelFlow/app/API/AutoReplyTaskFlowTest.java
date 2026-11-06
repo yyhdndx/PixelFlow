@@ -86,7 +86,7 @@ public class AutoReplyTaskFlowTest {
                 try (ActivityScenario<AutoReplyEditActivity> first = ActivityScenario.launch(intent)) {
                     first.onActivity(a -> {
                         ((EditText) a.findViewById(R.id.ai_prompt)).setText("拍摄规则");
-                        a.findViewById(R.id.ai_generate).performClick();
+                        for (int click = 0; click < 5; click++) a.findViewById(R.id.ai_generate).performClick();
                     });
                     assertNotNull(server.takeRequest(3, java.util.concurrent.TimeUnit.SECONDS));
                 }
