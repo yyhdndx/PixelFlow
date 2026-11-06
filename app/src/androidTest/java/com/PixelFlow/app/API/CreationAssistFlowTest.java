@@ -48,6 +48,34 @@ public class CreationAssistFlowTest {
         }
         fail("Assistance did not finish");
     }
+    @Test public void newEditorModelReattachesRunningTaskWithoutRepeatingRequest() throws Exception {
+        request(new MockResponse().setBody(RESPONSE).setBodyDelay(1, TimeUnit.SECONDS));
+        final DraftEditorModel.State[] saved = new DraftEditorModel.State[1];
+        screen.onActivity(a -> {
+            assertTrue(model(a).checkpoint());
+            saved[0] = new com.google.gson.Gson().fromJson(new com.google.gson.Gson().toJson(model(a).state), DraftEditorModel.State.class);
+        });
+        screen.close();
+        screen = null;
+        DraftEditorModel restored = new DraftEditorModel((android.app.Application) InstrumentationRegistry.getInstrumentation().getTargetContext().getApplicationContext());
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            restored.initialize(saved[0], true);
+            restored.resume();
+        });
+        for (int i = 0; i < 80; i++) {
+            AtomicBoolean done = new AtomicBoolean();
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> done.set(restored.suggestion != null));
+            if (done.get()) break;
+            Thread.sleep(50);
+        }
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            assertNotNull(restored.suggestion);
+            assertEquals("原正文", restored.state.content);
+            restored.discard();
+        });
+        assertEquals(1, server.getRequestCount());
+    }
+
     @Test public void previewSurvivesRecreationAndOnlyConfirmationChangesDraft() throws Exception {
         request(new MockResponse().setBody(RESPONSE)); awaitDone();
         screen.onActivity(a -> { assertEquals("原正文",model(a).state.content); assertNotNull(model(a).suggestion); });
@@ -88,10 +116,18 @@ public class CreationAssistFlowTest {
     @Test public void previewDialogAppliesSelectedCandidateToVisibleEditor() throws Exception {
         request(new MockResponse().setBody(RESPONSE)); awaitDone();
         screen.onActivity(a -> a.findViewById(R.id.creation_assist_preview).performClick());
-        androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("新标题"))
-                .perform(androidx.test.espresso.action.ViewActions.click());
-        androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("确认填入草稿"))
-                .perform(androidx.test.espresso.action.ViewActions.click());
+        screen.onActivity(a -> {
+            try {
+                Field field = CreateWorkActivity.class.getDeclaredField("assistDialog");
+                field.setAccessible(true);
+                android.app.Dialog dialog = (android.app.Dialog) field.get(a);
+                android.widget.LinearLayout titles = dialog.findViewById(R.id.container_titles);
+                assertTrue(titles.getChildCount() > 1);
+                assertEquals("新标题", titles.getChildAt(1).getTag());
+                titles.getChildAt(1).performClick();
+                dialog.findViewById(R.id.btn_ai_apply).performClick();
+            } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
+        });
         screen.onActivity(a -> {
             assertEquals("新标题",((EditText)a.findViewById(R.id.et_title)).getText().toString());
             assertEquals("原正文",((EditText)a.findViewById(R.id.et_description)).getText().toString());
