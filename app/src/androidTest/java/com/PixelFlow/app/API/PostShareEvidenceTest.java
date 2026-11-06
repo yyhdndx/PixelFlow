@@ -25,6 +25,7 @@ import java.util.concurrent.*;
 import static org.junit.Assert.*;
 
 @RunWith(AndroidJUnit4.class)
+@com.PixelFlow.app.share.ShareEvidence
 public class PostShareEvidenceTest {
     private MockWebServer server;
     private ApiClient previous, api;
@@ -154,10 +155,19 @@ public class PostShareEvidenceTest {
         for (int i = 0; i < node.getChildCount(); i++) if (clickShare(node.getChild(i))) return true;
         return false;
     }
-    @Test public void copyRealLocalPost49WithoutRemoteWrites() throws Exception {
-        api.close(); api = new ApiClient("http://127.0.0.1:8080/"); singleton.set(null, api);
+    @Test public void copyExplicitLocalPostWithoutRemoteWrites() throws Exception {
+        android.os.Bundle arguments = InstrumentationRegistry.getArguments();
+        String base = arguments.getString("shareApiUrl", "");
+        String postId = arguments.getString("sharePostId", "");
+        java.net.URI endpoint = new java.net.URI(base);
+        assertTrue("Explicit loopback shareApiUrl required", "http".equals(endpoint.getScheme())
+                && ("127.0.0.1".equals(endpoint.getHost()) || "localhost".equals(endpoint.getHost()) || "[::1]".equals(endpoint.getHost()))
+                && endpoint.getUserInfo() == null && endpoint.getQuery() == null && endpoint.getFragment() == null);
+        assertTrue("Explicit sharePostId required", postId.matches("[1-9][0-9]*"));
+        String expected = "http://localhost:5173/#/post/" + postId;
+        api.close(); api = new ApiClient(base); singleton.set(null, api);
         CompletableFuture<PostItem> loaded = new CompletableFuture<>();
-        api.getPost("49", new CommunityClient.Callback<PostItem>() {
+        api.getPost(postId, new CommunityClient.Callback<PostItem>() {
             public void onSuccess(PostItem item) { loaded.complete(item); }
             public void onFailure(String message) { loaded.completeExceptionally(new AssertionError(message)); }
         });
@@ -170,12 +180,12 @@ public class PostShareEvidenceTest {
                 ClipboardManager clipboard = (ClipboardManager) a.getSystemService(Context.CLIPBOARD_SERVICE);
                 if (clipboard.hasPrimaryClip()) copied[0] = clipboard.getPrimaryClip().getItemAt(0).coerceToText(a).toString();
             });
-            if ("http://localhost:5173/#/post/49".equals(copied[0])) break;
+            if (expected.equals(copied[0])) break;
             android.os.SystemClock.sleep(100);
         }
-        assertEquals("http://localhost:5173/#/post/49", copied[0]);
-        try (Writer output = new FileWriter(new File(directory(), "post49-clipboard.txt"))) { output.write(copied[0] + "\n"); }
-        android.os.Bundle result = new android.os.Bundle(); result.putString("post49_clipboard", copied[0]); instrumentation.sendStatus(0, result);
+        assertEquals(expected, copied[0]);
+        try (Writer output = new FileWriter(new File(directory(), "local-post-clipboard.txt"))) { output.write(copied[0] + "\n"); }
+        android.os.Bundle result = new android.os.Bundle(); result.putString("share_post_clipboard", copied[0]); instrumentation.sendStatus(0, result);
     }
     @After public void cleanup() throws Exception {
         if (screen != null) screen.close();
