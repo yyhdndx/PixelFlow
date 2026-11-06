@@ -142,6 +142,7 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
     protected void onDestroy() {
         // AI 任务交由 AiTaskRegistry 页面外管理，销毁页面时不取消（P03）；普通请求仍随页面取消
         if (activeCall != null) activeCall.cancel();
+        if (sourceRead != null) sourceRead.cancel();
         if (aiSubscription != null) aiSubscription.close();
         super.onDestroy();
     }
@@ -423,7 +424,8 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         stop.setOnClickListener(view -> { if (aiKey != null) AiTaskRegistry.get().cancel(aiKey); });
         if (aiState == AI_DEGRADED) {
             if (aiTask != null && aiTask.error != null) aiDegradedView.setText(aiTask.error);
-            else aiDegradedView.setText(aiTask != null && aiTask.state == AiTaskRegistry.State.CANCELLED
+            else aiDegradedView.setText(aiTask != null && aiTask.state == AiTaskRegistry.State.EXPIRED
+                    ? R.string.ai_expired : aiTask != null && aiTask.state == AiTaskRegistry.State.CANCELLED
                     ? R.string.ai_cancelled : R.string.search_ai_degraded);
         }
         aiLoadingView.setVisibility(aiState == AI_LOADING ? View.VISIBLE : View.GONE);
@@ -512,13 +514,22 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         return row;
     }
 
+    private CommunityClient.Job sourceRead;
+
     private void openSourceDetail(AgentSearchResult.Source source) {
-        WorkItem item = new WorkItem(source.post_id, null, source.title, source.excerpt,
-                source.author_name, null, 0, 0, 0);
-        Intent intent = new Intent(this, WorkDetailActivity.class);
-        intent.putExtra("work_item", item);
-        startActivity(intent);
-        overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
+        if (sourceRead != null) sourceRead.cancel();
+        sourceRead = ApiClient.getInstance(this).getPost(source.post_id, new CommunityClient.Callback<PostItem>() {
+            public void onSuccess(PostItem post) {
+                if (isDestroyed() || isFinishing()) return;
+                Intent intent = new Intent(SearchActivity.this, WorkDetailActivity.class);
+                intent.putExtra("work_item", new WorkItem(post));
+                startActivity(intent);
+                overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
+            }
+            public void onFailure(String message) {
+                if (!isDestroyed() && !isFinishing()) Toast.makeText(SearchActivity.this, message, Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private int dp(int value) {
