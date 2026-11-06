@@ -14,12 +14,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import okhttp3.*;
 
-/** Serialized requests prevent competing refresh rotations; credentials stay in memory. */
+/** Ordinary writes stay serial; token rotation is shared across request queues. */
 public class CommunityClient implements AutoCloseable {
     public interface Callback<T> {
         void onSuccess(T value);
         void onFailure(String message);
         default void onFailure(int status, String message) { onFailure(message); }
+        default void onStarted() { }
     }
     /** Persists session tokens on change; implemented by ApiClient via TokenStore. */
     public interface TokenListener {
@@ -30,7 +31,13 @@ public class CommunityClient implements AutoCloseable {
         private volatile boolean cancelled;
         private volatile Call call;
         private String creationKey;
-        public void cancel() { cancelled = true; if (call != null) call.cancel(); }
+        private volatile Runnable onCancel;
+        public void cancel() {
+            cancelled = true;
+            if (call != null) call.cancel();
+            Runnable cleanup = onCancel;
+            if (cleanup != null) cleanup.run();
+        }
     }
     private interface Task<T> { T run(Job job, long version) throws Exception; }
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
@@ -39,8 +46,10 @@ public class CommunityClient implements AutoCloseable {
     private final Executor delivery;
     /** 普通业务请求串行执行，保证刷新/写操作的顺序。 */
     private final ExecutorService regularQueue = Executors.newSingleThreadExecutor();
-    /** 耗时 AI 请求走独立队列，避免 AI 生成阻塞普通请求；首版并发 1，后续按服务能力可调。 */
-    private final ExecutorService aiQueue = Executors.newSingleThreadExecutor();
+    private final java.util.concurrent.ThreadPoolExecutor aiQueue = new java.util.concurrent.ThreadPoolExecutor(
+            2, 2, 0, TimeUnit.MILLISECONDS, new java.util.concurrent.ArrayBlockingQueue<>(4));
+    private final java.util.concurrent.ScheduledExecutorService queueTimer = Executors.newSingleThreadScheduledExecutor();
+    private final Object refreshLock = new Object();
     private final OkHttpClient http;
     private String access, refresh, username;
     private long generation;
@@ -77,6 +86,10 @@ public class CommunityClient implements AutoCloseable {
     /** Restore a persisted session at startup; no-op when nothing is stored. */
     public synchronized void restore(String access, String refresh, String username) {
         if (access == null && refresh == null) return;
+        if (this.access != null && !java.util.Objects.equals(this.username, username)) {
+            generation++;
+            AiTaskRegistry.get().clearForAccount();
+        }
         this.access = access;
         this.refresh = refresh;
         this.username = username;
@@ -114,10 +127,17 @@ public class CommunityClient implements AutoCloseable {
     private <T> Job enqueue(ExecutorService target, Task<T> task, Callback<T> callback) {
         Job job = new Job();
         long expected = sessionVersion();
-        target.execute(() -> {
-            if (job.cancelled) return;
+        java.util.concurrent.atomic.AtomicBoolean claimed = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.concurrent.atomic.AtomicReference<java.util.concurrent.ScheduledFuture<?>> timeout = new java.util.concurrent.atomic.AtomicReference<>();
+        Runnable work = () -> {
+            if (!claimed.compareAndSet(false, true) || job.cancelled) return;
+            java.util.concurrent.ScheduledFuture<?> timer = timeout.get();
+            if (timer != null) timer.cancel(false);
             try {
                 check(expected);
+                delivery.execute(() -> {
+                    if (!job.cancelled && sessionVersion() == expected) callback.onStarted();
+                });
                 T value = task.run(job, expected);
                 delivery.execute(() -> {
                     if (job.cancelled) return;
@@ -130,7 +150,26 @@ public class CommunityClient implements AutoCloseable {
                 int status = error instanceof ApiError ? ((ApiError) error).status : 0;
                 delivery.execute(() -> { if (!job.cancelled) callback.onFailure(status, message); });
             }
-        });
+        };
+        job.onCancel = () -> {
+            if (target == aiQueue) aiQueue.remove(work);
+            java.util.concurrent.ScheduledFuture<?> timer = timeout.get();
+            if (timer != null) timer.cancel(false);
+        };
+        try {
+            if (target == aiQueue) {
+                timeout.set(queueTimer.schedule(() -> {
+                    if (claimed.compareAndSet(false, true)) {
+                        aiQueue.remove(work);
+                        delivery.execute(() -> { if (!job.cancelled) callback.onFailure("AI 等待超时，请稍后重试"); });
+                    }
+                }, 30, TimeUnit.SECONDS));
+            }
+            target.execute(work);
+        } catch (java.util.concurrent.RejectedExecutionException full) {
+            job.onCancel.run();
+            delivery.execute(() -> { if (!job.cancelled) callback.onFailure("AI 任务已满，请稍后重试"); });
+        }
         return job;
     }
     private static final class ApiError extends IOException {
@@ -194,10 +233,17 @@ public class CommunityClient implements AutoCloseable {
         catch (ApiError failure) {
             if (failure.status != 401 || token == null) throw failure;
         }
-        refreshCredentials(expected);
+        refreshCredentials(expected, token);
         return send(job, path, method, body, access(expected));
     }
-    private void refreshCredentials(long expected) throws IOException {
+    private void refreshCredentials(long expected, String rejectedToken) throws IOException {
+        synchronized (refreshLock) {
+            check(expected);
+            if (!java.util.Objects.equals(rejectedToken, access(expected))) return;
+            rotateCredentials(expected);
+        }
+    }
+    private void rotateCredentials(long expected) throws IOException {
         String refreshToken, name;
         synchronized (this) { check(expected); refreshToken = refresh; name = username; }
         JsonObject input = new JsonObject(); input.addProperty("refreshToken", refreshToken);
@@ -232,7 +278,7 @@ public class CommunityClient implements AutoCloseable {
             if (token == null) throw new ApiError(401, "请先登录");
             try { return mediaBytes(job, url, token); }
             catch (ApiError error) { if (error.status != 401) throw error; }
-            refreshCredentials(expected);
+            refreshCredentials(expected, token);
             return mediaBytes(job, url, access(expected));
         }, callback);
     }
@@ -427,6 +473,34 @@ public class CommunityClient implements AutoCloseable {
     }
 
     /** 长文提炼：只读正文，正文不足 200 字服务端会直接 400，界面不该显示入口。 */
+    public Job getPostSummaryStream(String postId, java.util.function.Consumer<JsonObject> progress, Callback<PostSummary> callback) {
+        return submitAi((job, expected) -> {
+            if (postId == null || !postId.matches("[1-9][0-9]{0,18}")) throw new ApiError(400, "作品 ID 无效");
+            if (base == null) throw new ApiError(0, "服务地址无效");
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(55);
+            for (int attempt = 0; attempt < 2; attempt++) {
+                String token = access(expected);
+                if (token == null) throw new ApiError(401, "请先登录");
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0 || job.cancelled) throw new IOException("提炼已中断");
+                Request request = new Request.Builder().url(base.resolve("/api/posts/" + postId + "/summary/stream"))
+                        .header("Authorization", "Bearer " + token).header("Accept", "text/event-stream").get().build();
+                job.call = http.newBuilder().readTimeout(15, TimeUnit.SECONDS).build().newCall(request);
+                job.call.timeout().timeout(remaining, TimeUnit.NANOSECONDS);
+                if (job.cancelled) job.call.cancel();
+                try (Response response = job.call.execute()) {
+                    if (response.code() == 401 && attempt == 0) { refreshCredentials(expected, token); continue; }
+                    if (!response.isSuccessful() || response.body() == null) throw new ApiError(response.code(), "AI 提炼暂不可用，可以先读原文");
+                    return PostSummaryStreamReader.read(response.body().source(), partial -> {
+                        synchronized (CommunityClient.this) { if (job.cancelled || generation != expected) return; }
+                        progress.accept(partial);
+                    });
+                }
+            }
+            throw new ApiError(401, "请重新登录");
+        }, callback);
+    }
+
     public Job getPostSummary(String postId, Callback<PostSummary> callback) {
         return submitAi((job, expected) -> {
             if (postId == null || !postId.matches("[1-9][0-9]{0,18}"))
@@ -702,6 +776,47 @@ public class CommunityClient implements AutoCloseable {
     }
 
     /** Agent 智能搜索与多帖总结；契约见 docs/issues/21-java-agent-搜索接口.md。仅登录用户，游客 401。 */
+    public Job agentSearchStream(String question, String sessionId,
+            java.util.function.Consumer<JsonObject> progress, Callback<AgentSearchResult> callback) {
+        return submitAi((job, expected) -> {
+            if (question == null || question.trim().isEmpty()
+                    || question.trim().codePointCount(0, question.trim().length()) > 200)
+                throw new ApiError(400, "问题需为 1–200 字");
+            if (base == null) throw new ApiError(0, "服务地址无效，请检查 api.properties");
+            JsonObject input = new JsonObject();
+            input.addProperty("question", question.trim());
+            if (sessionId != null && !sessionId.isEmpty()) input.addProperty("session_id", sessionId);
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(55);
+            for (int attempt = 0; attempt < 2; attempt++) {
+                String token = access(expected);
+                if (token == null) throw new ApiError(401, "请先登录");
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0 || job.cancelled) throw new IOException("AI 搜索已中断");
+                Request request = new Request.Builder().url(base.resolve("/api/agent/search/stream"))
+                        .header("Authorization", "Bearer " + token).header("Accept", "text/event-stream")
+                        .post(RequestBody.create(gson.toJson(input), JSON)).build();
+                job.call = http.newBuilder().readTimeout(15, TimeUnit.SECONDS).build().newCall(request);
+                job.call.timeout().timeout(remaining, TimeUnit.NANOSECONDS);
+                if (job.cancelled) job.call.cancel();
+                try (Response response = job.call.execute()) {
+                    if (response.code() == 401 && attempt == 0) {
+                        refreshCredentials(expected, token);
+                        continue;
+                    }
+                    if (!response.isSuccessful() || response.body() == null)
+                        throw new ApiError(response.code(), "AI 搜索暂不可用，普通搜索仍可使用");
+                    return AgentSearchStreamReader.read(response.body().source(), snapshot -> {
+                        synchronized (CommunityClient.this) {
+                            if (job.cancelled || generation != expected) return;
+                        }
+                        progress.accept(snapshot);
+                    });
+                }
+            }
+            throw new ApiError(401, "请重新登录");
+        }, callback);
+    }
+
     public Job agentSearch(String question, String sessionId, Callback<AgentSearchResult> callback) {
         return submitAi((job, expected) -> {
             if (question == null || question.trim().isEmpty() || question.trim().length() > 200)
@@ -856,5 +971,5 @@ public class CommunityClient implements AutoCloseable {
             public void onFailure(String ignored) { pendingEvents.set(0); }
         });
     }
-    @Override public void close() { regularQueue.shutdownNow(); aiQueue.shutdownNow(); http.dispatcher().cancelAll(); http.connectionPool().evictAll(); }
+    @Override public void close() { regularQueue.shutdownNow(); aiQueue.shutdownNow(); queueTimer.shutdownNow(); http.dispatcher().cancelAll(); http.connectionPool().evictAll(); }
 }
