@@ -84,11 +84,19 @@ public class AgentSearchStreamController {
         HttpResponse<InputStream> response;
         try {
             var request = HttpRequest.newBuilder(base.resolve("/agent/search/stream"))
-                    .timeout(Duration.ofSeconds(55)).header("Authorization", token)
+                    .timeout(Duration.ofNanos(Math.max(1, deadline - System.nanoTime()))).header("Authorization", token)
                     .header("Content-Type", "application/json").header("X-Request-Id", requestId)
-                    .header("X-Remaining-Budget-Ms", "45000")
+                    .header("X-Remaining-Budget-Ms", Long.toString(Math.max(1,
+                            TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()))))
                     .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body))).build();
-            response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            var opening = http.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream());
+            try {
+                response = opening.get(Math.max(1, Math.min(TimeUnit.SECONDS.toNanos(15),
+                        deadline - System.nanoTime())), TimeUnit.NANOSECONDS);
+            } catch (Exception failure) {
+                opening.cancel(true);
+                throw failure;
+            }
             if (response.statusCode() != 200) { response.body().close(); throw unavailable(); }
         } catch (Exception error) { slots.release(); throw unavailable(); }
         var lastRead = new java.util.concurrent.atomic.AtomicLong(System.nanoTime());

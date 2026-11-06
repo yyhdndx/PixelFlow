@@ -109,6 +109,143 @@ class AgentSearchStreamTest {
         }
     }
 
+    @Test void withdrawnSourcesAndOversizedFramesAreCancelledWithoutCompletion() throws Exception {
+        for (boolean oversized : new boolean[]{false, true}) {
+            var cancelled = new java.util.concurrent.CountDownLatch(1);
+            HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext("/agent/search/stream", exchange -> {
+                if (exchange.getRequestMethod().equals("DELETE")) {
+                    cancelled.countDown();
+                    exchange.sendResponseHeaders(200, -1);
+                } else {
+                    String id = exchange.getRequestHeaders().getFirst("X-Request-Id");
+                    assertTrue(Long.parseLong(exchange.getRequestHeaders().getFirst("X-Remaining-Budget-Ms")) <= 55000);
+                    exchange.sendResponseHeaders(200, 0);
+                    var out = exchange.getResponseBody();
+                    out.write(frame("meta", json.createObjectNode().put("request_id", id).put("seq", 1)
+                            .put("user_id", "alice").put("session_id", UUID.randomUUID().toString())
+                            .put("trace_id", UUID.randomUUID().toString())));
+                    if (oversized) out.write(("data: " + "x".repeat(16385) + "\n\n").getBytes(StandardCharsets.UTF_8));
+                    else {
+                        var source = json.createObjectNode().put("post_id", "1").put("title", "标题")
+                                .put("excerpt", "原文").put("author_name", "作者");
+                        var selected = json.createObjectNode().put("request_id", id).put("seq", 2);
+                        selected.set("sources", json.createArrayNode().add(source));
+                        out.write(frame("sources", selected));
+                    }
+                }
+                exchange.close();
+            });
+            server.start();
+            var db = mock(JdbcTemplate.class);
+            when(db.queryForList(anyString(), any(Object[].class))).thenReturn(java.util.List.of());
+            var controller = new AgentSearchStreamController(json, db, "http://127.0.0.1:" + server.getAddress().getPort());
+            try {
+                var response = controller.stream(new AgentSearchController.SearchRequest("问题", ""),
+                        new Actor("alice", "CREATOR", "session"), "Bearer token");
+                var bytes = new ByteArrayOutputStream();
+                response.getBody().writeTo(bytes);
+                String content = bytes.toString(StandardCharsets.UTF_8);
+                assertTrue(content.contains("event: error"));
+                assertFalse(content.contains("event: done"));
+                assertFalse(content.contains("event: sources"));
+                assertTrue(cancelled.await(3, java.util.concurrent.TimeUnit.SECONDS));
+            } finally { controller.close(); server.stop(0); }
+        }
+    }
+
+    @Test void silentResponseHeadersAreTimedOutBeforeOverallBudget() throws Exception {
+        var accepted = new java.util.concurrent.CountDownLatch(1);
+        var finish = new java.util.concurrent.CountDownLatch(1);
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/agent/search/stream", exchange -> {
+            accepted.countDown();
+            try { finish.await(20, java.util.concurrent.TimeUnit.SECONDS); }
+            catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+            finally { exchange.close(); }
+        });
+        server.start();
+        var controller = new AgentSearchStreamController(json, mock(JdbcTemplate.class),
+                "http://127.0.0.1:" + server.getAddress().getPort());
+        long start = System.nanoTime();
+        try {
+            var failure = assertThrows(com.pixelflow.server.common.ApiException.class,
+                    () -> controller.stream(new AgentSearchController.SearchRequest("问题", ""),
+                            new Actor("alice", "CREATOR", "session"), "Bearer token"));
+            assertTrue(accepted.await(1, java.util.concurrent.TimeUnit.SECONDS));
+            assertTrue(java.util.concurrent.TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - start) < 20);
+        } finally { finish.countDown(); controller.close(); server.stop(0); }
+    }
+
+    @Test void clientDisconnectCancelsUpstreamWithoutCompleting() throws Exception {
+        var cancelled = new java.util.concurrent.CountDownLatch(1);
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/agent/search/stream", exchange -> {
+            if (exchange.getRequestMethod().equals("DELETE")) {
+                cancelled.countDown();
+                exchange.sendResponseHeaders(200, -1);
+            } else {
+                exchange.sendResponseHeaders(200, 0);
+                exchange.getResponseBody().write(": heartbeat\n\n".getBytes(StandardCharsets.UTF_8));
+            }
+            exchange.close();
+        });
+        server.start();
+        var controller = new AgentSearchStreamController(json, mock(JdbcTemplate.class),
+                "http://127.0.0.1:" + server.getAddress().getPort());
+        try {
+            var response = controller.stream(new AgentSearchController.SearchRequest("问题", ""),
+                    new Actor("alice", "CREATOR", "session"), "Bearer token");
+            response.getBody().writeTo(new java.io.OutputStream() {
+                public void write(int value) throws java.io.IOException { throw new java.io.IOException("closed client"); }
+            });
+            assertTrue(cancelled.await(3, java.util.concurrent.TimeUnit.SECONDS));
+        } finally { controller.close(); server.stop(0); }
+    }
+
+    @Test void heartbeatCannotExtendDeadlineAndTotalBytesAreBounded() throws Exception {
+        for (boolean oversized : new boolean[]{true, false}) {
+            var cancelled = new java.util.concurrent.CountDownLatch(1);
+            var workers = java.util.concurrent.Executors.newCachedThreadPool();
+            HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            server.setExecutor(workers);
+            server.createContext("/agent/search/stream", exchange -> {
+                if (exchange.getRequestMethod().equals("DELETE")) {
+                    cancelled.countDown();
+                    exchange.sendResponseHeaders(200, -1);
+                } else {
+                    exchange.sendResponseHeaders(200, 0);
+                    try {
+                        byte[] heartbeat = (": " + "x".repeat(oversized ? 8000 : 1) + "\n\n").getBytes(StandardCharsets.UTF_8);
+                        for (int i = 0; i < (oversized ? 40 : 70); i++) {
+                            exchange.getResponseBody().write(heartbeat);
+                            exchange.getResponseBody().flush();
+                            if (!oversized) Thread.sleep(1000);
+                        }
+                    } catch (java.io.IOException disconnected) {
+                    } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+                }
+                exchange.close();
+            });
+            server.start();
+            var controller = new AgentSearchStreamController(json, mock(JdbcTemplate.class),
+                    "http://127.0.0.1:" + server.getAddress().getPort());
+            long start = System.nanoTime();
+            try {
+                var response = controller.stream(new AgentSearchController.SearchRequest("问题", ""),
+                        new Actor("alice", "CREATOR", "session"), "Bearer token");
+                var bytes = new ByteArrayOutputStream();
+                response.getBody().writeTo(bytes);
+                long elapsed = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+                String content = bytes.toString(StandardCharsets.UTF_8);
+                assertTrue(content.contains("event: error"), content);
+                assertFalse(content.contains("event: done"));
+                if (!oversized) assertTrue(elapsed >= 54000 && elapsed < 59000, "elapsed=" + elapsed);
+                assertTrue(cancelled.await(3, java.util.concurrent.TimeUnit.SECONDS));
+            } finally { controller.close(); server.stop(0); workers.shutdownNow(); }
+        }
+    }
+
     private byte[] frame(String event, ObjectNode data) {
         return ("event: " + event + "\ndata: " + data + "\n\n").getBytes(StandardCharsets.UTF_8);
     }

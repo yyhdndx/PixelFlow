@@ -66,8 +66,19 @@ public class PostSummaryStreamController {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(55);
         HttpResponse<InputStream> reply;
         try {
-            reply = client.send(HttpRequest.newBuilder(base.resolve("/agent/posts/" + id + "/summary/stream"))
-                    .timeout(Duration.ofSeconds(55)).header("Authorization", token).GET().build(), HttpResponse.BodyHandlers.ofInputStream());
+            var request = HttpRequest.newBuilder(base.resolve("/agent/posts/" + id + "/summary/stream"))
+                    .timeout(Duration.ofNanos(Math.max(1, deadline - System.nanoTime())))
+                    .header("X-Remaining-Budget-Ms", Long.toString(Math.max(1,
+                            TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()))))
+                    .header("Authorization", token).GET().build();
+            var opening = client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream());
+            try {
+                reply = opening.get(Math.max(1, Math.min(TimeUnit.SECONDS.toNanos(15),
+                        deadline - System.nanoTime())), TimeUnit.NANOSECONDS);
+            } catch (Exception failure) {
+                opening.cancel(true);
+                throw failure;
+            }
             if (reply.statusCode() != 200) { reply.body().close(); throw unavailable(); }
         } catch (Exception failure) { slots.release(); throw unavailable(); }
         AtomicBoolean released = new AtomicBoolean();
