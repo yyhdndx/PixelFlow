@@ -116,13 +116,21 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         if (restoredQuery == null || restoredQuery.isEmpty()) showDiscovery();
         else {
             searchInput.setText(restoredQuery);
+            restoringAi = true;
             runSearch(restoredQuery, null);
+            restoringAi = false;
         }
     }
 
     @Override protected void onResume() {
         super.onResume();
+        if (aiTask != null) AiTaskRegistry.get().peek(aiKey);
         if (aiTask != null && !AiTaskRegistry.get().isCurrent(aiTask)) {
+            if (aiTask.state == AiTaskRegistry.State.EXPIRED && aiKey.equals(
+                    AiTaskRegistry.identity(ApiClient.getInstance(this), "search", activeQuery, null))) {
+                showAiFeedback(getString(R.string.ai_expired));
+                return;
+            }
             if (aiSubscription != null) aiSubscription.close();
             aiTask = null;
             aiResult = null;
@@ -347,8 +355,6 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         retryButton.setVisibility(retryable ? View.VISIBLE : View.GONE);
     }
 
-    // ---------- AI 综合回答（Agent 智能搜索，POST /api/agent/search） ----------
-
     private void runAgentSearch(String query) {
         if (!ApiClient.getInstance(this).isLoggedIn()) {
             if (aiSubscription != null) aiSubscription.close();
@@ -359,11 +365,15 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
             return;
         }
         aiKey = AiTaskRegistry.identity(ApiClient.getInstance(this), "search", query, null);
+        aiFeedback = null;
+        if (restoringAi && AiTaskRegistry.get().peek(aiKey) == null) {
+            showAiFeedback(getString(R.string.ai_expired));
+            return;
+        }
         AiTaskRegistry.Task task;
         try { task = AiTaskRegistry.get().getOrCreate(aiKey); }
         catch (IllegalStateException full) {
-            aiState = AI_DEGRADED;
-            updateAiCard();
+            showAiFeedback(full.getMessage());
             return;
         }
         aiTask = task;
@@ -412,6 +422,21 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         });
     }
 
+    private boolean restoringAi;
+    private String aiFeedback;
+
+    private void showAiFeedback(String message) {
+        if (aiSubscription != null) aiSubscription.close();
+        aiTask = null;
+        aiResult = null;
+        aiDismissed = false;
+        aiFeedback = message;
+        aiAnswerView.setText("");
+        aiSourcesView.removeAllViews();
+        aiState = AI_DEGRADED;
+        updateAiCard();
+    }
+
     private void updateAiCard() {
         boolean visible = !aiDismissed && aiState != AI_NONE
                 && resultsContainer.getVisibility() == View.VISIBLE;
@@ -423,7 +448,8 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         stop.setVisibility(aiTask != null && aiTask.isRunning() ? View.VISIBLE : View.GONE);
         stop.setOnClickListener(view -> { if (aiKey != null) AiTaskRegistry.get().cancel(aiKey); });
         if (aiState == AI_DEGRADED) {
-            if (aiTask != null && aiTask.error != null) aiDegradedView.setText(aiTask.error);
+            if (aiFeedback != null) aiDegradedView.setText(aiFeedback);
+            else if (aiTask != null && aiTask.error != null) aiDegradedView.setText(aiTask.error);
             else aiDegradedView.setText(aiTask != null && aiTask.state == AiTaskRegistry.State.EXPIRED
                     ? R.string.ai_expired : aiTask != null && aiTask.state == AiTaskRegistry.State.CANCELLED
                     ? R.string.ai_cancelled : R.string.search_ai_degraded);

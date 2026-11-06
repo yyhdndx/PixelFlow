@@ -169,6 +169,79 @@ public class SearchStreamingFlowTest {
         }
     }
 
+    @Test public void expiredSearchRequiresExplicitSubmissionAndFullRegistryShowsReason() throws Exception {
+        AtomicInteger calls = new AtomicInteger();
+        AtomicInteger lists = new AtomicInteger();
+        try (MockWebServer server = new MockWebServer()) {
+            server.setDispatcher(new Dispatcher() {
+                public MockResponse dispatch(RecordedRequest request) {
+                    if (!request.getPath().equals("/api/agent/search/stream")) {
+                        lists.incrementAndGet();
+                        return new MockResponse().setBody("{\"status_code\":0,\"has_more\":0,\"post_list\":[]}");
+                    }
+                    calls.incrementAndGet();
+                    return new MockResponse().setHeader("Content-Type", "text/event-stream").setBody(
+                            "event: meta\ndata: {\"request_id\":\"r\",\"seq\":1,\"session_id\":\"s\",\"trace_id\":\"t\"}\n\n"
+                            + "event: sources\ndata: {\"request_id\":\"r\",\"seq\":2,\"sources\":[]}\n\n"
+                            + "event: delta\ndata: {\"request_id\":\"r\",\"seq\":3,\"text\":\"先出现的正文\"}\n\n"
+                            + "event: done\ndata: {\"request_id\":\"r\",\"seq\":4,\"answer\":\"先出现的正文\",\"session_id\":\"s\",\"trace_id\":\"t\",\"sources\":[],\"validated\":true,\"degraded\":0}\n\n");
+                }
+            });
+            server.start();
+            Field singleton = ApiClient.class.getDeclaredField("instance");
+            singleton.setAccessible(true);
+            ApiClient previous = (ApiClient) singleton.get(null);
+            ApiClient api = new ApiClient(server.url("/").toString());
+            api.restore("token", "refresh", "alice");
+            singleton.set(null, api);
+            AiTaskRegistry.get().clearForAccount();
+            Intent intent = new Intent(InstrumentationRegistry.getInstrumentation().getTargetContext(), SearchActivity.class);
+            try (ActivityScenario<SearchActivity> screen = ActivityScenario.launch(intent)) {
+                screen.onActivity(a -> {
+                    ((EditText) a.findViewById(R.id.et_search)).setText("咖啡");
+                    a.findViewById(R.id.btn_submit).performClick();
+                });
+                awaitAnswer(screen);
+                screen.onActivity(a -> {
+                    AiTaskRegistry.Task task = AiTaskRegistry.get().peek(AiTaskRegistry.identity(api, "search", "咖啡", null));
+                    assertEquals(AiTaskRegistry.State.COMPLETED, task.state);
+                    try {
+                        Field finished = AiTaskRegistry.Task.class.getDeclaredField("finishedAt");
+                        finished.setAccessible(true);
+                        finished.setLong(task, System.currentTimeMillis() - 16 * 60 * 1000L);
+                    } catch (Exception error) { throw new AssertionError(error); }
+                });
+                screen.recreate();
+                Thread.sleep(400);
+                screen.onActivity(a -> assertEquals(a.getString(R.string.ai_expired), ((TextView) a.findViewById(R.id.ai_degraded)).getText().toString()));
+                assertEquals(1, calls.get());
+                screen.onActivity(a -> a.findViewById(R.id.btn_submit).performClick());
+                awaitAnswer(screen);
+                assertEquals(2, calls.get());
+                screen.onActivity(a -> {
+                    AiTaskRegistry.get().clearForAccount();
+                    for (int i = 0; i < 32; i++) {
+                        AiTaskRegistry.Task task = AiTaskRegistry.get().getOrCreate("occupied-" + i);
+                        AiTaskRegistry.get().start(task, callback -> null);
+                    }
+                    ((EditText) a.findViewById(R.id.et_search)).setText("新问题");
+                    a.findViewById(R.id.btn_submit).performClick();
+                });
+                Thread.sleep(400);
+                screen.onActivity(a -> {
+                    assertEquals(android.view.View.VISIBLE, a.findViewById(R.id.ai_card).getVisibility());
+                    assertTrue(((TextView) a.findViewById(R.id.ai_degraded)).getText().toString().contains("已满"));
+                });
+                assertEquals(2, calls.get());
+                assertTrue(lists.get() >= 4);
+            } finally {
+                singleton.set(null, previous);
+                AiTaskRegistry.get().clearForAccount();
+                api.close();
+            }
+        }
+    }
+
     private void awaitAnswer(ActivityScenario<SearchActivity> screen) throws Exception {
         for (int i = 0; i < 60; i++) {
             AtomicBoolean visible = new AtomicBoolean();
