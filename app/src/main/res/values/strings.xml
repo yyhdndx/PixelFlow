@@ -63,4 +63,5 @@
     <string name="ai_cancelled">已停止，可重新提交</string>
     <string name="ai_rules_input_changed">描述已变化，请重新生成后再应用</string>
     <string name="ai_rule_edit">编辑候选规则</string>
+    <string name="ai_expired">结果已过期，请重新生成</string>
 </resources>

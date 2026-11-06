@@ -59,7 +59,11 @@ public final class AiTaskRegistry {
         if (key == null || key.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 64 * 1024)
             throw new IllegalStateException("AI 输入过长，请缩短内容后重试");
         Task task = tasks.get(key);
-        if (task != null) return task;
+        if (task != null) {
+            tasks.remove(key);
+            tasks.put(key, task);
+            return task;
+        }
         while (tasks.size() >= MAX_TASKS && evict(null)) { }
         if (tasks.size() >= MAX_TASKS) throw new IllegalStateException("AI 任务已满，请稍后重试");
         task = new Task(key, epoch);
@@ -68,6 +72,29 @@ public final class AiTaskRegistry {
     }
 
     public synchronized Task peek(String key) { expire(); return tasks.get(key); }
+
+    public Task latest(CommunityClient api, String scene, String target) {
+        return latest(identity(api, scene, target));
+    }
+
+    private synchronized Task latest(String identity) {
+        expire();
+        com.google.gson.JsonArray prefix = com.google.gson.JsonParser.parseString(identity).getAsJsonArray();
+        Task latest = null;
+        for (Task task : tasks.values()) {
+            com.google.gson.JsonElement parsed;
+            try { parsed = com.google.gson.JsonParser.parseString(task.key); }
+            catch (RuntimeException invalid) { continue; }
+            if (!parsed.isJsonArray()) continue;
+            com.google.gson.JsonArray key = parsed.getAsJsonArray();
+            if (key.size() != 5) continue;
+            boolean match = true;
+            for (int i = 0; i < 4; i++) match &= prefix.get(i).equals(key.get(i));
+            if (match && key.get(4).isJsonArray() && key.get(4).getAsJsonArray().size() > 0
+                    && prefix.get(4).getAsJsonArray().get(0).equals(key.get(4).getAsJsonArray().get(0))) latest = task;
+        }
+        return latest;
+    }
     public synchronized boolean isCurrent(Task task) { return task != null && current(task); }
 
     public Subscription subscribe(Task task, Executor delivery, Observer observer) {

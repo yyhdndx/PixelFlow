@@ -97,4 +97,20 @@ public class AiTaskRegistryTest {
         catch (IllegalStateException expected) { assertTrue(expected.getMessage().contains("已满")); }
         assertTrue(registry.peek("q0").isRunning());
     }
+    @Test public void latestTaskIsScopedToAccountSceneAndTarget() {
+        AiTaskRegistry registry = new AiTaskRegistry();
+        CommunityClient api = new CommunityClient("http://localhost/", Runnable::run);
+        try {
+            api.restore("token", "refresh", "alice");
+            AiTaskRegistry.Task first = registry.getOrCreate(AiTaskRegistry.identity(api, "rules", "1", "old"));
+            AiTaskRegistry.Task latest = registry.getOrCreate(AiTaskRegistry.identity(api, "rules", "1", "new"));
+            registry.getOrCreate(AiTaskRegistry.identity(api, "rules", "2", "other"));
+            assertSame(latest, registry.latest(api, "rules", "1"));
+            assertSame(first, registry.getOrCreate(first.key));
+            assertSame(first, registry.latest(api, "rules", "1"));
+            assertNull(registry.latest(api, "summary", "1"));
+            api.restore("other", "other-refresh", "bob");
+            assertNull(registry.latest(api, "rules", "1"));
+        } finally { api.close(); }
+    }
 }
