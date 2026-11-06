@@ -8,6 +8,44 @@ servers:
 security:
   - bearerAuth: []
 paths:
+  /api/agent/search/stream:
+    post:
+      summary: 智能搜索的增量回答
+      description: |
+        需要登录，保留 /api/agent/search 完整响应接口。question 为1–200个Unicode字符且非空白。
+        POST SSE，不自动重连。事件顺序为 meta、phase、sources、delta、done；任意流内故障以error终止。
+        每条data为JSON，包含request_id(UUID)及从1递增的seq。meta返回session_id/trace_id，尚不代表会话成功保存。
+        phase.phase为retrieving/preparing/generating/validating。sources.sources为已确认公开且作者启用的来源列表。
+        delta.text为真实生成增量；done含完整answer/sources/session_id/trace_id/degraded及validated=true，只有done代表成功。
+        error含code/message/incomplete=true，已展示内容必须标记未完成；无done断开也视为中断。
+        Java在来源及正文输出前校验来源，完成前再次检查来源与引用；失效不得标成功。
+        整体预算55秒含完成校验及会话提交，空闲上限15秒，心跳5秒不延长总预算。
+        单帧最多16384字节，总流最多262144字节(UTF-8)，answer最多1500字符，sources最多5项。
+        主动停止及提交新问题取消旧流；页面返回只重订阅，重试只能由用户触发。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [question]
+              properties:
+                question: {type: string, minLength: 1, maxLength: 200}
+                session_id: {type: string, nullable: true, maxLength: 36, pattern: '^$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'}
+      responses:
+        '200':
+          description: SSE事件流；流开始后失败通过error事件表达，不改变HTTP状态
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+            X-Accel-Buffering: {schema: {type: string, enum: ['no']}}
+          content:
+            text/event-stream:
+              schema: {type: string, description: 'event为meta/phase/sources/delta/done/error，data的schema见AgentSearchStreamEvent'}
+              example: "event: delta\ndata: {\"request_id\":\"5cc3b214-1a4e-4be9-a127-6b9a392cbfa1\",\"seq\":4,\"text\":\"第一段〔1〕\"}\n\n"
+        '400': {description: 流开始前参数无效, content: {application/json: {schema: {$ref: '#/components/schemas/AgentSearchError'}}}}
+        '401': {$ref: '#/components/responses/Error'}
+        '502': {description: 流开始前上游不可用或协议无效, content: {application/json: {schema: {$ref: '#/components/schemas/AgentSearchError'}}}}
   /api/agent/search:
     post:
       summary: 智能搜索社区作品并返回带出处的综合回答
@@ -656,6 +694,21 @@ paths:
         '400': {description: 正文过短（SHORT_TEXT），客户端应隐藏入口}
         '503': {description: AI 不可用，客户端提示先读原文}
         default: {$ref: '#/components/responses/Error'}
+  /api/posts/{id}/summary/stream:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    get:
+      description: 登录用户提炼已公开长文。SSE 先发 summary（完整概括），再发 point（完整要点），最终 done 再确认作品版本与输出完整性；断开或 error 时保留内容并标为未完成。55秒整体预算、15秒空闲、5秒心跳、16KiB单帧、256KiB总量。取消关闭连接，不自动重试。原完整接口保留。
+      responses:
+        '200':
+          description: '每个 data JSON 遵循 components.schemas.PostSummaryStreamEvent。事件 payload 均有 seq；summary 含 summary，point 含 point，done 含 summary/points/content_length/trace_id/validated=true；error 含 code/message/incomplete=true。完成前的内容不可标为成功。'
+          content:
+            text/event-stream:
+              schema: {type: string}
+        '400': {description: 正文不足200字}
+        '401': {description: 未登录}
+        '404': {description: 作品不可见}
+        '503': {description: AI服务不可用}
   /api/posts/{id}/auto-replies:
     parameters:
       - {$ref: '#/components/parameters/Id'}
@@ -1504,6 +1557,63 @@ components:
         latency_ms: {type: integer, format: int64, minimum: 0}
         trace_id: {type: string, format: uuid}
         degraded: {type: integer, enum: [0, 1]}
+    AgentSearchStreamEvent:
+      type: object
+      additionalProperties: false
+      required: [request_id, seq]
+      oneOf:
+        - {required: [session_id, trace_id], maxProperties: 4, description: meta}
+        - {required: [phase], maxProperties: 3, description: phase}
+        - {required: [sources], maxProperties: 3, description: sources}
+        - {required: [text], maxProperties: 3, description: delta}
+        - {required: [answer, sources, session_id, trace_id, degraded, validated], maxProperties: 8, description: done}
+        - {required: [code, message, incomplete], maxProperties: 5, description: error}
+      properties:
+        request_id: {type: string, format: uuid}
+        seq: {type: integer, minimum: 1}
+        session_id: {type: string, format: uuid, description: meta及done必需}
+        trace_id: {type: string, format: uuid, description: meta及done必需}
+        phase: {type: string, enum: [retrieving, preparing, generating, validating], description: phase事件必需}
+        text: {type: string, description: delta事件必需}
+        answer: {type: string, maxLength: 1500, description: done事件必需}
+        degraded: {type: integer, enum: [0, 1], description: done事件必需}
+        validated: {type: boolean, enum: [true], description: done事件必需}
+        incomplete: {type: boolean, enum: [true], description: error事件必需}
+        code: {type: string, description: error事件必需}
+        message: {type: string, maxLength: 200, description: error事件安全文案}
+        sources:
+          type: array
+          maxItems: 5
+          description: sources及done事件必需
+          items:
+            type: object
+            additionalProperties: false
+            required: [post_id, title, excerpt, author_name]
+            properties:
+              post_id: {type: string, pattern: '^[1-9][0-9]{0,17}$'}
+              title: {type: string, maxLength: 120}
+              excerpt: {type: string, maxLength: 100}
+              author_name: {type: string, maxLength: 64}
+    PostSummaryStreamEvent:
+      type: object
+      additionalProperties: false
+      required: [seq]
+      oneOf:
+        - {required: [summary], maxProperties: 2, description: summary}
+        - {required: [point], maxProperties: 2, description: point}
+        - {required: [summary, points, content_length, trace_id, validated], maxProperties: 6, description: done}
+        - {required: [code, message, incomplete], maxProperties: 4, description: error}
+      properties:
+        seq: {type: integer, minimum: 1}
+        summary: {type: string, minLength: 1, maxLength: 60}
+        point: {type: string, minLength: 1, maxLength: 80}
+        points: {type: array, minItems: 3, maxItems: 5, items: {type: string, minLength: 1, maxLength: 80}}
+        content_length: {type: integer, minimum: 200}
+        trace_id: {type: string, format: uuid}
+        validated: {type: boolean, enum: [true]}
+        code: {type: string}
+        message: {type: string, maxLength: 200}
+        incomplete: {type: boolean, enum: [true]}
     AgentSearchError:
       type: object
       required: [status_code, code, message, requestId]
