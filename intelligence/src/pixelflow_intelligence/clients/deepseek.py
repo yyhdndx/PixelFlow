@@ -2,6 +2,7 @@
 import json
 import threading
 import time
+from contextlib import contextmanager
 from typing import Annotated, Iterator, Literal
 
 import httpx
@@ -12,6 +13,28 @@ from ..skills.runtime import SkillError
 
 _API_URL = "https://api.deepseek.com/chat/completions"
 _MAX_RESPONSE_BYTES = 65536
+
+
+@contextmanager
+def _stream_guard(response, deadline, cancelled):
+    finished = threading.Event()
+
+    def watch():
+        while not finished.wait(0.1):
+            if time.monotonic() >= deadline or (cancelled is not None and cancelled.is_set()):
+                try:
+                    response.close()
+                except (OSError, httpx.HTTPError):
+                    pass
+                return
+
+    watcher = threading.Thread(target=watch, name="model-stream-deadline", daemon=True)
+    watcher.start()
+    try:
+        yield response
+    finally:
+        finished.set()
+        watcher.join(timeout=0.2)
 
 
 def _auth_header(settings):
@@ -25,23 +48,27 @@ def chat_once(settings, *, system, user_content, max_tokens, timeout, transport=
     """
     with httpx.Client(timeout=httpx.Timeout(timeout, connect=5),
                       follow_redirects=False, transport=transport) as client:
-        response = client.post(
-            _API_URL, headers=_auth_header(settings),
-            json={"model": settings.deepseek_model, "stream": False,
-                  "thinking": {"type": "disabled"}, "max_tokens": max_tokens,
-                  "response_format": {"type": "json_object"},
-                  "messages": [{"role": "system", "content": system},
-                               {"role": "user", "content": user_content}]})
-        response.raise_for_status()
-        raw = response.content
-        if len(raw) > _MAX_RESPONSE_BYTES:
-            raise ValueError("Oversized response")
+        deadline = time.monotonic() + timeout
+        with client.stream("POST", _API_URL, headers=_auth_header(settings),
+                json={"model": settings.deepseek_model, "stream": False,
+                      "thinking": {"type": "disabled"}, "max_tokens": max_tokens,
+                      "response_format": {"type": "json_object"},
+                      "messages": [{"role": "system", "content": system},
+                                   {"role": "user", "content": user_content}]}) as response:
+            response.raise_for_status()
+            raw = bytearray()
+            for chunk in response.iter_bytes():
+                if time.monotonic() >= deadline:
+                    raise TimeoutError()
+                if len(raw) + len(chunk) > _MAX_RESPONSE_BYTES:
+                    raise ValueError("Oversized response")
+                raw.extend(chunk)
     body = json.loads(raw)
     choice = body["choices"][0]
     return choice["message"]["content"], choice.get("finish_reason")
 
 
-def stream_chat(settings, *, system, user_content, max_tokens, deadline, transport=None) -> Iterator[str]:
+def stream_chat(settings, *, system, user_content, max_tokens, deadline, transport=None, cancelled=None) -> Iterator[str]:
     """流式调用（SSE）：逐段 yield 增量文本，结束正常返回。
 
     流式下不使用 response_format=json_object；结构化结果需增量解析或调整生成协议。
@@ -49,39 +76,68 @@ def stream_chat(settings, *, system, user_content, max_tokens, deadline, transpo
     remaining = min(35.0, deadline - time.monotonic())
     if remaining <= 0:
         raise TimeoutError()
-    with httpx.Client(timeout=httpx.Timeout(remaining, connect=5),
+    with httpx.Client(timeout=httpx.Timeout(remaining, connect=min(5, remaining), read=min(15, remaining)),
                       follow_redirects=False, transport=transport) as client:
+        if cancelled is not None and cancelled.is_set():
+            raise InterruptedError()
         with client.stream("POST", _API_URL, headers=_auth_header(settings),
                            json={"model": settings.deepseek_model, "stream": True,
                                  "thinking": {"type": "disabled"}, "max_tokens": max_tokens,
                                  "messages": [{"role": "system", "content": system},
-                                              {"role": "user", "content": user_content}]}) as response:
+                                              {"role": "user", "content": user_content}]}) as response, _stream_guard(response, deadline, cancelled):
             response.raise_for_status()
             total = 0
-            for line in response.iter_lines():
+            stopped = False
+            pending = bytearray()
+            for chunk in response.iter_bytes():
+                if cancelled is not None and cancelled.is_set():
+                    raise InterruptedError()
                 if time.monotonic() >= deadline:
                     raise TimeoutError()
-                if not line or not line.startswith("data:"):
-                    continue
-                data = line[5:].strip()
-                if data == "[DONE]":
-                    return
-                try:
-                    event = json.loads(data)
-                except json.JSONDecodeError:
-                    raise ValueError("Malformed SSE event") from None
-                choices = event.get("choices") or []
-                if not choices:
-                    continue
-                delta = choices[0].get("delta") or {}
-                piece = delta.get("content") or ""
-                total += len(piece)
+                total += len(chunk)
                 if total > _MAX_RESPONSE_BYTES:
                     raise ValueError("Oversized response")
-                if piece:
-                    yield piece
-                if choices[0].get("finish_reason") == "stop":
-                    return
+                pending.extend(chunk)
+                while b"\n" in pending:
+                    raw, _, tail = pending.partition(b"\n")
+                    pending = bytearray(tail)
+                    if len(raw) > 16384:
+                        raise ValueError("Oversized SSE frame")
+                    line = raw.rstrip(b"\r").decode("utf-8")
+                    if not line or line.startswith(":"):
+                        continue
+                    if line.startswith("event:"):
+                        if line[6:].strip() == "error":
+                            raise ValueError("Upstream stream failed")
+                        continue
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        if not stopped:
+                            raise ValueError("Stream ended without normal stop")
+                        return
+                    event = json.loads(data)
+                    if not isinstance(event, dict) or "error" in event:
+                        raise ValueError("Upstream stream failed")
+                    choices = event.get("choices")
+                    if not choices:
+                        continue
+                    if len(choices) != 1 or not isinstance(choices[0], dict):
+                        raise ValueError("Malformed SSE choice")
+                    choice = choices[0]
+                    piece = (choice.get("delta") or {}).get("content") or ""
+                    if not isinstance(piece, str) or (stopped and piece):
+                        raise ValueError("Invalid stream content")
+                    reason = choice.get("finish_reason")
+                    if reason is not None and reason != "stop":
+                        raise ValueError("Incomplete model response")
+                    if piece:
+                        yield piece
+                    if reason == "stop":
+                        stopped = True
+                if len(pending) > 16384:
+                    raise ValueError("Oversized SSE frame")
     raise ValueError("Stream ended without completion")
 
 

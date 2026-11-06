@@ -39,9 +39,11 @@ public class SecurityConfig {
                         .authenticationEntryPoint((req,res,error) -> write(json,req,res,401,"UNAUTHORIZED"))
                         .accessDeniedHandler((req,res,error) -> write(json,req,res,403,"FORBIDDEN")))
                 .addFilterBefore(new OncePerRequestFilter() {
+                    @Override protected boolean shouldNotFilterAsyncDispatch() { return false; }
                     @Override protected void doFilterInternal(HttpServletRequest req,HttpServletResponse res,FilterChain chain)
                             throws ServletException,IOException {
-                        String requestId = UUID.randomUUID().toString();
+                        String requestId = req.getAttribute("requestId") instanceof String existing
+                                ? existing : UUID.randomUUID().toString();
                         req.setAttribute("requestId",requestId); res.setHeader("X-Request-Id",requestId);
                         String header = req.getHeader("Authorization");
                         if (header != null) {

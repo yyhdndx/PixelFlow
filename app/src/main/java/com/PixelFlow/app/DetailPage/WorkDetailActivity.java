@@ -208,6 +208,15 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         isChanged=false;
 
         setupData();
+        if (savedInstanceState != null) {
+            String restoredSummary = savedInstanceState.getString("summary.key");
+            AiTaskRegistry.Task restoredTask = restoredSummary == null ? null : AiTaskRegistry.get().peek(restoredSummary);
+            if (restoredTask != null) {
+                summaryKey = restoredSummary;
+                subscribeSummary((TextView) findViewById(R.id.summary_body), restoredTask);
+            }
+            if (savedInstanceState.getBoolean("summary.expanded")) toggleSummary();
+        }
         setupListeners();
         loadInteractionState();
         setupComments();
@@ -653,58 +662,85 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             return;
         }
         entry.setVisibility(View.VISIBLE);
-        entry.setOnClickListener(v -> showSummaryDialog());
+        entry.setOnClickListener(v -> toggleSummary());
     }
 
-    /** AI 提炼：先展示加载态，成功后列出概括与要点，失败只提示“先读原文”，不影响阅读。 */
-    private void showSummaryDialog() {
-        LinearLayout holder = new LinearLayout(this);
-        holder.setOrientation(LinearLayout.VERTICAL);
-        int pad = Math.round(20 * getResources().getDisplayMetrics().density);
-        holder.setPadding(pad, pad, pad, 0);
-        TextView body = new TextView(this);
-        body.setText(R.string.summarize_loading);
-        body.setTextSize(14);
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(body);
-        holder.addView(scroll);
+    private AiTaskRegistry.Subscription summarySubscription;
 
-        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
-                .setTitle(R.string.summarize_title)
-                .setView(holder)
-                .setNegativeButton(R.string.summarize_close, null)
-                .create();
-        dialog.show();
-
-        summaryKey = "summary:" + workItem.getId();
-        AiTaskRegistry.Task task = AiTaskRegistry.get().getOrCreate(summaryKey);
-        summaryTask = task;
-
-        // 恢复：同一作品已有完成总结，直接展示，不重复请求
-        if (task.state == AiTaskRegistry.State.COMPLETED && task.result instanceof PostSummary) {
-            body.setText(formatSummary((PostSummary) task.result));
+    private void toggleSummary() {
+        TextView body = findViewById(R.id.summary_body);
+        findViewById(R.id.summary_retry).setOnClickListener(view -> {
+            if (summaryKey != null) AiTaskRegistry.get().remove(summaryKey);
+            body.setVisibility(View.GONE);
+            toggleSummary();
+        });
+        findViewById(R.id.summary_stop).setOnClickListener(view -> {
+            if (summaryKey != null) AiTaskRegistry.get().cancel(summaryKey);
+        });
+        if (body.getVisibility() == View.VISIBLE) {
+            body.setVisibility(View.GONE);
+            findViewById(R.id.summary_retry).setVisibility(View.GONE);
+            findViewById(R.id.summary_stop).setVisibility(View.GONE);
             return;
         }
-        // 仍在生成：保持加载态，回调稍后更新
-        if (task.isRunning()) return;
+        body.setVisibility(View.VISIBLE);
+        body.setText(R.string.summarize_loading);
+        String postId = workItem.getId();
+        if (summaryReadJob != null) summaryReadJob.cancel();
+        summaryReadJob = ApiClient.getInstance(this).getPost(postId, new CommunityClient.Callback<com.PixelFlow.app.API.PostItem>() {
+            public void onSuccess(com.PixelFlow.app.API.PostItem post) {
+                runOnUiThread(() -> {
+                    if (!isDestroyed() && postId.equals(workItem.getId())) attachSummary(body, post);
+                });
+            }
+            public void onFailure(String message) {
+                runOnUiThread(() -> {
+                    if (isDestroyed() || !postId.equals(workItem.getId())) return;
+                    body.setText(message);
+                    findViewById(R.id.summary_retry).setVisibility(
+                            body.getVisibility() == View.VISIBLE ? View.VISIBLE : View.GONE);
+                    findViewById(R.id.summary_stop).setVisibility(View.GONE);
+                });
+            }
+        });
+    }
 
-        final int generation = ++task.generation;
-        task.state = AiTaskRegistry.State.GENERATING;
-        task.result = null;
-        task.error = null;
-        task.job = ApiClient.getInstance(this).getPostSummary(workItem.getId(), new CommunityClient.Callback<PostSummary>() {
-            @Override public void onSuccess(PostSummary value) {
-                if (generation != task.generation) return;
-                task.state = AiTaskRegistry.State.COMPLETED;
-                task.result = value;
-                if (!isDestroyed()) body.setText(formatSummary(value));
-            }
-            @Override public void onFailure(String message) {
-                if (generation != task.generation) return;
-                task.state = AiTaskRegistry.State.FAILED;
-                task.error = message;
-                if (!isDestroyed()) body.setText(message);
-            }
+    private CommunityClient.Job summaryReadJob;
+
+    private void attachSummary(TextView body, com.PixelFlow.app.API.PostItem post) {
+        CommunityClient api = ApiClient.getInstance(this);
+        String postId = workItem.getId();
+        summaryKey = AiTaskRegistry.identity(api, "summary", postId, post.getTitle(), post.getContent());
+        AiTaskRegistry.Task task;
+        try { task = AiTaskRegistry.get().getOrCreate(summaryKey); }
+        catch (IllegalStateException full) { body.setText(full.getMessage()); return; }
+        subscribeSummary(body, task);
+        AiTaskRegistry.get().start(task, callback -> {
+            int version = task.generation;
+            return api.getPostSummaryStream(postId, partial -> AiTaskRegistry.get().publish(task, version, partial),
+                com.PixelFlow.app.API.AiCallbacks.forward(callback));
+        });
+    }
+
+    private void subscribeSummary(TextView body, AiTaskRegistry.Task task) {
+        summaryTask = task;
+        if (summarySubscription != null) summarySubscription.close();
+        summarySubscription = AiTaskRegistry.get().subscribe(task, this::runOnUiThread, value -> {
+            if (isDestroyed() || summaryTask != value) return;
+            boolean expanded = body.getVisibility() == View.VISIBLE;
+            findViewById(R.id.summary_stop).setVisibility(expanded && value.isRunning() ? View.VISIBLE : View.GONE);
+            findViewById(R.id.summary_retry).setVisibility(expanded && !value.isRunning()
+                    && value.state != AiTaskRegistry.State.NEW && value.state != AiTaskRegistry.State.COMPLETED
+                    ? View.VISIBLE : View.GONE);
+            if (value.result instanceof PostSummary) body.setText(formatSummary((PostSummary) value.result));
+            else if (value.result instanceof com.google.gson.JsonObject) {
+                PostSummary partial = PostSummary.parse((com.google.gson.JsonObject) value.result);
+                body.setText(formatSummary(partial) + "\n" + getString(value.isRunning()
+                        ? R.string.ai_stream_generating : R.string.ai_stream_incomplete));
+            } else if (value.error != null) body.setText(value.error);
+            else body.setText(value.state == AiTaskRegistry.State.EXPIRED ? R.string.ai_expired
+                    : value.state == AiTaskRegistry.State.CANCELLED ? R.string.ai_cancelled
+                    : value.state == AiTaskRegistry.State.WAITING ? R.string.ai_waiting : R.string.ai_preparing);
         });
     }
 
@@ -1362,11 +1398,16 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
     @Override protected void onSaveInstanceState(@NonNull Bundle outState) {
         if (imageAdapter != null) outState.putBundle("media.playback", imageAdapter.savePlayback());
+        View summary = findViewById(R.id.summary_body);
+        outState.putBoolean("summary.expanded", summary != null && summary.getVisibility() == View.VISIBLE);
+        outState.putString("summary.key", summaryKey);
         super.onSaveInstanceState(outState);
     }
 
     @Override
     protected void onDestroy() {
+        if (summarySubscription != null) summarySubscription.close();
+        if (summaryReadJob != null) summaryReadJob.cancel();
         if (fullscreenImageDialog != null) fullscreenImageDialog.dismiss();
         if (imageAdapter != null) imageAdapter.releaseAllPlayers();
         if (likeJob != null) likeJob.cancel();
@@ -1391,6 +1432,14 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     @Override
     protected void onResume() {
         super.onResume();
+        if (summaryTask != null && !AiTaskRegistry.get().isCurrent(summaryTask)) {
+            if (summarySubscription != null) summarySubscription.close();
+            summaryTask = null;
+            ((TextView) findViewById(R.id.summary_body)).setText("");
+            findViewById(R.id.summary_body).setVisibility(View.GONE);
+            findViewById(R.id.summary_retry).setVisibility(View.GONE);
+            findViewById(R.id.summary_stop).setVisibility(View.GONE);
+        }
         if (workItem != null) {
             ApiClient api = ApiClient.getInstance(this);
             viewingStarted = android.os.SystemClock.elapsedRealtime();

@@ -239,6 +239,37 @@ class Store:
                 json.dumps(steps, ensure_ascii=False), created_at, seq,
                 session_id, latency_ms, provider, degraded_reason))
 
+    def commit_search_stream(self, *, result, user_id, question, history, now, checkpoint=lambda: None):
+        trace_id, session_id = result["trace_id"], result["session_id"]
+        turns = history[-9:] + [{"question": question, "answer": result["answer"]}]
+        sql = ("INSERT INTO agent_sessions VALUES(?,?,?,?,?) ON DUPLICATE KEY UPDATE "
+               "turns=VALUES(turns),updated_at=VALUES(updated_at)" if self.mysql else
+               "INSERT INTO agent_sessions VALUES(?,?,?,?,?) ON CONFLICT(session_id) "
+               "DO UPDATE SET turns=excluded.turns,updated_at=excluded.updated_at")
+        with closing(self.connect()) as db, db:
+            self._begin_write(db)
+            existing = db.execute("SELECT user_id,answer,session_id,steps FROM agent_traces WHERE trace_id=?", (trace_id,)).fetchone()
+            if existing is not None:
+                if (existing["user_id"] != user_id or existing["answer"] != result["answer"]
+                        or existing["session_id"] != session_id
+                        or json.loads(existing["steps"]) != [{"step": "stream", "status": "completed"}]):
+                    raise ValueError("Trace confirmation mismatch")
+                return
+            session = db.execute("SELECT user_id,created_at,turns FROM agent_sessions WHERE session_id=?", (session_id,)).fetchone()
+            if session is not None:
+                if session["user_id"] != user_id:
+                    raise ValueError("Session owner mismatch")
+                turns = json.loads(session["turns"])[-9:] + [{"question": question, "answer": result["answer"]}]
+            seq = db.execute("SELECT COALESCE(MAX(seq),0)+1 FROM agent_traces").fetchone()[0]
+            db.execute("INSERT INTO agent_traces (trace_id,user_id,question,answer,source_count,"
+                       "degraded,steps,created_at,seq,session_id,latency_ms,provider,degraded_reason) "
+                       "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", (
+                trace_id, user_id, question, result["answer"], len(result["sources"]), result["degraded"],
+                json.dumps([{"step": "stream", "status": "completed"}]), now, seq, session_id, 0, "", ""))
+            db.execute(sql, (session_id, user_id, json.dumps(turns, ensure_ascii=False),
+                            session["created_at"] if session else now, now))
+            checkpoint()
+
     @staticmethod
     def _trace_summary(row):
         return {"trace_id": row["trace_id"], "user_id": row["user_id"],

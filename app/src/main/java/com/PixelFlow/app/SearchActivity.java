@@ -96,8 +96,8 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
     private boolean aiDismissed;
     private AgentSearchResult aiResult;
     private AiTaskRegistry.Task aiTask;
+    private AiTaskRegistry.Subscription aiSubscription;
     private String aiKey;
-    private final Map<String, String> aiSessions = new HashMap<>(); // query -> session_id，追问复用
 
     private WaterfallAdapter adapter;
     private CommunityClient.Job activeCall;
@@ -112,13 +112,46 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_search);
         initViews();
-        showDiscovery();
+        String restoredQuery = savedInstanceState == null ? null : savedInstanceState.getString("active_query");
+        if (restoredQuery == null || restoredQuery.isEmpty()) showDiscovery();
+        else {
+            searchInput.setText(restoredQuery);
+            restoringAi = true;
+            runSearch(restoredQuery, null);
+            restoringAi = false;
+        }
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (aiTask != null) AiTaskRegistry.get().peek(aiKey);
+        if (aiTask != null && !AiTaskRegistry.get().isCurrent(aiTask)) {
+            if (aiTask.state == AiTaskRegistry.State.EXPIRED && aiKey.equals(
+                    AiTaskRegistry.identity(ApiClient.getInstance(this), "search", activeQuery, null))) {
+                showAiFeedback(getString(R.string.ai_expired));
+                return;
+            }
+            if (aiSubscription != null) aiSubscription.close();
+            aiTask = null;
+            aiResult = null;
+            aiState = AI_NONE;
+            aiAnswerView.setText("");
+            aiSourcesView.removeAllViews();
+            updateAiCard();
+        }
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state);
+        state.putString("active_query", activeQuery);
     }
 
     @Override
     protected void onDestroy() {
         // AI 任务交由 AiTaskRegistry 页面外管理，销毁页面时不取消（P03）；普通请求仍随页面取消
         if (activeCall != null) activeCall.cancel();
+        if (sourceRead != null) sourceRead.cancel();
+        if (aiSubscription != null) aiSubscription.close();
         super.onDestroy();
     }
 
@@ -209,6 +242,8 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         hideKeyboard();
         addHistory(query);
         renderHistoryChips();
+        if (query.equals(activeQuery) && aiTask != null && !aiTask.isRunning()
+                && aiTask.state != AiTaskRegistry.State.COMPLETED) AiTaskRegistry.get().remove(aiKey);
         runSearch(query, null);
     }
 
@@ -218,6 +253,7 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         if (activeCall != null) activeCall.cancel();
         final int generation = ++requestGeneration;
         loading = true;
+        if (cursor == null && aiKey != null && !query.equals(activeQuery)) AiTaskRegistry.get().cancel(aiKey);
         activeQuery = query;
         showLoading(cursor == null);
         if (cursor == null) runAgentSearch(query);
@@ -302,86 +338,103 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         progress.setVisibility(View.GONE);
         stateView.setVisibility(View.GONE);
         resultsContainer.setVisibility(View.VISIBLE);
+        resultsView.setVisibility(View.VISIBLE);
         updateAiCard();
     }
 
     private void showState(String title, String message, boolean retryable) {
         discoveryView.setVisibility(View.GONE);
         progress.setVisibility(View.GONE);
-        resultsContainer.setVisibility(View.GONE);
+        resultsContainer.setVisibility(View.VISIBLE);
+        resultsView.setVisibility(View.GONE);
         stateView.setVisibility(View.VISIBLE);
+        updateAiCard();
         stateTitle.setText(title);
         stateMessage.setText(message == null ? "" : message);
         stateMessage.setVisibility(message == null ? View.GONE : View.VISIBLE);
         retryButton.setVisibility(retryable ? View.VISIBLE : View.GONE);
     }
 
-    // ---------- AI 综合回答（Agent 智能搜索，POST /api/agent/search） ----------
-
     private void runAgentSearch(String query) {
-        aiKey = "search:" + query;
-        AiTaskRegistry.Task task = AiTaskRegistry.get().getOrCreate(aiKey);
+        if (!ApiClient.getInstance(this).isLoggedIn()) {
+            if (aiSubscription != null) aiSubscription.close();
+            aiTask = null;
+            aiResult = null;
+            aiState = AI_NONE;
+            updateAiCard();
+            return;
+        }
+        aiKey = AiTaskRegistry.identity(ApiClient.getInstance(this), "search", query, null);
+        aiFeedback = null;
+        if (restoringAi && AiTaskRegistry.get().peek(aiKey) == null) {
+            showAiFeedback(getString(R.string.ai_expired));
+            return;
+        }
+        AiTaskRegistry.Task task;
+        try { task = AiTaskRegistry.get().getOrCreate(aiKey); }
+        catch (IllegalStateException full) {
+            showAiFeedback(full.getMessage());
+            return;
+        }
         aiTask = task;
 
-        // 恢复：同一问题已有完成结果，直接展示，不重复请求
-        if (task.state == AiTaskRegistry.State.COMPLETED && task.result instanceof AgentSearchResult) {
-            AgentSearchResult restored = (AgentSearchResult) task.result;
-            aiResult = restored;
-            aiState = AI_ANSWER;
-            if (restored.session_id != null && !restored.session_id.isEmpty())
-                aiSessions.put(query, restored.session_id);
-            updateAiCard();
-            return;
-        }
-        // 仍在生成：重新绑定进度，不重新发起
-        if (task.isRunning()) {
-            aiState = AI_LOADING;
-            aiDismissed = false;
-            updateAiCard();
-            return;
-        }
-
-        final int generation = ++task.generation;
-        task.state = AiTaskRegistry.State.GENERATING;
-        task.result = null;
-        task.error = null;
-        aiState = AI_LOADING;
+        if (aiSubscription != null) aiSubscription.close();
         aiDismissed = false;
+        aiSubscription = AiTaskRegistry.get().subscribe(task, new java.util.concurrent.Executor() {
+            private Runnable latest;
+            private boolean scheduled;
+            public void execute(Runnable command) {
+                synchronized (this) {
+                    latest = command;
+                    if (scheduled) return;
+                    scheduled = true;
+                }
+                handler.postDelayed(() -> {
+                    Runnable next;
+                    synchronized (this) {
+                        next = latest;
+                        scheduled = false;
+                    }
+                    next.run();
+                }, 100);
+            }
+        }, value -> {
+            if (isDestroyed() || aiTask != value || !query.equals(activeQuery)) return;
+            aiResult = value.result instanceof AgentSearchResult ? (AgentSearchResult) value.result : null;
+            if (value.result instanceof com.google.gson.JsonObject) {
+                aiResult = new com.google.gson.Gson().fromJson((com.google.gson.JsonObject) value.result, AgentSearchResult.class);
+            }
+            boolean partial = aiResult != null && ((aiResult.answer != null && !aiResult.answer.isEmpty())
+                    || (aiResult.sources != null && !aiResult.sources.isEmpty()));
+            aiState = partial ? AI_ANSWER : value.isRunning() || value.state == AiTaskRegistry.State.NEW ? AI_LOADING : AI_DEGRADED;
+            updateAiCard();
+            if (partial && value.state != AiTaskRegistry.State.COMPLETED) {
+                aiDegradedView.setVisibility(View.VISIBLE);
+                aiDegradedView.setText(value.isRunning() ? R.string.ai_stream_generating : R.string.ai_stream_incomplete);
+            }
+        });
+        CommunityClient api = ApiClient.getInstance(this);
+        String session = null;
+        AiTaskRegistry.get().start(task, callback -> {
+            int version = task.generation;
+            return api.agentSearchStream(query, session, partial -> AiTaskRegistry.get().publish(task, version, partial),
+                com.PixelFlow.app.API.AiCallbacks.forward(callback));
+        });
+    }
+
+    private boolean restoringAi;
+    private String aiFeedback;
+
+    private void showAiFeedback(String message) {
+        if (aiSubscription != null) aiSubscription.close();
+        aiTask = null;
         aiResult = null;
+        aiDismissed = false;
+        aiFeedback = message;
+        aiAnswerView.setText("");
+        aiSourcesView.removeAllViews();
+        aiState = AI_DEGRADED;
         updateAiCard();
-        task.job = ApiClient.getInstance(this).agentSearch(query, aiSessions.get(query),
-                new CommunityClient.Callback<AgentSearchResult>() {
-                    @Override public void onSuccess(AgentSearchResult result) {
-                        handler.post(() -> {
-                            if (generation != task.generation) return;
-                            if (result != null && result.valid()) {
-                                if (result.session_id != null && !result.session_id.isEmpty())
-                                    aiSessions.put(query, result.session_id);
-                                task.state = AiTaskRegistry.State.COMPLETED;
-                                task.result = result;
-                                if (!isDestroyed()) { aiResult = result; aiState = AI_ANSWER; updateAiCard(); }
-                            } else {
-                                task.state = AiTaskRegistry.State.FAILED;
-                                if (!isDestroyed()) { aiState = AI_DEGRADED; updateAiCard(); }
-                            }
-                        });
-                    }
-
-                    @Override public void onFailure(String errorMessage) {
-                        onFailure(0, errorMessage);
-                    }
-
-                    @Override public void onFailure(int status, String errorMessage) {
-                        handler.post(() -> {
-                            if (generation != task.generation) return;
-                            // 401（未登录）/404/501（接口未部署）/502（Python 故障）/超时：
-                            // 统一降级文案，普通搜索结果不受影响。
-                            task.state = AiTaskRegistry.State.FAILED;
-                            task.error = errorMessage;
-                            if (!isDestroyed()) { aiState = AI_DEGRADED; updateAiCard(); }
-                        });
-                    }
-                });
     }
 
     private void updateAiCard() {
@@ -389,6 +442,18 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
                 && resultsContainer.getVisibility() == View.VISIBLE;
         aiCard.setVisibility(visible ? View.VISIBLE : View.GONE);
         if (!visible) return;
+        ((TextView) findViewById(R.id.ai_loading_status)).setText(aiTask != null
+                && aiTask.state == AiTaskRegistry.State.WAITING ? R.string.ai_waiting : R.string.ai_preparing);
+        View stop = findViewById(R.id.ai_stop);
+        stop.setVisibility(aiTask != null && aiTask.isRunning() ? View.VISIBLE : View.GONE);
+        stop.setOnClickListener(view -> { if (aiKey != null) AiTaskRegistry.get().cancel(aiKey); });
+        if (aiState == AI_DEGRADED) {
+            if (aiFeedback != null) aiDegradedView.setText(aiFeedback);
+            else if (aiTask != null && aiTask.error != null) aiDegradedView.setText(aiTask.error);
+            else aiDegradedView.setText(aiTask != null && aiTask.state == AiTaskRegistry.State.EXPIRED
+                    ? R.string.ai_expired : aiTask != null && aiTask.state == AiTaskRegistry.State.CANCELLED
+                    ? R.string.ai_cancelled : R.string.search_ai_degraded);
+        }
         aiLoadingView.setVisibility(aiState == AI_LOADING ? View.VISIBLE : View.GONE);
         aiDegradedView.setVisibility(aiState == AI_DEGRADED ? View.VISIBLE : View.GONE);
         aiContentView.setVisibility(aiState == AI_ANSWER ? View.VISIBLE : View.GONE);
@@ -475,13 +540,22 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         return row;
     }
 
+    private CommunityClient.Job sourceRead;
+
     private void openSourceDetail(AgentSearchResult.Source source) {
-        WorkItem item = new WorkItem(source.post_id, null, source.title, source.excerpt,
-                source.author_name, null, 0, 0, 0);
-        Intent intent = new Intent(this, WorkDetailActivity.class);
-        intent.putExtra("work_item", item);
-        startActivity(intent);
-        overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
+        if (sourceRead != null) sourceRead.cancel();
+        sourceRead = ApiClient.getInstance(this).getPost(source.post_id, new CommunityClient.Callback<PostItem>() {
+            public void onSuccess(PostItem post) {
+                if (isDestroyed() || isFinishing()) return;
+                Intent intent = new Intent(SearchActivity.this, WorkDetailActivity.class);
+                intent.putExtra("work_item", new WorkItem(post));
+                startActivity(intent);
+                overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
+            }
+            public void onFailure(String message) {
+                if (!isDestroyed() && !isFinishing()) Toast.makeText(SearchActivity.this, message, Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private int dp(int value) {
