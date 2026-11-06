@@ -208,7 +208,15 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         isChanged=false;
 
         setupData();
-        if (savedInstanceState != null && savedInstanceState.getBoolean("summary.expanded")) toggleSummary();
+        if (savedInstanceState != null) {
+            String restoredSummary = savedInstanceState.getString("summary.key");
+            AiTaskRegistry.Task restoredTask = restoredSummary == null ? null : AiTaskRegistry.get().peek(restoredSummary);
+            if (restoredTask != null) {
+                summaryKey = restoredSummary;
+                subscribeSummary((TextView) findViewById(R.id.summary_body), restoredTask);
+            }
+            if (savedInstanceState.getBoolean("summary.expanded")) toggleSummary();
+        }
         setupListeners();
         loadInteractionState();
         setupComments();
@@ -706,6 +714,15 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         AiTaskRegistry.Task task;
         try { task = AiTaskRegistry.get().getOrCreate(summaryKey); }
         catch (IllegalStateException full) { body.setText(full.getMessage()); return; }
+        subscribeSummary(body, task);
+        AiTaskRegistry.get().start(task, callback -> {
+            int version = task.generation;
+            return api.getPostSummaryStream(postId, partial -> AiTaskRegistry.get().publish(task, version, partial),
+                com.PixelFlow.app.API.AiCallbacks.forward(callback));
+        });
+    }
+
+    private void subscribeSummary(TextView body, AiTaskRegistry.Task task) {
         summaryTask = task;
         if (summarySubscription != null) summarySubscription.close();
         summarySubscription = AiTaskRegistry.get().subscribe(task, this::runOnUiThread, value -> {
@@ -721,12 +738,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 body.setText(formatSummary(partial) + "\n" + getString(value.isRunning()
                         ? R.string.ai_stream_generating : R.string.ai_stream_incomplete));
             } else if (value.error != null) body.setText(value.error);
-            else body.setText(R.string.summarize_loading);
-        });
-        AiTaskRegistry.get().start(task, callback -> {
-            int version = task.generation;
-            return api.getPostSummaryStream(postId, partial -> AiTaskRegistry.get().publish(task, version, partial),
-                com.PixelFlow.app.API.AiCallbacks.forward(callback));
+            else body.setText(value.state == AiTaskRegistry.State.EXPIRED ? R.string.ai_expired
+                    : value.state == AiTaskRegistry.State.CANCELLED ? R.string.ai_cancelled
+                    : value.state == AiTaskRegistry.State.WAITING ? R.string.ai_waiting : R.string.ai_preparing);
         });
     }
 
@@ -1386,6 +1400,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         if (imageAdapter != null) outState.putBundle("media.playback", imageAdapter.savePlayback());
         View summary = findViewById(R.id.summary_body);
         outState.putBoolean("summary.expanded", summary != null && summary.getVisibility() == View.VISIBLE);
+        outState.putString("summary.key", summaryKey);
         super.onSaveInstanceState(outState);
     }
 

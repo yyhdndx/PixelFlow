@@ -22,6 +22,7 @@ public class SummaryStreamingFlowTest {
     @Test public void summaryAppearsBeforePointsAndRecreationKeepsOneGeneration() throws Exception {
         AtomicInteger calls = new AtomicInteger();
         AtomicBoolean failReads = new AtomicBoolean(true);
+        AtomicBoolean changed = new AtomicBoolean();
         String content = new String(new char[240]).replace('\0', '文');
         String first = "event: summary\ndata: {\"seq\":1,\"summary\":\"先看到概括\"}\n\n";
         String rest = "";
@@ -33,14 +34,15 @@ public class SummaryStreamingFlowTest {
                 public MockResponse dispatch(RecordedRequest request) {
                     if (request.getPath().endsWith("/summary/stream")) {
                         calls.incrementAndGet();
-                        return new MockResponse().setHeader("Content-Type", "text/event-stream").setBody(first + tail)
-                                .throttleBody(first.getBytes(java.nio.charset.StandardCharsets.UTF_8).length, 5, TimeUnit.SECONDS);
+                        String body = changed.get() ? (first + tail).replace("先看到概括", "修改后的概括") : first + tail;
+                        return new MockResponse().setHeader("Content-Type", "text/event-stream").setBody(body)
+                                .throttleBody(first.getBytes(java.nio.charset.StandardCharsets.UTF_8).length, 1, TimeUnit.SECONDS);
                     }
                     if (request.getPath().equals("/api/posts/1")) {
                         if (failReads.get()) return new MockResponse().setResponseCode(503)
                                 .setBody("{\"message\":\"作品暂时无法读取\"}");
                         return new MockResponse().setBody(
-                                "{\"post_id\":\"1\",\"title\":\"长文\",\"content\":\"" + content + "\",\"status\":\"PUBLISHED\",\"author\":{\"user_id\":\"bob\",\"nickname\":\"作者\"},\"clips\":[]}");
+                                "{\"post_id\":\"1\",\"title\":\"长文\",\"content\":\"" + content + (changed.get() ? "新版本" : "") + "\",\"status\":\"PUBLISHED\",\"author\":{\"user_id\":\"bob\",\"nickname\":\"作者\"},\"clips\":[]}");
                     }
                     return new MockResponse().setBody("{\"status_code\":0,\"comment_list\":[],\"has_more\":0}");
                 }
@@ -72,9 +74,23 @@ public class SummaryStreamingFlowTest {
                 awaitText(screen, "先看到概括");
                 screen.onActivity(a -> assertTrue(((TextView) a.findViewById(R.id.summary_body)).getText().toString()
                         .contains(a.getString(R.string.ai_stream_generating))));
+                screen.onActivity(a -> a.findViewById(R.id.summarize_entry).performClick());
                 screen.recreate();
                 awaitText(screen, "先看到概括");
+                screen.onActivity(a -> assertEquals(android.view.View.GONE,
+                        a.findViewById(R.id.summary_body).getVisibility()));
+                Thread.sleep(5500);
+                awaitText(screen, "要点2");
+                screen.onActivity(a -> a.findViewById(R.id.summarize_entry).performClick());
+                awaitText(screen, "要点2");
                 assertEquals(1, calls.get());
+                screen.onActivity(a -> a.findViewById(R.id.summarize_entry).performClick());
+                changed.set(true);
+                screen.onActivity(a -> a.findViewById(R.id.summarize_entry).performClick());
+                awaitText(screen, "修改后的概括");
+                screen.onActivity(a -> assertFalse(((TextView) a.findViewById(R.id.summary_body))
+                        .getText().toString().contains("先看到概括")));
+                assertEquals(2, calls.get());
             } finally {
                 singleton.set(null, previous);
                 AiTaskRegistry.get().clearForAccount();
