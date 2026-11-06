@@ -9,7 +9,7 @@ import json
 import time
 import uuid
 
-import httpx
+from ..clients.deepseek import chat_once
 
 SYSTEM = """你是社区评论的自动回复判定器。你的任务只是判断这条评论在问作者配置的哪个场景，不要生成新内容。
 输入 JSON 字段：post(作品标题与正文)、comment(一条一级评论)、rules(作者配置的场景列表，每项有 question 场景描述与 answer 答案)。
@@ -32,20 +32,11 @@ class DeepSeekReplyChooser:
         payload = {"post": {"title": post_title, "content": post_content},
                    "comment": comment,
                    "rules": [{"question": r["question"], "answer": r["answer"]} for r in rules]}
-        with httpx.Client(timeout=httpx.Timeout(remaining, connect=3),
-                          follow_redirects=False, transport=self.transport) as client:
-            response = client.post(
-                "https://api.deepseek.com/chat/completions",
-                headers={"Authorization": "Bearer " + self.settings.deepseek_api_key},
-                json={"model": self.settings.deepseek_model, "stream": False,
-                      "thinking": {"type": "disabled"}, "max_tokens": 300,
-                      "response_format": {"type": "json_object"},
-                      "messages": [{"role": "system", "content": SYSTEM},
-                                   {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}]})
-            response.raise_for_status()
-            body = response.json()
-        content = body["choices"][0]["message"]["content"]
-        decision = json.loads(content)
+        raw_content, _ = chat_once(self.settings, system=SYSTEM,
+                                   user_content=json.dumps(payload, ensure_ascii=False),
+                                   max_tokens=300, timeout=remaining,
+                                   transport=self.transport)
+        decision = json.loads(raw_content)
         if not isinstance(decision, dict):
             raise ValueError("invalid decision")
         return decision

@@ -203,6 +203,15 @@
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
+                <TextView
+                    android:id="@+id/ai_stop"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="8dp"
+                    android:text="@string/ai_stop"
+                    android:textColor="@color/profile_accent"
+                    android:visibility="gone" />
+
                 <ImageButton
                     android:id="@+id/ai_close"
                     android:layout_width="32dp"
@@ -233,7 +242,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="10dp"
-                    android:text="@string/search_ai_loading"
+                    android:id="@+id/ai_loading_status"
+                    android:text="@string/ai_preparing"
                     android:textColor="@color/profile_muted"
                     android:textSize="13sp" />
             </LinearLayout>
@@ -297,7 +307,6 @@
             android:layout_height="0dp"
             android:layout_weight="1"
             android:clipToPadding="false" />
-    </LinearLayout>
 
     <!-- 空 / 错误状态 -->
     <LinearLayout
@@ -341,6 +350,7 @@
             android:text="@string/search_retry"
             android:textColor="@android:color/white"
             android:visibility="gone" />
+    </LinearLayout>
     </LinearLayout>
 
 </LinearLayout>

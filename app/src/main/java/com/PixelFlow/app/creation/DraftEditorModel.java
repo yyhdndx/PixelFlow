@@ -26,6 +26,7 @@ public final class DraftEditorModel extends AndroidViewModel {
         public String creationKey = UUID.randomUUID().toString();
         public String phase = "IDLE", status = "DRAFT", savedPayload;
         public String message = "";
+        public String assistGoal, assistPrompt, assistAudience, assistIdentity, assistInputSnapshot;
         public boolean creationUnknown, needsReconcile, done, publishRequested;
         public ArrayList<MediaEntry> media = new ArrayList<>();
     }
@@ -36,8 +37,9 @@ public final class DraftEditorModel extends AndroidViewModel {
     public CreationSuggestion suggestion;
     public String assistMessage = "";
     private String assistSnapshot;
-    private CommunityClient.Job assistJob;
-    private int assistGeneration;
+    private AiTaskRegistry.Task assistTask;
+    private AiTaskRegistry.Subscription assistSubscription;
+    private String assistKey;
     private final ApiClient api;
     private final ExecutorService images = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -69,6 +71,10 @@ public final class DraftEditorModel extends AndroidViewModel {
         if (cleared) return false;
         if (ownsSession()) return true;
         busy = false;
+        assistBusy = false;
+        suggestion = null;
+        assistMessage = "";
+        if (assistSubscription != null) assistSubscription.close();
         changes.setValue(changes.getValue() + 1);
         return false;
     }
@@ -81,7 +87,11 @@ public final class DraftEditorModel extends AndroidViewModel {
         // Write the create marker before sending POST, even after Activity state has been saved.
         return journal().edit().putString(state.editorId, new Gson().toJson(state)).commit();
     }
-    public void discard() { discarded = true; journal().edit().remove(state.editorId).apply(); }
+    public void discard() {
+        cancelAssist();
+        discarded = true;
+        journal().edit().remove(state.editorId).apply();
+    }
     private boolean notifyChange() {
         boolean saved = checkpoint();
         if (!saved) { busy = false; state.message = "无法保存恢复记录，请检查设备存储后重新打开编辑页。"; }
@@ -95,38 +105,67 @@ public final class DraftEditorModel extends AndroidViewModel {
     private String textSnapshot() { return new Gson().toJson(Arrays.asList(state.title, state.content, state.tags)); }
     public void requestAssist(String goal, String prompt, String audience) {
         if (!editable() || assistBusy) return;
-        suggestion = null; assistSnapshot = textSnapshot(); assistBusy = true;
-        assistMessage = "正在生成建议…";
-        int request = ++assistGeneration;
-        changes.setValue(changes.getValue() + 1);
+        suggestion = null;
+        state.assistGoal = goal;
+        state.assistPrompt = prompt;
+        state.assistAudience = audience;
+        assistSnapshot = textSnapshot();
+        assistKey = AiTaskRegistry.identity(api, "assist", state.editorId, assistSnapshot, goal, prompt, audience);
+        AiTaskRegistry.Task previous = AiTaskRegistry.get().peek(assistKey);
+        if (previous != null && !previous.isRunning() && previous.state != AiTaskRegistry.State.COMPLETED)
+            AiTaskRegistry.get().remove(assistKey);
+        AiTaskRegistry.Task task;
+        try { task = AiTaskRegistry.get().getOrCreate(assistKey); }
+        catch (IllegalStateException full) {
+            assistMessage = full.getMessage();
+            changes.setValue(changes.getValue() + 1);
+            return;
+        }
+        state.assistIdentity = assistKey;
+        state.assistInputSnapshot = assistSnapshot;
+        checkpoint();
+        observeAssist(task);
         java.util.List<String> tags = new ArrayList<>();
         for (String tag : state.tags.split("\\s+")) if (!tag.isEmpty() && tag.length() <= 32 && tags.size() < 20) tags.add(tag);
-        assistJob = api.createAssist(state.title, state.content, tags, goal, prompt, audience,
-                new CommunityClient.Callback<CreationSuggestion>() {
-            public void onSuccess(CreationSuggestion value) {
-                if (!current() || request != assistGeneration) return;
-                assistBusy = false;
-                if (!assistSnapshot.equals(textSnapshot())) {
-                    assistMessage = "草稿已修改，请重新生成建议。";
-                } else { suggestion = value; assistMessage = "建议已生成，确认后才会填入草稿。"; }
-                changes.setValue(changes.getValue() + 1);
-            }
-            public void onFailure(String error) {
-                if (!current() || request != assistGeneration) return;
-                assistBusy = false; assistMessage = "生成失败，原稿已保留。可重试或继续手动编辑。";
-                changes.setValue(changes.getValue() + 1);
-            }
+        String title = state.title, content = state.content;
+        CommunityClient client = api;
+        assistBusy = task.state == AiTaskRegistry.State.NEW || task.isRunning();
+        AiTaskRegistry.get().start(task, callback -> client.createAssist(title, content, tags, goal, prompt, audience,
+                AiCallbacks.forward(callback)));
+    }
+    private void observeAssist(AiTaskRegistry.Task task) {
+        assistTask = task;
+        assistBusy = task.isRunning();
+        if (assistSubscription != null) assistSubscription.close();
+        String snapshot = assistSnapshot;
+        assistSubscription = AiTaskRegistry.get().subscribe(task, command -> main.post(command), value -> {
+            if (!current() || assistTask != value) return;
+            assistBusy = value.isRunning();
+            suggestion = null;
+            if (!Objects.equals(snapshot, textSnapshot())) assistMessage = getApplication().getString(com.PixelFlow.app.R.string.ai_assist_changed);
+            else if (value.state == AiTaskRegistry.State.COMPLETED && value.result instanceof CreationSuggestion) {
+                suggestion = (CreationSuggestion) value.result;
+                assistMessage = getApplication().getString(com.PixelFlow.app.R.string.ai_assist_ready);
+            } else if (value.error != null) assistMessage = value.error;
+            else assistMessage = getApplication().getString(value.state == AiTaskRegistry.State.EXPIRED
+                    ? com.PixelFlow.app.R.string.ai_expired
+                    : value.state == AiTaskRegistry.State.CANCELLED ? com.PixelFlow.app.R.string.ai_cancelled
+                    : value.state == AiTaskRegistry.State.WAITING ? com.PixelFlow.app.R.string.ai_waiting
+                    : com.PixelFlow.app.R.string.ai_preparing);
+            changes.setValue(changes.getValue() + 1);
         });
     }
+
     public void cancelAssist() {
-        ++assistGeneration;
-        if (assistJob != null) assistJob.cancel();
-        assistBusy = false; suggestion = null; assistMessage = "";
+        if (assistKey != null) AiTaskRegistry.get().cancel(assistKey);
+        assistBusy = false;
+        suggestion = null;
+        assistMessage = assistKey == null ? "" : getApplication().getString(com.PixelFlow.app.R.string.ai_cancelled);
         changes.setValue(changes.getValue() + 1);
     }
     public boolean acceptAssist(String title, String content, boolean includeTags) {
         if (!editable() || suggestion == null || !textSnapshot().equals(assistSnapshot)) {
-            assistMessage = "草稿已修改，请重新生成建议。"; suggestion = null;
+            assistMessage = getApplication().getString(com.PixelFlow.app.R.string.ai_assist_retry); suggestion = null;
             changes.setValue(changes.getValue() + 1); return false;
         }
         if (title != null && !suggestion.title_candidates.contains(title)) return false;
@@ -135,10 +174,10 @@ public final class DraftEditorModel extends AndroidViewModel {
         // Current post API stores no separate tags: selected hashtags are explicit body text.
         if (includeTags) for (String tag : suggestion.tag_suggestions)
             if (!nextContent.contains(tag)) nextContent += "\n" + tag;
-        if (nextContent.length() > 5000) { assistMessage = "加入话题后正文超过 5000 字，请减少内容。"; return false; }
+        if (nextContent.length() > 5000) { assistMessage = getApplication().getString(com.PixelFlow.app.R.string.ai_assist_too_long); return false; }
         if (title != null) state.title = title;
         state.content = nextContent;
-        suggestion = null; assistMessage = "已填入草稿，保存或提交审核后生效。";
+        suggestion = null; assistMessage = getApplication().getString(com.PixelFlow.app.R.string.ai_assist_applied);
         notifyChange(); return true;
     }
     /** An unknown create is retried with the same Idempotency-Key; the backend replays it idempotently. */
@@ -157,6 +196,19 @@ public final class DraftEditorModel extends AndroidViewModel {
     }
     public void resume() {
         if (!current() || busy || state.done) return;
+        if (assistTask == null && state.assistIdentity != null) {
+            AiTaskRegistry.Task task = AiTaskRegistry.get().peek(state.assistIdentity);
+            if (task != null) {
+                assistKey = state.assistIdentity;
+                assistSnapshot = state.assistInputSnapshot;
+                observeAssist(task);
+            } else {
+                assistBusy = false;
+                suggestion = null;
+                assistMessage = getApplication().getString(com.PixelFlow.app.R.string.ai_expired);
+                changes.setValue(changes.getValue() + 1);
+            }
+        }
         if (state.postId != null) reconcile();
     }
     public void submit(boolean publish) {
@@ -286,7 +338,7 @@ public final class DraftEditorModel extends AndroidViewModel {
     }
     @Override protected void onCleared() {
         cleared = true;
-        if (assistJob != null) assistJob.cancel();
+        if (assistSubscription != null) assistSubscription.close();
         images.shutdownNow();
         // Already-issued server writes are not cancelled. No later stage starts after this editor closes.
     }

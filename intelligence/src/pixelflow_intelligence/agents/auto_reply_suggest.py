@@ -7,7 +7,7 @@ import json
 import time
 import uuid
 
-import httpx
+from ..clients.deepseek import chat_once
 
 SYSTEM = """你是社区作品的「评论自动回复」规则助手，帮助作者把想法整理成规则。
 输入 JSON：post(作品标题与正文)、prompt(作者的自然语言描述)。
@@ -29,19 +29,11 @@ class DeepSeekRuleWriter:
         if remaining <= 0:
             raise TimeoutError()
         payload = {"post": {"title": post_title, "content": post_content}, "prompt": prompt}
-        with httpx.Client(timeout=httpx.Timeout(remaining, connect=4),
-                          follow_redirects=False, transport=self.transport) as client:
-            response = client.post(
-                "https://api.deepseek.com/chat/completions",
-                headers={"Authorization": "Bearer " + self.settings.deepseek_api_key},
-                json={"model": self.settings.deepseek_model, "stream": False,
-                      "thinking": {"type": "disabled"}, "max_tokens": 900,
-                      "response_format": {"type": "json_object"},
-                      "messages": [{"role": "system", "content": SYSTEM},
-                                   {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}]})
-            response.raise_for_status()
-            body = response.json()
-        return json.loads(body["choices"][0]["message"]["content"])
+        raw_content, _ = chat_once(self.settings, system=SYSTEM,
+                                   user_content=json.dumps(payload, ensure_ascii=False),
+                                   max_tokens=900, timeout=remaining,
+                                   transport=self.transport)
+        return json.loads(raw_content)
 
 
 def _clean(raw_rules):

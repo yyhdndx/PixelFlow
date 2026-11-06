@@ -385,6 +385,40 @@ server {
     location ^~ /api/internal/ { return 404; }
     location = /api/admin { return 404; }
     location ^~ /api/admin/ { return 404; }
+    location = /api/agent/search/stream {
+        limit_req zone=pixelflow_api burst=10 nodelay;
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$remote_addr;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_buffering off;
+        proxy_cache off;
+        gzip off;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 15s;
+        proxy_ignore_client_abort off;
+        proxy_next_upstream off;
+    }
+    location ~ ^/api/posts/[1-9][0-9]*/summary/stream$ {
+        limit_req zone=pixelflow_api burst=10 nodelay;
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$remote_addr;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_buffering off;
+        proxy_cache off;
+        gzip off;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 15s;
+        proxy_ignore_client_abort off;
+        proxy_next_upstream off;
+    }
     location ~ ^/api/auth/(register|login|refresh)$ {
         limit_req zone=pixelflow_auth burst=10 nodelay;
         include /etc/nginx/snippets/pixelflow-proxy.conf;
