@@ -56,6 +56,8 @@ public class AutoReplyEditActivity extends AppCompatActivity {
             selectRow.setVisibility(View.GONE);
             aiApply.setEnabled(false);
             aiLoading.setVisibility(View.GONE);
+            findViewById(R.id.ai_rules_stop).setVisibility(View.GONE);
+            findViewById(R.id.ai_rules_status).setVisibility(View.GONE);
             aiGenerate.setEnabled(true);
         }
     }
@@ -106,6 +108,9 @@ public class AutoReplyEditActivity extends AppCompatActivity {
             answer.setText(getIntent().getStringExtra(EXTRA_ANSWER));
         } else {
             aiGenerate.setOnClickListener(v -> generate());
+            findViewById(R.id.ai_rules_stop).setOnClickListener(v -> {
+                if (suggestKey != null) AiTaskRegistry.get().cancel(suggestKey);
+            });
             selectAll.setOnClickListener(v -> {
                 boolean checked = selectAll.isChecked();
                 for (Candidate item : candidateList) item.box.setChecked(checked);
@@ -118,6 +123,15 @@ public class AutoReplyEditActivity extends AppCompatActivity {
                 String key = AiTaskRegistry.identity(ApiClient.getInstance(this), "rules", postId, restored);
                 AiTaskRegistry.Task existing = AiTaskRegistry.get().peek(key);
                 if (existing != null) attachSuggestions(existing, restored);
+            }
+            if (suggestTask == null) {
+                AiTaskRegistry.Task existing = AiTaskRegistry.get().latest(ApiClient.getInstance(this), "rules", postId);
+                if (existing != null) {
+                    String prompt = com.google.gson.JsonParser.parseString(existing.key).getAsJsonArray()
+                            .get(4).getAsJsonArray().get(1).getAsString();
+                    aiPrompt.setText(prompt);
+                    attachSuggestions(existing, prompt);
+                }
             }
             aiPrompt.addTextChangedListener(new android.text.TextWatcher() {
                 public void beforeTextChanged(CharSequence text, int start, int count, int after) { }
@@ -141,6 +155,14 @@ public class AutoReplyEditActivity extends AppCompatActivity {
             boolean sameInput = prompt.equals(aiPrompt.getText().toString().trim());
             aiGenerate.setEnabled(!value.isRunning() || !sameInput);
             aiLoading.setVisibility(value.isRunning() ? View.VISIBLE : View.GONE);
+            findViewById(R.id.ai_rules_stop).setVisibility(value.isRunning() ? View.VISIBLE : View.GONE);
+            TextView status = findViewById(R.id.ai_rules_status);
+            status.setText(value.error != null ? value.error : getString(
+                    value.state == AiTaskRegistry.State.EXPIRED ? R.string.ai_expired
+                    : value.state == AiTaskRegistry.State.CANCELLED ? R.string.ai_cancelled
+                    : value.state == AiTaskRegistry.State.WAITING ? R.string.ai_waiting
+                    : value.isRunning() ? R.string.ai_preparing : R.string.ai_assist_ready));
+            status.setVisibility(View.VISIBLE);
             if (!sameInput) {
                 updateSelection();
                 return;

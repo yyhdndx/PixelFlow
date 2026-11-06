@@ -97,6 +97,19 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/auto_reply_ai_generate" />
 
+                <TextView
+                    android:id="@+id/ai_rules_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/ai_rules_stop"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/ai_stop"
+                    android:visibility="gone" />
+
                 <ProgressBar
                     android:id="@+id/ai_loading"
                     android:layout_width="wrap_content"
