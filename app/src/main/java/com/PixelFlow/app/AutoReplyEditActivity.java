@@ -43,10 +43,33 @@ public class AutoReplyEditActivity extends AppCompatActivity {
 
     private final List<Candidate> candidateList = new ArrayList<>();
     private AiTaskRegistry.Task suggestTask;
+    private AiTaskRegistry.Subscription suggestSubscription;
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (suggestTask != null && !AiTaskRegistry.get().isCurrent(suggestTask)) {
+            if (suggestSubscription != null) suggestSubscription.close();
+            suggestTask = null;
+            renderedRules = null;
+            candidateList.clear();
+            candidates.removeAllViews();
+            selectRow.setVisibility(View.GONE);
+            aiApply.setEnabled(false);
+            aiLoading.setVisibility(View.GONE);
+            aiGenerate.setEnabled(true);
+        }
+    }
+
+    @Override protected void onDestroy() {
+        if (suggestSubscription != null) suggestSubscription.close();
+        super.onDestroy();
+    }
     private String suggestKey;
+    private String candidatePrompt;
+    private List<AutoReplyRule> renderedRules;
 
     private static final class Candidate {
-        final AutoReplyRule rule;
+        AutoReplyRule rule;
         final CheckBox box;
         Candidate(AutoReplyRule rule, CheckBox box) { this.rule = rule; this.box = box; }
     }
@@ -89,58 +112,81 @@ public class AutoReplyEditActivity extends AppCompatActivity {
                 updateSelection();
             });
             aiApply.setOnClickListener(v -> applySelected());
+            if (savedInstanceState != null && savedInstanceState.containsKey("ai_prompt_snapshot")) {
+                String restored = savedInstanceState.getString("ai_prompt_snapshot");
+                aiPrompt.setText(savedInstanceState.getString("ai_current_prompt", restored));
+                String key = AiTaskRegistry.identity(ApiClient.getInstance(this), "rules", postId, restored);
+                AiTaskRegistry.Task existing = AiTaskRegistry.get().peek(key);
+                if (existing != null) attachSuggestions(existing, restored);
+            }
+            aiPrompt.addTextChangedListener(new android.text.TextWatcher() {
+                public void beforeTextChanged(CharSequence text, int start, int count, int after) { }
+                public void onTextChanged(CharSequence text, int start, int before, int count) {
+                    aiGenerate.setEnabled(suggestTask == null || !suggestTask.isRunning()
+                            || !text.toString().trim().equals(candidatePrompt));
+                    updateSelection();
+                }
+                public void afterTextChanged(android.text.Editable text) { }
+            });
+        }
+    }
+
+    private void attachSuggestions(AiTaskRegistry.Task task, String prompt) {
+        suggestTask = task;
+        candidatePrompt = prompt;
+        suggestKey = AiTaskRegistry.identity(ApiClient.getInstance(this), "rules", postId, prompt);
+        if (suggestSubscription != null) suggestSubscription.close();
+        suggestSubscription = AiTaskRegistry.get().subscribe(task, this::runOnUiThread, value -> {
+            if (isDestroyed() || suggestTask != value) return;
+            boolean sameInput = prompt.equals(aiPrompt.getText().toString().trim());
+            aiGenerate.setEnabled(!value.isRunning() || !sameInput);
+            aiLoading.setVisibility(value.isRunning() ? View.VISIBLE : View.GONE);
+            if (!sameInput) {
+                updateSelection();
+                return;
+            }
+            if (value.result instanceof List && value.result != renderedRules) {
+                @SuppressWarnings("unchecked") List<AutoReplyRule> rules = (List<AutoReplyRule>) value.result;
+                renderedRules = rules;
+                renderCandidates(rules);
+            } else if (value.error != null) {
+                toast(value.error);
+            }
+            updateSelection();
+        });
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state);
+        if (suggestTask != null) {
+            state.putString("ai_prompt_snapshot", candidatePrompt);
+            state.putString("ai_current_prompt", aiPrompt.getText().toString().trim());
         }
     }
 
     private void generate() {
         String prompt = aiPrompt.getText() == null ? "" : aiPrompt.getText().toString().trim();
         if (prompt.isEmpty()) { toast(getString(R.string.auto_reply_ai_need_prompt)); return; }
-        suggestKey = "suggest:" + postId + ":" + prompt.hashCode();
-        AiTaskRegistry.Task task = AiTaskRegistry.get().getOrCreate(suggestKey);
-        suggestTask = task;
-
-        // 恢复：同一作品同一描述已有候选
-        if (task.state == AiTaskRegistry.State.COMPLETED && task.result instanceof List) {
-            @SuppressWarnings("unchecked") List<AutoReplyRule> restored = (List<AutoReplyRule>) task.result;
-            renderCandidates(restored);
-            return;
-        }
-        // 仍在生成：重新绑定进度
-        if (task.isRunning()) {
-            aiGenerate.setEnabled(false);
-            aiLoading.setVisibility(View.VISIBLE);
-            return;
-        }
-
-        aiGenerate.setEnabled(false);
-        aiLoading.setVisibility(View.VISIBLE);
-        final int generation = ++task.generation;
-        task.state = AiTaskRegistry.State.GENERATING;
-        task.result = null;
-        task.error = null;
-        task.job = ApiClient.getInstance(this).suggestAutoReplies(postId, prompt,
-                new CommunityClient.Callback<List<AutoReplyRule>>() {
-                    @Override public void onSuccess(List<AutoReplyRule> suggestions) {
-                        if (generation != task.generation) return;
-                        task.state = AiTaskRegistry.State.COMPLETED;
-                        task.result = suggestions;
-                        if (!isDestroyed()) {
-                            aiGenerate.setEnabled(true);
-                            aiLoading.setVisibility(View.GONE);
-                            renderCandidates(suggestions);
-                        }
-                    }
-                    @Override public void onFailure(String message) {
-                        if (generation != task.generation) return;
-                        task.state = AiTaskRegistry.State.FAILED;
-                        task.error = message;
-                        if (!isDestroyed()) {
-                            aiGenerate.setEnabled(true);
-                            aiLoading.setVisibility(View.GONE);
-                            toast(message);
-                        }
-                    }
-                });
+        CommunityClient api = ApiClient.getInstance(this);
+        String nextKey = AiTaskRegistry.identity(api, "rules", postId, prompt);
+        if (suggestKey != null && !suggestKey.equals(nextKey)) AiTaskRegistry.get().cancel(suggestKey);
+        suggestKey = nextKey;
+        AiTaskRegistry.Task previous = AiTaskRegistry.get().peek(suggestKey);
+        if (previous != null && !previous.isRunning() && previous.state != AiTaskRegistry.State.COMPLETED
+                && previous.state != AiTaskRegistry.State.NEW) AiTaskRegistry.get().remove(suggestKey);
+        candidatePrompt = prompt;
+        renderedRules = null;
+        candidates.removeAllViews();
+        candidateList.clear();
+        selectRow.setVisibility(View.GONE);
+        aiApply.setEnabled(false);
+        AiTaskRegistry.Task task;
+        try { task = AiTaskRegistry.get().getOrCreate(suggestKey); }
+        catch (IllegalStateException full) { toast(full.getMessage()); return; }
+        attachSuggestions(task, prompt);
+        String target = postId;
+        AiTaskRegistry.get().start(task, callback -> api.suggestAutoReplies(target, prompt,
+                com.PixelFlow.app.API.AiCallbacks.forward(callback)));
     }
 
     /** 候选列表：每条一个复选框，默认不勾选，交给作者决定。 */
@@ -153,6 +199,8 @@ public class AutoReplyEditActivity extends AppCompatActivity {
             return;
         }
         for (AutoReplyRule rule : suggestions) {
+            if (rule == null || rule.question.trim().isEmpty() || rule.answer.trim().isEmpty()
+                    || rule.question.length() > 500 || rule.answer.length() > 2000) continue;
             CheckBox box = new CheckBox(this);
             box.setText(getString(R.string.auto_reply_ai_candidate, rule.question, rule.answer));
             box.setTextSize(13);
@@ -160,22 +208,64 @@ public class AutoReplyEditActivity extends AppCompatActivity {
             box.setOnClickListener(v -> updateSelection());
             candidates.addView(box, new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-            candidateList.add(new Candidate(rule, box));
+            Candidate candidate = new Candidate(rule, box);
+            candidateList.add(candidate);
+            Button edit = new Button(this);
+            edit.setText(R.string.ai_rule_edit);
+            edit.setOnClickListener(view -> editCandidate(candidate));
+            candidates.addView(edit);
         }
         selectAll.setChecked(false);
         selectRow.setVisibility(View.VISIBLE);
         updateSelection();
     }
 
+    private void editCandidate(Candidate candidate) {
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        EditText q = new EditText(this);
+        q.setText(candidate.rule.question);
+        q.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(500)});
+        EditText a = new EditText(this);
+        a.setText(candidate.rule.answer);
+        a.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(2000)});
+        form.addView(q);
+        form.addView(a);
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+                .setTitle(R.string.ai_rule_edit).setView(form)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok, null).create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
+            if (q.getText().toString().trim().isEmpty() || a.getText().toString().trim().isEmpty()) {
+                toast(getString(R.string.auto_reply_need_both));
+                return;
+            }
+            com.google.gson.JsonObject fields = new com.google.gson.JsonObject();
+            fields.addProperty("question", q.getText().toString().trim());
+            fields.addProperty("answer", a.getText().toString().trim());
+            candidate.rule = AutoReplyRule.parse(fields);
+            candidate.box.setText(getString(R.string.auto_reply_ai_candidate, candidate.rule.question, candidate.rule.answer));
+            dialog.dismiss();
+        }));
+        dialog.show();
+    }
+
     private void updateSelection() {
         int selected = 0;
         for (Candidate item : candidateList) if (item.box.isChecked()) selected++;
-        aiApply.setEnabled(selected > 0);
+        aiApply.setEnabled(selected > 0 && suggestTask != null
+                && suggestTask.state == AiTaskRegistry.State.COMPLETED
+                && candidatePrompt != null && candidatePrompt.equals(aiPrompt.getText().toString().trim()));
         selectedCount.setText(getString(R.string.auto_reply_selected_count, selected, candidateList.size()));
         selectAll.setChecked(selected > 0 && selected == candidateList.size());
     }
 
     private void applySelected() {
+        if (candidatePrompt == null || !candidatePrompt.equals(aiPrompt.getText().toString().trim())
+                || suggestTask == null || suggestTask.state != AiTaskRegistry.State.COMPLETED) {
+            toast(getString(R.string.ai_rules_input_changed));
+            return;
+        }
         List<AutoReplyRule> selected = new ArrayList<>();
         for (Candidate item : candidateList) if (item.box.isChecked()) selected.add(item.rule);
         if (selected.isEmpty()) { toast(getString(R.string.auto_reply_apply_empty)); return; }
