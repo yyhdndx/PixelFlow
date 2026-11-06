@@ -51,6 +51,9 @@ pixelflow:
     upload-user:
       limit: ${PIXELFLOW_RATE_LIMIT_UPLOAD_USER_LIMIT:30}
       window: ${PIXELFLOW_RATE_LIMIT_UPLOAD_USER_WINDOW:60s}
+    message-user:
+      limit: ${PIXELFLOW_RATE_LIMIT_MESSAGE_USER_LIMIT:20}
+      window: ${PIXELFLOW_RATE_LIMIT_MESSAGE_USER_WINDOW:60s}
   jwt-secret: ${PIXELFLOW_JWT_SECRET:}
   seed: ${PIXELFLOW_SEED:false}
   admin-password: ${PIXELFLOW_ADMIN_PASSWORD:}

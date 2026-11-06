@@ -45,6 +45,10 @@ public final class RateLimitFilter extends OncePerRequestFilter {
             var authentication=SecurityContextHolder.getContext().getAuthentication();
             if (authentication!=null && authentication.getPrincipal() instanceof Actor actor)
                 attempts.add(new RedisRateLimiter.Attempt("upload-user",properties.uploadUser(),List.of(actor.id())));
+        } else if (path.matches("/api/conversations/[0-9]+/messages")) {
+            var authentication=SecurityContextHolder.getContext().getAuthentication();
+            if (authentication!=null && authentication.getPrincipal() instanceof Actor actor)
+                attempts.add(new RedisRateLimiter.Attempt("message-user",properties.messageUser(),List.of(actor.id())));
         }
         long otherRetry=limiter.count(attempts);
         boolean failed=ipRetry<0 || otherRetry<0;
