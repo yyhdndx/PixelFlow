@@ -36,7 +36,8 @@ def router(settings, upstream, store):
         if credentials is None:
             raise HTTPException(401, "User authentication required")
         try:
-            return upstream.me(credentials.credentials), credentials.credentials
+            started = time.monotonic()
+            return upstream.me(credentials.credentials), credentials.credentials, started
         except AuthenticationError:
             raise HTTPException(401, "Invalid user session") from None
         except UpstreamError:
@@ -56,7 +57,10 @@ def router(settings, upstream, store):
             budget = int(request.headers.get("X-Remaining-Budget-Ms", "45000"))
             if not 1 <= budget <= 55000:
                 raise ValueError()
-            item = pending.reserve(request_id, actor[0], time.monotonic() + min(45, budget / 1000))
+            deadline = actor[2] + min(45, budget / 1000)
+            if time.monotonic() >= deadline:
+                raise ValueError()
+            item = pending.reserve(request_id, actor[0], deadline)
         except ValueError:
             raise HTTPException(503, "Search request unavailable") from None
 

@@ -22,6 +22,13 @@ def router(settings, upstream, store):
         if credentials is None:
             raise HTTPException(401, "Authentication required")
         try:
+            budget = int(request.headers.get("X-Remaining-Budget-Ms", "45000"))
+            if not 1 <= budget <= 55000:
+                raise ValueError()
+        except ValueError:
+            raise HTTPException(400, "Invalid budget") from None
+        deadline = time.monotonic() + min(45, budget / 1000)
+        try:
             user = upstream.me(credentials.credentials)
             post = upstream._get("/api/posts/" + str(post_id), credentials.credentials)
         except AuthenticationError:
@@ -32,11 +39,12 @@ def router(settings, upstream, store):
             raise HTTPException(404, "Post unavailable")
         if len(str(post.get("content") or "").strip()) < 200:
             raise HTTPException(400, "Short text")
+        if time.monotonic() >= deadline:
+            raise HTTPException(503, "Summary deadline exceeded")
         if not settings.deepseek_api_key or not slots.acquire(blocking=False):
             raise HTTPException(503, "Summary unavailable")
         cancelled = threading.Event()
         frames = queue.Queue(maxsize=8)
-        deadline = time.monotonic() + 45
 
         def put(frame):
             while not cancelled.is_set() and time.monotonic() < deadline:

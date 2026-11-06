@@ -42,3 +42,20 @@ def test_stream_route_emits_prepared_but_requires_matching_confirmation(tmp_path
     assert client.post("/agent/search/stream/confirm", headers=headers, json={
         "request_id": request, "trace_id": events[-1]["trace_id"], "digest": "0" * 64}).status_code == 503
     assert client.delete("/agent/search/stream/" + request, headers=headers).status_code == 200
+
+
+def test_search_budget_includes_identity_lookup(tmp_path, monkeypatch):
+    clock = [100.0]
+
+    class SlowSource(Source):
+        def me(self, token):
+            clock[0] += 0.02
+            return super().me(token)
+
+    monkeypatch.setattr("pixelflow_intelligence.api.search_stream.time.monotonic", lambda: clock[0])
+    client = TestClient(create_app(Settings(database=str(tmp_path / "budget.db")), SlowSource()))
+    response = client.post("/agent/search/stream", headers={
+        "Authorization": "Bearer test", "X-Request-Id": str(uuid.uuid4()),
+        "X-Remaining-Budget-Ms": "10"}, json={"question": "问题"})
+    assert response.status_code == 503
+    assert "event: prepared" not in response.text

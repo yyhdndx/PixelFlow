@@ -38,3 +38,19 @@ def test_summary_stream_auth_visibility_and_complete_blocks(tmp_path, monkeypatc
         "event: summary", "event: point", "event: point", "event: point", "event: done"]
     source.status = "WITHDRAWN"
     assert client.get(path, headers=headers).status_code == 404
+
+
+def test_summary_budget_includes_identity_and_source_reads(tmp_path, monkeypatch):
+    clock = [100.0]
+
+    class SlowSource(Source):
+        def me(self, token):
+            clock[0] += 0.02
+            return super().me(token)
+
+    monkeypatch.setattr("pixelflow_intelligence.api.summary_stream.time.monotonic", lambda: clock[0])
+    client = TestClient(create_app(Settings(database=str(tmp_path / "budget.db"), deepseek_api_key="test"), SlowSource()))
+    response = client.get("/agent/posts/1/summary/stream", headers={
+        "Authorization": "Bearer test", "X-Remaining-Budget-Ms": "10"})
+    assert response.status_code == 503
+    assert "event: done" not in response.text
