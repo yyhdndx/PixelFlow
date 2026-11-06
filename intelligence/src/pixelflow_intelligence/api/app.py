@@ -143,6 +143,10 @@ def create_app(settings=None, upstream=None):
     store = Store(settings.database)
     upstream = upstream or JavaClient(settings)
     app = FastAPI(title="PixelFlow analytics", version="0.1.0")
+    from .search_stream import router as search_stream_router
+    app.include_router(search_stream_router(settings, upstream, store))
+    from .summary_stream import router as summary_stream_router
+    app.include_router(summary_stream_router(settings, upstream, store))
     bearer = HTTPBearer(auto_error=False)
 
     @app.middleware("http")
