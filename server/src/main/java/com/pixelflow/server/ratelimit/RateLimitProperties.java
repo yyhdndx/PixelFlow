@@ -13,7 +13,7 @@ public record RateLimitProperties(boolean enabled,
         @NotBlank @Pattern(regexp="[A-Za-z0-9:_-]{1,100}") String namespace,
         List<String> trustedProxies, @Valid @NotNull Rule loginIp,
         @Valid @NotNull Rule loginAccount, @Valid @NotNull Rule registerIp,
-        @Valid @NotNull Rule uploadUser) {
+        @Valid @NotNull Rule uploadUser, @Valid @NotNull Rule messageUser) {
     public record Rule(@Min(1) long limit, @NotNull Duration window) {
         @AssertTrue(message="window must be between 1 ms and 365 days")
         public boolean isWindowValid() {

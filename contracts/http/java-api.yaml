@@ -1264,6 +1264,88 @@ paths:
       responses:
         '200': {description: 本地生成演示封面, content: {image/png: {schema: {type: string, format: binary}}}}
         default: {$ref: '#/components/responses/Error'}
+  /api/conversations:
+    post:
+      description: 与目标用户创建一对一会话；已存在时返回既有会话（去重）。不能和自己建会话（400）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [targetUserId]
+              properties:
+                targetUserId: {type: string, pattern: '^[A-Za-z0-9_-]{1,36}$'}
+      responses:
+        '200': {description: 会话（新建或既有）, content: {application/json: {schema: {$ref: '#/components/schemas/Conversation'}}}}
+        default: {$ref: '#/components/responses/Error'}
+    get:
+      description: 会话列表，按 last_message_time 倒序游标分页；每条带对方资料、最后消息摘要与未读数。
+      parameters:
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+        - {name: cursor, in: query, schema: {type: string}, description: 上一页末项游标（last_message_time:conversation_id）}
+      responses:
+        '200':
+          description: '{status_code, conversation_list, has_more, next_cursor}'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ConversationPage'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/conversations/{id}/messages:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
+    get:
+      description: 历史消息，id 倒序游标分页；带 after 参数时只取增量（id > after，正序）。
+      parameters:
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 30}}
+        - {name: cursor, in: query, schema: {type: integer, format: int64, minimum: 1}, description: 上一页末项 message id}
+        - {name: after, in: query, schema: {type: integer, format: int64, minimum: 1}, description: 轮询增量：返回 id 大于该值的消息}
+      responses:
+        '200':
+          description: '{status_code, message_list, has_more, next_cursor}'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PrivateMessagePage'}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      description: 发送纯文本消息（1–1000 字，空白拒绝）；成功后更新会话最后消息。同用户 20 条/分钟限流。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [content]
+              properties:
+                content: {type: string, minLength: 1, maxLength: 1000}
+      responses:
+        '200': {description: 新消息, content: {application/json: {schema: {$ref: '#/components/schemas/PrivateMessage'}}}}
+        '429': {description: 频率超限，返回 Retry-After 头}
+        default: {$ref: '#/components/responses/Error'}
+  /api/conversations/{id}/read:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
+    put:
+      description: 标记已读；body 为空读到最新，否则读到指定消息 id；幂等。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                lastReadMessageId: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+      responses:
+        '200': {description: '{updated: true}'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/users/me/messages/unread-count:
+    get:
+      description: 私聊未读消息总数，用于消息 Tab 角标。
+      responses:
+        '200': {description: '{count}', content: {application/json: {schema: {type: object, required: [count], properties: {count: {type: integer, format: int64}}}}}}
+        default: {$ref: '#/components/responses/Error'}
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
@@ -1743,3 +1825,54 @@ components:
         after_status: {type: string}
         reason: {type: string}
         created_at: {type: integer, format: int64}
+    Conversation:
+      type: object
+      additionalProperties: false
+      required: [conversation_id, create_time, last_message_time, partner, last_message, unread_count]
+      description: 一对一会话。last_message 在无消息时为 null。
+      properties:
+        conversation_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        create_time: {type: integer, format: int64, minimum: 0}
+        last_message_time: {type: integer, format: int64, nullable: true}
+        partner:
+          type: object
+          additionalProperties: false
+          required: [user_id, nickname, avatar]
+          properties:
+            user_id: {type: string, maxLength: 36}
+            nickname: {type: string, maxLength: 40}
+            avatar: {type: string}
+        last_message:
+          type: object
+          nullable: true
+          properties:
+            message_id: {type: string, pattern: '^[1-9][0-9]*$'}
+            content: {type: string, maxLength: 1000}
+            create_time: {type: integer, format: int64}
+        unread_count: {type: integer, minimum: 0}
+    PrivateMessage:
+      type: object
+      additionalProperties: false
+      required: [message_id, conversation_id, sender_id, content, create_time]
+      properties:
+        message_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        conversation_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        sender_id: {type: string, maxLength: 36}
+        content: {type: string, minLength: 1, maxLength: 1000}
+        create_time: {type: integer, format: int64, minimum: 0}
+    ConversationPage:
+      type: object
+      required: [status_code, conversation_list, has_more, next_cursor]
+      properties:
+        status_code: {type: integer, enum: [0]}
+        conversation_list: {type: array, items: {$ref: '#/components/schemas/Conversation'}}
+        has_more: {type: integer, enum: [0, 1]}
+        next_cursor: {type: string, nullable: true, description: 存在下一页时为本页末条会话的 last_message_time 与 id 组合串，否则为 null}
+    PrivateMessagePage:
+      type: object
+      required: [status_code, message_list, has_more, next_cursor]
+      properties:
+        status_code: {type: integer, enum: [0]}
+        message_list: {type: array, items: {$ref: '#/components/schemas/PrivateMessage'}}
+        has_more: {type: integer, enum: [0, 1]}
+        next_cursor: {type: string, nullable: true, description: 存在下一页时为本页末条消息 id，否则为 null}
