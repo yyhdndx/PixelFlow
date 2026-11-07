@@ -160,6 +160,11 @@ public class CreateWorkActivity extends AppCompatActivity {
         String value = getIntent().getStringExtra(key);
         return value == null ? "" : value;
     }
+    /** 话题按空白拆分，词首自动补单个 #（保留手动输入的 #，重复 # 归一为单 #）。 */
+    private static String normalizeHashtags(String raw) {
+        if (raw == null || raw.isEmpty()) return "";
+        return raw.replaceAll("(^|\\s)(?=[^\\s#])", "$1#");
+    }
     private void captureText() {
         if (binding || model.state == null) return;
         model.state.title = etTitle.getText().toString();
@@ -214,19 +219,22 @@ public class CreateWorkActivity extends AppCompatActivity {
             @Override public void afterTextChanged(Editable s) { captureText(); updateSaveButtonState(); }
         });
 
-        // 话题标签：后端尚未实现标签提取，这里保留输入但不参与提交。
+        // 话题标签：按空格拆分后自动补 #，保留手动输入的 #（重复 # 归一为单 #）。
         etHashtags.addTextChangedListener(new TextWatcher() {
+            private boolean normalizing = false;
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (s.length() > 0 && s.charAt(s.length() - 1) == ' ') {
-                    String current = s.toString();
-                    if (!current.endsWith(" #") && !current.endsWith("  ")) {
-                        etHashtags.setText(current + "#");
-                        etHashtags.setSelection(etHashtags.getText().length());
-                    }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                if (normalizing) return;
+                String normalized = normalizeHashtags(s.toString());
+                if (!normalized.equals(s.toString())) {
+                    normalizing = true;
+                    etHashtags.setText(normalized);
+                    etHashtags.setSelection(normalized.length());
+                    normalizing = false;
                 }
+                captureText();
             }
-            @Override public void afterTextChanged(Editable s) { captureText(); }
         });
 
         btnAddImage.setOnClickListener(v -> openImagePicker());
