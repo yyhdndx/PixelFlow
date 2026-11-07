@@ -60,4 +60,32 @@ class CreationAssistProxyTest {
         assertThrows(ApiException.class,() -> controller.createAssist(request(),actor,"Bearer session-token"));
         verifyNoInteractions(store);
     }
+    @Test void revisionForwardsBothVersionsAndKeepsOriginalBinding() throws Exception {
+        var body = new CreationAssistController.CreateAssistRequest(request().draft(), "all", "再短一点", "",
+                new CreationAssistController.AssistDraft("上版标题", "上版正文", List.of("#咖啡")));
+        controller.createAssist(body, actor, "Bearer session-token");
+        var sent = json.readTree(payload.get());
+        assertEquals("正文", sent.path("draft").path("content").asText());
+        assertEquals("上版正文", sent.path("previous_result").path("content").asText());
+        assertEquals("再短一点", sent.path("prompt").asText());
+        verify(store).save(anyString(), eq(actor), eq("原稿"), eq("正文"), any());
+    }
+    @Test void invalidInputDoesNotReachModel() {
+        var empty = new CreationAssistController.AssistDraft("", "", List.of());
+        assertThrows(ApiException.class, () -> controller.createAssist(
+                new CreationAssistController.CreateAssistRequest(empty,"all","", ""),actor,"Bearer x"));
+        assertThrows(ApiException.class, () -> controller.createAssist(
+                new CreationAssistController.CreateAssistRequest(empty,"polish_content","润色", ""),actor,"Bearer x"));
+        assertThrows(ApiException.class, () -> controller.createAssist(
+                new CreationAssistController.CreateAssistRequest(request().draft(),"all","", "", empty),actor,"Bearer x"));
+        assertNull(payload.get()); verifyNoInteractions(store);
+    }
+    @Test void multipleCandidatesOrOutOfScopeChangesAreRejected() {
+        response=response.replace("[\"候选\"]", "[\"一版\",\"二版\"]");
+        assertThrows(ApiException.class, () -> controller.createAssist(request(),actor,"Bearer x"));
+        response=response.replace("[\"一版\",\"二版\"]", "[\"候选\"]");
+        assertThrows(ApiException.class, () -> controller.createAssist(
+                new CreationAssistController.CreateAssistRequest(request().draft(),"polish_content","", ""),actor,"Bearer x"));
+        verifyNoInteractions(store);
+    }
 }

@@ -54,7 +54,7 @@
     <string name="ai_stream_incomplete">回答未完成，请重新提交重试</string>
     <string name="ai_waiting">等待处理，可继续浏览</string>
     <string name="ai_preparing">正在准备来源，可继续浏览</string>
-    <string name="ai_assist_changed">草稿已修改，旧输入建议不会覆盖当前内容。</string>
+    <string name="ai_assist_changed">草稿已修改，这份建议基于修改前的内容。可以复制参考，或根据当前草稿重新生成。</string>
     <string name="ai_assist_ready">建议已生成，确认后才会填入草稿。</string>
     <string name="ai_assist_retry">草稿已修改，请重新生成建议。</string>
     <string name="ai_assist_too_long">加入话题后正文超过 5000 字，请减少内容。</string>

@@ -105,7 +105,7 @@ def test_assist_policy_version():
 
 def test_assist_writes_content_from_prompt():
     out = assist({"title": "", "content": "", "tags": []}, "write_content", prompt="咖啡")
-    assert len(out["content_candidates"]) == 3
+    assert len(out["content_candidates"]) == 1
     assert out["content_candidates"][0] == "今天想和大家分享一下「咖啡」的一些感受。"
 
 

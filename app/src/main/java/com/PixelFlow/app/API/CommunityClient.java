@@ -813,6 +813,10 @@ public class CommunityClient implements AutoCloseable {
     }
     public Job createAssist(String title, String content, List<String> tags, String goal, String prompt,
             String audience, Callback<CreationSuggestion> callback) {
+        return createAssist(title, content, tags, goal, prompt, audience, null, callback);
+    }
+    public Job createAssist(String title, String content, List<String> tags, String goal, String prompt,
+            String audience, CreationSuggestion.PreviousResult previous, Callback<CreationSuggestion> callback) {
         return submitAi((job, expected) -> {
             if (title.length() > 120 || content.length() > 5000 || prompt.length() > 200 || audience.length() > 64)
                 throw new ApiError(400, "输入内容过长，请精简后重试");
@@ -821,6 +825,7 @@ public class CommunityClient implements AutoCloseable {
             draft.add("tags", gson.toJsonTree(tags));
             JsonObject input = new JsonObject(); input.add("draft", draft);
             input.addProperty("goal", goal); input.addProperty("prompt", prompt); input.addProperty("audience", audience);
+            if (previous != null) input.add("previous_result", gson.toJsonTree(previous));
             String raw = authenticated(job, "/api/agent/create-assist", "POST", input, expected, true);
             CreationSuggestion result = gson.fromJson(raw, CreationSuggestion.class);
             if (result == null || !result.valid()) throw new ApiError(502, "建议响应不完整，请重试");
