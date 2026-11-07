@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="copilot_title">AI 助手</string>
+    <string name="copilot_history">历史</string>
+    <string name="copilot_close">收起</string>
+    <string name="copilot_send">发送</string>
+    <string name="copilot_hint">让 AI 帮你写评论、改草稿或回消息…</string>
+    <string name="copilot_apply">应用</string>
+    <string name="copilot_ignore">忽略</string>
+    <string name="copilot_regenerate">重新生成</string>
+    <string name="copilot_loading">AI 正在处理…</string>
+    <string name="copilot_failed">AI 暂时不可用，请稍后再试</string>
+    <string name="copilot_login_first">登录后才能使用 AI 助手</string>
+    <string name="copilot_stale">内容已更新，需要重新生成</string>
+    <string name="copilot_applied">已应用</string>
+    <string name="copilot_ignored">已忽略</string>
+    <string name="copilot_conflict">草稿已被修改，请重新生成</string>
+    <string name="copilot_history_title">AI 对话历史</string>
+    <string name="copilot_history_empty">还没有 AI 对话记录</string>
+    <string name="copilot_history_clear">清空全部</string>
+    <string name="copilot_history_cleared">已清空 AI 对话历史</string>
+    <string name="copilot_history_clear_confirm">清空后本机所有 AI 对话都会删除，确定继续？</string>
+    <string name="copilot_history_count">%1$d 条消息</string>
+    <string name="copilot_need_draft">先保存一次草稿后，AI 才能帮你改内容</string>
+    <string name="copilot_intro">可以让我帮你写评论、改草稿或回复消息。我会先给出方案，你确认后才会生效。</string>
+</resources>

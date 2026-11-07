@@ -398,6 +398,15 @@
             android:src="@drawable/ic_star_outline"
             app:tint="@color/profile_muted" />
 
+        <!-- AI 助手入口 -->
+        <ImageView
+            android:id="@+id/copilot_button"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginHorizontal="8dp"
+            android:contentDescription="@string/copilot_title"
+            android:src="@drawable/ic_sparkle"
+            android:tint="@color/profile_accent" />
         <!-- 分享按钮 -->
         <ImageView
             android:id="@+id/share_button"

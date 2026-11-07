@@ -37,6 +37,16 @@
             android:textColor="@color/profile_ink"
             android:gravity="center" />
 
+        <ImageButton
+            android:id="@+id/copilot_entry"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginEnd="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/copilot_title"
+            android:padding="10dp"
+            android:src="@drawable/ic_sparkle"
+            android:tint="@color/profile_accent" />
         <!-- 占位，保持对称 -->
         <View
             android:layout_width="44dp"

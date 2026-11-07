@@ -2,6 +2,7 @@ package com.pixelflow.server.copilot;
 
 import com.pixelflow.server.auth.AuthService.Actor;
 import com.pixelflow.server.common.ApiException;
+import com.pixelflow.server.content.PostService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -31,11 +32,24 @@ public class CopilotController {
                           @NotBlank @Size(max=2000) String message,
                           @Size(max=MAX_HISTORY) List<@Valid HistoryItem> history) {}
 
+    public record Application(@Size(max=120) String title,
+                              @NotBlank @Size(max=5000) String content,
+                              @NotNull @Min(0) Integer expected_version) {}
+
     private final JdbcTemplate db;
     private final CopilotAdvisor advisor;
+    private final PostService posts;
 
-    public CopilotController(JdbcTemplate db, CopilotAdvisor advisor) {
-        this.db = db; this.advisor = advisor;
+    public CopilotController(JdbcTemplate db, CopilotAdvisor advisor, PostService posts) {
+        this.db = db; this.advisor = advisor; this.posts = posts;
+    }
+
+    /** 应用 Copilot 的草稿修改：带 content_version 的乐观锁，冲突返回 409 VERSION_CONFLICT。 */
+    @PostMapping("/api/posts/{id}/copilot-application")
+    public Map<String,Object> apply(@PathVariable long id,@AuthenticationPrincipal Actor actor,
+                                    @Valid @RequestBody Application body) {
+        return posts.applyAssist(id, actor, body.title() == null ? "" : body.title(),
+                body.content(), body.expected_version());
     }
 
     @PostMapping("/api/agent/copilot")

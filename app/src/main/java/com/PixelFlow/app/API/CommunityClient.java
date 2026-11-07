@@ -473,6 +473,58 @@ public class CommunityClient implements AutoCloseable {
         }, callback);
     }
 
+    /** Copilot：上报页面与实体 ID，上下文由服务端按权限重读；只返回提案，不落库。 */
+    public Job copilot(String screen, String postId, String draftId, java.util.List<String> conversationIds,
+            String message, java.util.List<java.util.Map<String, String>> history,
+            Callback<CopilotReply> callback) {
+        return submitAi((job, expected) -> {
+            if (message == null || message.trim().isEmpty()) throw new ApiError(400, "请先输入内容");
+            JsonObject input = new JsonObject();
+            input.addProperty("screen", screen);
+            if (postId != null) input.addProperty("postId", postId);
+            if (draftId != null) input.addProperty("draftId", draftId);
+            if (conversationIds != null && !conversationIds.isEmpty())
+                input.add("conversationIds", gson.toJsonTree(conversationIds));
+            input.addProperty("message", message.trim());
+            if (history != null && !history.isEmpty()) input.add("history", gson.toJsonTree(history));
+            String raw = authenticated(job, "/api/agent/copilot", "POST", input, expected, true);
+            return CopilotReply.parse(gson.fromJson(raw, JsonObject.class));
+        }, callback);
+    }
+
+    /** 应用 Copilot 的草稿修改；版本不一致返回 409，界面只能重新生成。 */
+    public Job applyCopilotDraft(String postId, String title, String content, int expectedVersion,
+            Callback<Boolean> callback) {
+        return submit((job, expected) -> {
+            JsonObject input = new JsonObject();
+            if (title != null && !title.isEmpty()) input.addProperty("title", title);
+            input.addProperty("content", content == null ? "" : content);
+            input.addProperty("expected_version", expectedVersion);
+            authenticated(job, "/api/posts/" + postId + "/copilot-application", "POST", input, expected, true);
+            return Boolean.TRUE;
+        }, callback);
+    }
+
+    /** Copilot 批量私信：一次最多 10 条，服务端单事务。 */
+    public Job sendMessagesBatch(java.util.List<java.util.Map<String, String>> items,
+            Callback<Boolean> callback) {
+        return submit((job, expected) -> {
+            JsonObject input = new JsonObject();
+            JsonArray array = new JsonArray();
+            int count = 0;
+            for (java.util.Map<String, String> item : items) {
+                if (count++ >= 10) break;
+                JsonObject row = new JsonObject();
+                row.addProperty("conversation_id", item.get("conversation_id"));
+                row.addProperty("content", item.get("content"));
+                array.add(row);
+            }
+            if (array.size() == 0) throw new ApiError(400, "没有可发送的内容");
+            input.add("items", array);
+            authenticated(job, "/api/conversations/messages/batch", "POST", input, expected, true);
+            return Boolean.TRUE;
+        }, callback);
+    }
     /** 长文提炼：只读正文，正文不足 200 字服务端会直接 400，界面不该显示入口。 */
     public Job getPostSummaryStream(String postId, java.util.function.Consumer<JsonObject> progress, Callback<PostSummary> callback) {
         return submitAi((job, expected) -> {

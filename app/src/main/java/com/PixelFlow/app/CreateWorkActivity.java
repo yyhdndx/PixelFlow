@@ -168,6 +168,19 @@ public class CreateWorkActivity extends AppCompatActivity {
             Toast.makeText(this, model.state.message, Toast.LENGTH_LONG).show();
             finish(); return;
         }
+        View copilotEntry = findViewById(R.id.copilot_entry);
+        if (copilotEntry != null) copilotEntry.setOnClickListener(v -> {
+            if (!com.PixelFlow.app.API.ApiClient.getInstance(this).isLoggedIn()) {
+                startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
+                return;
+            }
+            if (model.state.postId == null) {
+                android.widget.Toast.makeText(this, R.string.copilot_need_draft, android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
+            com.PixelFlow.app.copilot.CopilotSheet.open(this, "create", null, model.state.postId, 0, null,
+                    tvTitle.getText().toString());
+        });
         tvTitle.setText(model.state.postId == null ? "创作作品" : "编辑作品");
         findViewById(R.id.creation_assist).setEnabled(model.editable() && !model.assistBusy);
         TextView assistStatus = findViewById(R.id.creation_assist_status);

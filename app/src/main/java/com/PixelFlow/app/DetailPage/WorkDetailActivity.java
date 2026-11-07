@@ -854,6 +854,15 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
         // 分享按钮
         shareButton.setOnClickListener(v -> shareWork());
+        View copilot = findViewById(R.id.copilot_button);
+        if (copilot != null) copilot.setOnClickListener(v -> {
+            if (!ApiClient.getInstance(this).isLoggedIn()) {
+                startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
+                return;
+            }
+            com.PixelFlow.app.copilot.CopilotSheet.open(this, "detail", workItem.getId(), null, 0, null,
+                    workItem.getTitle());
+        });
 
         // 评论输入框：未登录点按时跳登录页（与点赞/关注一致）
         commentInput.setOnFocusChangeListener((v, hasFocus) -> {
@@ -956,6 +965,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             });
         }
     }
+
+    /** Copilot 应用评论后，回到前台时刷新评论区。 */
+    public void refreshCommentsAfterCopilot() { reloadComments(); }
 
     private void reloadComments() {
         commentsGeneration++;
@@ -1503,3 +1515,4 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         }
     }
 }
+

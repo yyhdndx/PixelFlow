@@ -1445,6 +1445,28 @@ paths:
         '200': {description: 新消息, content: {application/json: {schema: {$ref: '#/components/schemas/PrivateMessage'}}}}
         '429': {description: 频率超限，返回 Retry-After 头}
         default: {$ref: '#/components/responses/Error'}
+  /api/posts/{id}/copilot-application:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    post:
+      description: 应用 Copilot 的草稿修改。带 content_version 乐观锁：版本不一致返回 409 VERSION_CONFLICT，客户端只能重新生成，不提供覆盖。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [content, expected_version]
+              properties:
+                title: {type: string, maxLength: 120}
+                content: {type: string, maxLength: 5000}
+                expected_version: {type: integer, minimum: 0}
+      responses:
+        '200': {description: 更新后的作品详情（含新的 content_version）}
+        '403': {description: 不是本人草稿}
+        '409': {description: 版本冲突或状态不允许编辑，需重新生成}
+        default: {$ref: '#/components/responses/Error'}
   /api/conversations/messages/batch:
     post:
       description: 批量发送私信（Copilot 一次回复多人）。单事务，全部成功或全部失败；同一会话在一次请求里只能出现一次；每次最多 10 条。
