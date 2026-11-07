@@ -108,7 +108,7 @@
                     android:visibility="gone" />
             </LinearLayout>
 
-            <TextView
+            <TextView android:id="@+id/label_titles"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
@@ -124,7 +124,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
 
-            <TextView
+            <TextView android:id="@+id/label_copies"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
@@ -163,6 +163,24 @@
                 app:chipStrokeWidth="0dp"
                 app:chipMinTouchTargetSize="40dp"
                 android:visibility="gone" />
+            <TextView android:id="@+id/ai_preview_status"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" android:textColor="@color/profile_muted" />
+            <EditText android:id="@+id/et_ai_revision"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:hint="@string/ai_creation_revision_hint" android:inputType="textMultiLine"
+                android:minLines="2" android:maxLength="200" android:textColor="@color/profile_ink" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/btn_ai_refine"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="@string/ai_creation_refine" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/btn_ai_copy"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="@string/ai_creation_copy" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/btn_ai_refresh"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="@string/ai_creation_refresh" android:visibility="gone" />
         </LinearLayout>
     </ScrollView>
 

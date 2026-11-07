@@ -181,8 +181,16 @@ paths:
                     content: {type: string, maxLength: 5000}
                     tags: {type: array, maxItems: 20, items: {type: string, maxLength: 32}}
                 goal: {type: string, enum: [all, improve_title, suggest_tags, polish_content, write_content]}
-                prompt: {type: string, maxLength: 200}
-                audience: {type: string, maxLength: 64}
+                prompt: {type: string, maxLength: 200, description: 唯一的写作或修改要求；有草稿时可省略，继续修改时必须非空}
+                audience: {type: string, maxLength: 64, description: 兼容旧客户端，新客户端不再填写}
+                previous_result:
+                  type: object
+                  description: 可选的上一版文字快照。与原始 draft、goal 和本次 prompt 一起用于继续修改；不保存对话历史。无模型时继续修改返回 503。
+                  required: [title, content]
+                  properties:
+                    title: {type: string, maxLength: 120}
+                    content: {type: string, maxLength: 5000}
+                    tags: {type: array, maxItems: 20, items: {type: string, maxLength: 32}}
       responses:
         '200':
           description: 候选预览；Cache-Control 为 no-store
@@ -198,8 +206,8 @@ paths:
                   goal: {type: string}
                   provider: {type: string, enum: [deepseek, rules]}
                   policy_version: {type: string}
-                  title_candidates: {type: array, items: {type: string, maxLength: 120}}
-                  content_candidates: {type: array, items: {type: string, maxLength: 5000}}
+                  title_candidates: {type: array, maxItems: 1, items: {type: string, maxLength: 120}}
+                  content_candidates: {type: array, maxItems: 1, items: {type: string, maxLength: 5000}}
                   tag_suggestions: {type: array, items: {type: string}}
                   edit_suggestions: {type: array, items: {type: string}}
                   safety:
@@ -209,7 +217,7 @@ paths:
                       rule_hits: {type: array, items: {type: string}}
                       suggestions: {type: array, items: {type: string}}
                       requires_human_review: {type: boolean}
-        '400': {description: 参数无效}
+        '400': {description: 参数无效；草稿与要求均空；润色没有正文；继续修改未填写要求}
         '401': {description: 登录失效}
         '502': {description: 上游响应不完整}
         '503': {description: 模型超时、不可用、输出无效或服务繁忙；保留原稿，可重试或跳过}

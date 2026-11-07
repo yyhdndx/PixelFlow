@@ -30,8 +30,6 @@ def _write_content_candidates(topic):
     # 规则版仅模板生成，接模型后替换为自然文案。
     return [
         f"今天想和大家分享一下「{topic}」的一些感受。",
-        f"「{topic}」——记录一下我最近的一点小心得。",
-        f"关于「{topic}」，我有些想说的话。",
     ]
 
 

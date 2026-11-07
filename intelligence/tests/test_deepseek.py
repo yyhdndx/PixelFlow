@@ -44,6 +44,38 @@ def test_rejects_invalid_model_output(bad):
     with pytest.raises(SkillError, match="MODEL_UNAVAILABLE"):
         invoke(lambda _: response(bad))
 
+@pytest.mark.parametrize("goal,allowed", [
+    ("all", {"title_candidates", "content_candidates", "tag_suggestions"}),
+    ("improve_title", {"title_candidates"}), ("suggest_tags", {"tag_suggestions"}),
+    ("polish_content", {"content_candidates"}), ("write_content", {"content_candidates"}),
+])
+def test_each_goal_only_returns_its_editable_fields(goal, allowed):
+    result = invoke(lambda _: response(), goal).model_dump()
+    for key in {"title_candidates", "content_candidates", "tag_suggestions"}:
+        assert bool(result[key]) == (key in allowed)
+
+def test_revision_sends_original_and_previous_version_without_user_identity():
+    def handler(request):
+        payload = json.loads(request.content)
+        data = json.loads(payload["messages"][1]["content"])
+        assert data["draft"]["content"] == "原始经历"
+        assert data["previous_result"]["content"] == "上一版正文"
+        assert data["prompt"] == "更口语化" and data["goal"] == "polish_content"
+        assert "user_id" not in data
+        return response()
+    data = CreateAssistInput(user_id="alice", draft={"title":"原标题","content":"原始经历","tags":[]},
+        goal="polish_content", prompt="更口语化",
+        previous_result={"title":"原标题","content":"上一版正文","tags":[]})
+    result = DeepSeekAssist(Settings(deepseek_api_key="test"), httpx.MockTransport(handler))(
+        data, Context("alice", frozenset({"content:assist"}), int(time.time()), time.monotonic()+10))
+    assert len(result.content_candidates) == 1 and not result.title_candidates
+
+def test_multiple_versions_are_rejected_and_long_text_is_preserved():
+    with pytest.raises(SkillError):
+        invoke(lambda _: response({**OUTPUT, "content_candidates": ["一版", "二版"]}))
+    result = invoke(lambda _: response({**OUTPUT, "content_candidates": ["长" * 3000]}))
+    assert len(result.content_candidates[0]) == 3000
+
 @pytest.mark.parametrize("status", [401, 402, 429, 500, 302])
 def test_upstream_errors_are_sanitized(status):
     with pytest.raises(SkillError) as error:

@@ -81,8 +81,16 @@ class CreationAssistApiTest {
 
     @Test void createAssistUnavailableWhenIntelligenceNotConfigured() throws Exception {
         mvc.perform(post("/api/agent/create-assist").header("Authorization", alice).contentType("application/json")
-                .content("{\"draft\":{\"title\":\"\",\"content\":\"\",\"tags\":[]},\"goal\":\"all\"}"))
+                .content("{\"draft\":{\"title\":\"咖啡\",\"content\":\"\",\"tags\":[]},\"goal\":\"all\"}"))
                 .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("ASSIST_UNAVAILABLE"));
+    }
+    @Test void revisionShapeAndBlankInputAreValidatedBeforeProxying() throws Exception {
+        for (String body : List.of(
+                "{\"draft\":{\"title\":\"\",\"content\":\"\"},\"goal\":\"all\"}",
+                json.writeValueAsString(Map.of("draft", Map.of("title","咖啡","content","正文"), "goal","all", "prompt","再短一点",
+                        "previous_result",Map.of("title","标题","content","x".repeat(5001))))))
+            mvc.perform(post("/api/agent/create-assist").header("Authorization",alice).contentType("application/json").content(body))
+                    .andExpect(status().isBadRequest());
     }
 
     @Test void createAssistRejectsUnknownGoal() throws Exception {
