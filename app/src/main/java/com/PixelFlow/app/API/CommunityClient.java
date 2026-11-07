@@ -347,7 +347,8 @@ public class CommunityClient implements AutoCloseable {
                 throw new ApiError(400, "搜索关键词需为 1–60 字");
             if (count < 1 || count > 50 || (cursor != null && !cursor.matches("[1-9][0-9]{0,18}")))
                 throw new ApiError(400, "分页参数无效");
-            String encoded = java.net.URLEncoder.encode(query.trim(), java.nio.charset.StandardCharsets.UTF_8);
+            // The Charset overload requires Android API 33; the name overload supports our minSdk 24.
+            String encoded = java.net.URLEncoder.encode(query.trim(), java.nio.charset.StandardCharsets.UTF_8.name());
             ApiResponse result = gson.fromJson(authenticated(job, "/api/search/posts?q=" + encoded
                     + "&count=" + count + (cursor == null ? "" : "&cursor=" + cursor),
                     "GET", null, expected, false), ApiResponse.class);
