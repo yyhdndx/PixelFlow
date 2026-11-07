@@ -18,6 +18,7 @@ from ..agents.moderation import suggest_moderation
 from ..agents.comment_reply import decide_reply
 from ..agents.auto_reply_suggest import suggest_rules
 from ..agents.post_summary import summarize_post
+from ..agents.copilot import run_copilot
 
 
 class ProfileRefreshInput(BaseModel):
@@ -91,6 +92,20 @@ class CommentReplyRequest(BaseModel):
     content: str = Field(max_length=5000)
     comment: str = Field(min_length=1, max_length=500)
     rules: list[CommentReplyRule] = Field(min_length=1, max_length=10)
+
+
+class CopilotHistoryItem(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    role: str = Field(pattern=r"^(user|assistant)$")
+    content: str = Field(max_length=500)
+
+
+class CopilotRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    screen: str = Field(pattern=r"^(detail|create|messages)$")
+    message: str = Field(min_length=1, max_length=2000)
+    history: list[CopilotHistoryItem] = Field(default_factory=list, max_length=20)
+    context: dict = Field(default_factory=dict)
 
 
 class PostSummaryRequest(BaseModel):
@@ -294,6 +309,21 @@ def create_app(settings=None, upstream=None):
             raise HTTPException(502, "Comment reply store unavailable") from None
         return {"status_code": 0, "reply": decision}
 
+    @app.post("/internal/copilot")
+    def copilot(body: CopilotRequest,
+                credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        verify_maintenance(credentials)
+        context = Context("copilot-service", frozenset({"posts:read", "drafts:write", "messages:write"}),
+                          int(time.time()), time.monotonic() + 45)
+        try:
+            result = run_copilot(screen=body.screen, context=body.context, message=body.message,
+                                 history=[item.model_dump() for item in body.history],
+                                 settings=settings, store=store, ctx=context)
+        except (SkillError, TimeoutError, ValidationError, ValueError):
+            raise HTTPException(502, "Copilot unavailable") from None
+        except (KeyError, TypeError, *DATABASE_ERRORS):
+            raise HTTPException(502, "Copilot store unavailable") from None
+        return {"status_code": 0, "copilot": result}
     @app.post("/internal/post-summary")
     def post_summary(body: PostSummaryRequest,
                      credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):

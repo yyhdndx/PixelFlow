@@ -145,6 +145,52 @@ public class PrivateMessageService {
         return result;
     }
 
+    /** 批量发送：单事务，全部成功或全部失败；同一会话在一次请求里只能出现一次。 */
+    @org.springframework.transaction.annotation.Transactional
+    public Map<String, Object> sendBatch(String actorId, List<Map<String, String>> items) {
+        if (items == null || items.isEmpty())
+            throw new ApiException(400, "INVALID_ARGUMENT", "至少发送一条消息");
+        if (items.size() > 10)
+            throw new ApiException(400, "INVALID_ARGUMENT", "一次最多发送 10 条");
+        Set<Long> conversations = new LinkedHashSet<>();
+        for (Map<String, String> item : items) {
+            String raw = item.get("conversation_id");
+            long id;
+            try { id = Long.parseLong(raw); }
+            catch (RuntimeException error) { throw new ApiException(400, "INVALID_ARGUMENT", "会话 ID 无效"); }
+            if (!conversations.add(id))
+                throw new ApiException(400, "INVALID_ARGUMENT", "同一会话只能出现一次");
+        }
+        long now = Instant.now().getEpochSecond();
+        List<Map<String, Object>> sent = new ArrayList<>();
+        for (Map<String, String> item : items) {
+            long conversationId = Long.parseLong(item.get("conversation_id"));
+            String content = item.get("content");
+            requireParticipant(actorId, conversationId);
+            KeyHolder key = new GeneratedKeyHolder();
+            db.update(connection -> {
+                PreparedStatement ps = connection.prepareStatement(
+                        "INSERT INTO messages (conversation_id, sender_id, content, create_time) VALUES (?,?,?,?)",
+                        Statement.RETURN_GENERATED_KEYS);
+                ps.setLong(1, conversationId); ps.setString(2, actorId);
+                ps.setString(3, content); ps.setLong(4, now);
+                return ps;
+            }, key);
+            long messageId = key.getKey().longValue();
+            db.update("UPDATE conversations SET last_message_id=?, last_message_time=? WHERE id=?",
+                    messageId, now, conversationId);
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("conversation_id", Long.toString(conversationId));
+            row.put("message_id", Long.toString(messageId));
+            row.put("content", content);
+            row.put("create_time", now);
+            sent.add(row);
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status_code", 0);
+        result.put("sent", sent);
+        return result;
+    }
     // ---------- 标记已读 ----------
     public void markRead(String actorId, long conversationId, Long lastReadMessageId) {
         requireParticipant(actorId, conversationId);

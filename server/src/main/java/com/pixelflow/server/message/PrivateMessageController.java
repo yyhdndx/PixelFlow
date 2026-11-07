@@ -6,6 +6,10 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.NotNull;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
@@ -51,6 +55,25 @@ public class PrivateMessageController {
         return messages.send(actor.id(), id, content);
     }
 
+    public record BatchItem(@NotBlank @Pattern(regexp="[1-9][0-9]{0,18}") String conversation_id,
+                            @NotBlank @Size(max=1000) String content) {}
+    public record BatchInput(@NotNull @Size(min=1,max=10) List<@Valid BatchItem> items) {}
+
+    /** 批量发送：供 Copilot「一次回复多人」使用；单事务，全部成功或全部失败。 */
+    @PostMapping("/api/conversations/messages/batch")
+    public Map<String, Object> sendBatch(@AuthenticationPrincipal Actor actor, @Valid @RequestBody BatchInput input) {
+        List<Map<String, String>> items = new ArrayList<>();
+        for (BatchItem item : input.items()) {
+            String content = item.content() == null ? "" : item.content().trim();
+            if (content.isEmpty()) throw new ApiException(400, "INVALID_ARGUMENT", "消息不能为空");
+            if (content.length() > 1000) throw new ApiException(400, "INVALID_ARGUMENT", "消息最多 1000 字");
+            Map<String, String> row = new LinkedHashMap<>();
+            row.put("conversation_id", item.conversation_id());
+            row.put("content", content);
+            items.add(row);
+        }
+        return messages.sendBatch(actor.id(), items);
+    }
     @PutMapping("/api/conversations/{id}/read")
     public Map<String, Object> markRead(@AuthenticationPrincipal Actor actor, @PathVariable long id,
             @Valid @RequestBody(required = false) ReadInput input) {
