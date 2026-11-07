@@ -272,7 +272,10 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
     // 实现HomeFragment的滚动监听接口
     @Override
     public void onScrollDown() {
-        // 发布入口已移入底部导航，不遮挡作品，滚动时保持可用。
+        // 快速下滑时，FAB 滑出底边，避免遮挡内容
+        if (isFabVisible && fabCamera != null) {
+            hideFab();
+        }
     }
 
     /** 消息通知角标：未登录隐藏，登录后按未读数展示。 */

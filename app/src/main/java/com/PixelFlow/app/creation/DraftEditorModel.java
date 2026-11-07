@@ -85,12 +85,34 @@ public final class DraftEditorModel extends AndroidViewModel {
         if (discarded) return true;
         if (!ownsSession()) return false;
         // Write the create marker before sending POST, even after Activity state has been saved.
-        return journal().edit().putString(state.editorId, new Gson().toJson(state)).commit();
+        // 同时记录「当前草稿」指针，供下次进入创作页时恢复。
+        return journal().edit()
+                .putString(state.editorId, new Gson().toJson(state))
+                .putString("current_editor_id", state.editorId)
+                .commit();
     }
     public void discard() {
         cancelAssist();
         discarded = true;
         journal().edit().remove(state.editorId).apply();
+    }
+    /** 取最近一次保存的草稿（仅同一账号、且仍是可编辑状态），供新创作页恢复；无则返回 null。 */
+    public State loadLastDraft() {
+        String editorId = journal().getString("current_editor_id", null);
+        if (editorId == null) return null;
+        String json = journal().getString(editorId, null);
+        if (json == null) return null;
+        State saved;
+        try { saved = new Gson().fromJson(json, State.class); }
+        catch (RuntimeException error) { return null; }
+        if (saved == null || !Objects.equals(saved.owner, api.username())) return null;
+        if (!Arrays.asList("DRAFT", "REJECTED", "WITHDRAWN").contains(saved.status)) return null;
+        saved.done = false;
+        saved.phase = "IDLE";
+        saved.message = "";
+        saved.creationUnknown = false;
+        saved.needsReconcile = saved.postId != null;
+        return saved;
     }
     private boolean notifyChange() {
         boolean saved = checkpoint();

@@ -20,8 +20,10 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.PixelFlow.app.API.ApiClient;
 import com.PixelFlow.app.API.AccountMedia;
+import com.PixelFlow.app.API.CommunityClient;
 import com.PixelFlow.app.creation.DraftEditorModel;
 import com.PixelFlow.app.creation.DraftEditorModel.MediaEntry;
+import com.PixelFlow.app.DetailPage.FullScreenMediaDialog;
 import androidx.lifecycle.ViewModelProvider;
 import com.google.gson.Gson;
 import com.google.android.material.button.MaterialButton;
@@ -136,6 +138,13 @@ public class CreateWorkActivity extends AppCompatActivity {
                 if (ids != null) for (int i = 0; i < ids.size(); i++)
                     initial.media.add(new MediaEntry(null, urls != null && i < urls.size() ? urls.get(i) : null, ids.get(i)));
                 initial.needsReconcile = initial.postId != null;
+                // 空白创作（未指定作品、未带初始图片/自动选图）时，恢复上次保存的草稿
+                if (initial.postId == null
+                        && !getIntent().getBooleanExtra(EXTRA_AUTO_PICK, false)
+                        && getIntent().getStringArrayListExtra(EXTRA_INITIAL_URIS) == null) {
+                    DraftEditorModel.State lastDraft = model.loadLastDraft();
+                    if (lastDraft != null) initial = lastDraft;
+                }
             }
             model.initialize(initial, restored);
         }
@@ -150,6 +159,11 @@ public class CreateWorkActivity extends AppCompatActivity {
     private String textExtra(String key) {
         String value = getIntent().getStringExtra(key);
         return value == null ? "" : value;
+    }
+    /** 话题按空白拆分，词首自动补单个 #（保留手动输入的 #，重复 # 归一为单 #）。 */
+    private static String normalizeHashtags(String raw) {
+        if (raw == null || raw.isEmpty()) return "";
+        return raw.replaceAll("(^|\\s)(?=[^\\s#])", "$1#");
     }
     private void captureText() {
         if (binding || model.state == null) return;
@@ -218,19 +232,22 @@ public class CreateWorkActivity extends AppCompatActivity {
             @Override public void afterTextChanged(Editable s) { captureText(); updateSaveButtonState(); }
         });
 
-        // 话题标签：后端尚未实现标签提取，这里保留输入但不参与提交。
+        // 话题标签：按空格拆分后自动补 #，保留手动输入的 #（重复 # 归一为单 #）。
         etHashtags.addTextChangedListener(new TextWatcher() {
+            private boolean normalizing = false;
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (s.length() > 0 && s.charAt(s.length() - 1) == ' ') {
-                    String current = s.toString();
-                    if (!current.endsWith(" #") && !current.endsWith("  ")) {
-                        etHashtags.setText(current + "#");
-                        etHashtags.setSelection(etHashtags.getText().length());
-                    }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                if (normalizing) return;
+                String normalized = normalizeHashtags(s.toString());
+                if (!normalized.equals(s.toString())) {
+                    normalizing = true;
+                    etHashtags.setText(normalized);
+                    etHashtags.setSelection(normalized.length());
+                    normalizing = false;
                 }
+                captureText();
             }
-            @Override public void afterTextChanged(Editable s) { captureText(); }
         });
 
         btnAddImage.setOnClickListener(v -> openImagePicker());
@@ -501,6 +518,7 @@ public class CreateWorkActivity extends AppCompatActivity {
                     .placeholder(R.drawable.ic_image_placeholder)
                     .error(R.drawable.ic_image_error).centerCrop().into(imageView);
         }
+        imageView.setOnClickListener(v -> openFullScreen(entry));
 
         View deleteButton = new View(this);
         LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(dpToPx(20), dpToPx(20));
@@ -518,6 +536,22 @@ public class CreateWorkActivity extends AppCompatActivity {
         cardView.addView(imageView);
         cardView.addView(deleteButton);
         mediaPreviewContainer.addView(cardView);
+    }
+
+    /** 点击已上传图片：全屏查看；私有媒体带鉴权取字节，本地 URI 直接加载。 */
+    private void openFullScreen(MediaEntry entry) {
+        if (entry.mediaId != null && entry.url != null) {
+            api.getMediaContent(entry.url, new CommunityClient.Callback<byte[]>() {
+                @Override public void onSuccess(byte[] bytes) {
+                    new FullScreenMediaDialog(CreateWorkActivity.this, bytes).show();
+                }
+                @Override public void onFailure(String message) {
+                    Toast.makeText(CreateWorkActivity.this, "图片加载失败", Toast.LENGTH_SHORT).show();
+                }
+            });
+        } else if (entry.uri != null) {
+            new FullScreenMediaDialog(CreateWorkActivity.this, entry.uri).show();
+        }
     }
 
     private void addMoreIndicator(int moreCount) {
