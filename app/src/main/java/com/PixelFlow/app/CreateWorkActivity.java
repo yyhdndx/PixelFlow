@@ -20,8 +20,10 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.PixelFlow.app.API.ApiClient;
 import com.PixelFlow.app.API.AccountMedia;
+import com.PixelFlow.app.API.CommunityClient;
 import com.PixelFlow.app.creation.DraftEditorModel;
 import com.PixelFlow.app.creation.DraftEditorModel.MediaEntry;
+import com.PixelFlow.app.DetailPage.FullScreenMediaDialog;
 import androidx.lifecycle.ViewModelProvider;
 import com.google.gson.Gson;
 import com.google.android.material.button.MaterialButton;
@@ -136,6 +138,13 @@ public class CreateWorkActivity extends AppCompatActivity {
                 if (ids != null) for (int i = 0; i < ids.size(); i++)
                     initial.media.add(new MediaEntry(null, urls != null && i < urls.size() ? urls.get(i) : null, ids.get(i)));
                 initial.needsReconcile = initial.postId != null;
+                // 空白创作（未指定作品、未带初始图片/自动选图）时，恢复上次保存的草稿
+                if (initial.postId == null
+                        && !getIntent().getBooleanExtra(EXTRA_AUTO_PICK, false)
+                        && getIntent().getStringArrayListExtra(EXTRA_INITIAL_URIS) == null) {
+                    DraftEditorModel.State lastDraft = model.loadLastDraft();
+                    if (lastDraft != null) initial = lastDraft;
+                }
             }
             model.initialize(initial, restored);
         }
@@ -488,6 +497,7 @@ public class CreateWorkActivity extends AppCompatActivity {
                     .placeholder(R.drawable.ic_image_placeholder)
                     .error(R.drawable.ic_image_error).centerCrop().into(imageView);
         }
+        imageView.setOnClickListener(v -> openFullScreen(entry));
 
         View deleteButton = new View(this);
         LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(dpToPx(20), dpToPx(20));
@@ -505,6 +515,22 @@ public class CreateWorkActivity extends AppCompatActivity {
         cardView.addView(imageView);
         cardView.addView(deleteButton);
         mediaPreviewContainer.addView(cardView);
+    }
+
+    /** 点击已上传图片：全屏查看；私有媒体带鉴权取字节，本地 URI 直接加载。 */
+    private void openFullScreen(MediaEntry entry) {
+        if (entry.mediaId != null && entry.url != null) {
+            api.getMediaContent(entry.url, new CommunityClient.Callback<byte[]>() {
+                @Override public void onSuccess(byte[] bytes) {
+                    new FullScreenMediaDialog(CreateWorkActivity.this, bytes).show();
+                }
+                @Override public void onFailure(String message) {
+                    Toast.makeText(CreateWorkActivity.this, "图片加载失败", Toast.LENGTH_SHORT).show();
+                }
+            });
+        } else if (entry.uri != null) {
+            new FullScreenMediaDialog(CreateWorkActivity.this, entry.uri).show();
+        }
     }
 
     private void addMoreIndicator(int moreCount) {

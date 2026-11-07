@@ -31,6 +31,7 @@ import java.util.Locale;
 public class FullScreenMediaDialog extends Dialog {
 
     private String imageUrl;
+    private byte[] imageBytes;
     private Context context;
     private PhotoView photoView;
     private ImageView closeButton;
@@ -39,6 +40,12 @@ public class FullScreenMediaDialog extends Dialog {
         super(context, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         this.context = context;
         this.imageUrl = imageUrl;
+    }
+
+    public FullScreenMediaDialog(@NonNull Context context, byte[] imageBytes) {
+        super(context, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        this.context = context;
+        this.imageBytes = imageBytes;
     }
 
     @Override
@@ -85,14 +92,16 @@ public class FullScreenMediaDialog extends Dialog {
 
     private void loadImage() {
         // 使用Glide加载图片到PhotoView；最大边 2048，平衡 5x 缩放清晰度与内存峰值
-        Glide.with(context)
-                .load(imageUrl)
-                .apply(new RequestOptions()
-                        .diskCacheStrategy(DiskCacheStrategy.ALL)
-                        .override(2048, 2048)
-                        .placeholder(R.drawable.ic_image_placeholder)
-                        .error(R.drawable.ic_image_error))
-                .into(photoView);
+        RequestOptions options = new RequestOptions()
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .override(2048, 2048)
+                .placeholder(R.drawable.ic_image_placeholder)
+                .error(R.drawable.ic_image_error);
+        if (imageBytes != null) {
+            Glide.with(context).load(imageBytes).apply(options).into(photoView);
+        } else {
+            Glide.with(context).load(imageUrl).apply(options).into(photoView);
+        }
     }
 
     private void configurePhotoView(PhotoView photoView) {
@@ -134,6 +143,21 @@ public class FullScreenMediaDialog extends Dialog {
     }
 
     private void saveImageToGallery() {
+        // 内存字节：直接解码保存，无需区分网络/本地
+        if (imageBytes != null) {
+            new Thread(() -> {
+                try {
+                    Bitmap bitmap = Glide.with(context).asBitmap().load(imageBytes).submit().get();
+                    saveBitmapToGallery(bitmap);
+                    ((android.app.Activity) context).runOnUiThread(() ->
+                            Toast.makeText(context, "图片保存成功", Toast.LENGTH_SHORT).show());
+                } catch (Exception e) {
+                    ((android.app.Activity) context).runOnUiThread(() ->
+                            Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show());
+                }
+            }).start();
+            return;
+        }
         // 方法1：使用Glide下载并保存（适合网络图片）
         if (imageUrl.startsWith("http")) {
             saveNetworkImage();
