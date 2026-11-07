@@ -50,4 +50,18 @@
     <string name="hashtags_hint">例如：#数字艺术 #设计 #灵感</string>
 
     <string name="version">Version 1.0.0</string>
+    <string name="ai_stream_generating">正在生成，内容尚未完成</string>
+    <string name="ai_stream_incomplete">回答未完成，请重新提交重试</string>
+    <string name="ai_waiting">等待处理，可继续浏览</string>
+    <string name="ai_preparing">正在准备来源，可继续浏览</string>
+    <string name="ai_assist_changed">草稿已修改，这份建议基于修改前的内容。可以复制参考，或根据当前草稿重新生成。</string>
+    <string name="ai_assist_ready">建议已生成，确认后才会填入草稿。</string>
+    <string name="ai_assist_retry">草稿已修改，请重新生成建议。</string>
+    <string name="ai_assist_too_long">加入话题后正文超过 5000 字，请减少内容。</string>
+    <string name="ai_assist_applied">已填入草稿，保存或提交审核后生效。</string>
+    <string name="ai_stop">停止</string>
+    <string name="ai_cancelled">已停止，可重新提交</string>
+    <string name="ai_rules_input_changed">描述已变化，请重新生成后再应用</string>
+    <string name="ai_rule_edit">编辑候选规则</string>
+    <string name="ai_expired">结果已过期，请重新生成</string>
 </resources>

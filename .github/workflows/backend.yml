@@ -48,6 +48,7 @@ jobs:
       MYSQL_TEST_MIGRATION_V7_URL: jdbc:mysql://127.0.0.1:3306/pf_migration_v7_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_COMMENTS_URL: jdbc:mysql://127.0.0.1:3306/pf_comments_test?useSSL=false&allowPublicKeyRetrieval=true
       MYSQL_TEST_NOTIFICATIONS_URL: jdbc:mysql://127.0.0.1:3306/pf_notifications_test?useSSL=false&allowPublicKeyRetrieval=true
+      MYSQL_TEST_PRIVATE_MESSAGE_URL: jdbc:mysql://127.0.0.1:3306/pf_private_message_test?useSSL=false&allowPublicKeyRetrieval=true
       # Reserved for task 13 (post lifecycle); the suites are not merged yet, so this
       # database and variable must not be read as evidence that the flow already passes.
       MYSQL_TEST_POST_LIFECYCLE_URL: jdbc:mysql://127.0.0.1:3306/pf_post_lifecycle_test?useSSL=false&allowPublicKeyRetrieval=true
@@ -77,7 +78,7 @@ jobs:
           import pymysql
           with pymysql.connect(host='127.0.0.1', user='root', password='ci-only-password') as db:
               with db.cursor() as cursor:
-                  for name in ('cache', 'business', 'preferences', 'stats', 'connections', 'following_feed', 'favorites', 'public_profile', 'user_posts', 'post_idempotency', 'post_idempotency_restart', 'migration', 'migration_v7', 'post_lifecycle', 'analytics', 'comments', 'notifications'):
+                  for name in ('cache', 'business', 'preferences', 'stats', 'connections', 'following_feed', 'favorites', 'public_profile', 'user_posts', 'post_idempotency', 'post_idempotency_restart', 'migration', 'migration_v7', 'post_lifecycle', 'analytics', 'comments', 'notifications', 'private_message'):
                       cursor.execute(f'CREATE DATABASE pf_{name}_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin')
           PY
       - name: Java tests and package (including MySQL and mandatory real Redis suites)

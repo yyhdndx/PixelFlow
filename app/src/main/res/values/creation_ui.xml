@@ -10,10 +10,9 @@
     <string name="ai_creation_goal_all">综合优化</string>
     <string name="ai_creation_goal_title">优化标题</string>
     <string name="ai_creation_goal_content">润色正文</string>
-    <string name="ai_creation_goal_write">根据主题写文案</string>
+    <string name="ai_creation_goal_write">生成文案</string>
     <string name="ai_creation_goal_tags">推荐话题</string>
-    <string name="ai_creation_prompt_hint">主题或写作要求（可选）</string>
-    <string name="ai_creation_audience_hint">目标读者（可选）</string>
+    <string name="ai_creation_prompt_hint">想怎么修改？例如：更口语化、缩短一点、保留细节（可选）</string>
     <string name="ai_creation_cancel">取消</string>
     <string name="ai_creation_generate">生成建议</string>
     <string name="ai_creation_preview_title">AI 创作建议</string>
@@ -29,4 +28,10 @@
     <string name="ai_creation_apply">确认填入草稿</string>
     <string name="ai_creation_candidate">候选项</string>
     <string name="ai_creation_pick_first">请先选择要采用的建议</string>
+    <string name="ai_creation_revision_hint">这一版还想怎么改？</string>
+    <string name="ai_creation_refine">继续修改</string>
+    <string name="ai_creation_copy">复制这版建议</string>
+    <string name="ai_creation_refresh">根据当前草稿重新生成</string>
+    <string name="ai_creation_undo">撤销本次采纳</string>
+    <string name="ai_creation_undo_confirm">采纳后你又修改了文字，撤销会恢复采纳前的标题和正文。确定恢复吗？</string>
 </resources>

@@ -122,6 +122,18 @@ class AgentSearchApiTest {
         mvc.perform(get("/api/search/posts?q=夜景")).andExpect(status().isOk());
     }
 
+    @Test void streamingRouteAuthenticatesAndDeliversSafeErrorAfterInvalidUpstream() throws Exception {
+        mvc.perform(post("/api/agent/search/stream").contentType("application/json").content("{\"question\":\"摄影\"}"))
+                .andExpect(status().isUnauthorized());
+        var result = mvc.perform(post("/api/agent/search/stream").header("Authorization", token)
+                .contentType("application/json").content("{\"question\":\"摄影\"}"))
+                .andExpect(request().asyncStarted()).andReturn();
+        mvc.perform(asyncDispatch(result)).andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("text/event-stream"));
+        assertTrue(result.getResponse().getContentAsString().contains("event: error"));
+        assertFalse(result.getResponse().getContentAsString().contains("event: done"));
+    }
+
     @Test @EnabledIfEnvironmentVariable(named="ISSUE21_PYTHON",matches=".+")
     void actualPythonServiceNormalEmptyAndStopped() throws Exception {
         int port; try(var socket=new java.net.ServerSocket(0)) { port=socket.getLocalPort(); }

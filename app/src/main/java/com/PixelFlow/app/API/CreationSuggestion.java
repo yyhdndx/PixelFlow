@@ -4,6 +4,13 @@ import java.util.List;
 
 /** Preview only: accepting candidates edits the local draft, never publishes a post. */
 public final class CreationSuggestion {
+    public static final class PreviousResult {
+        public String title, content;
+        public List<String> tags;
+        public PreviousResult(String title, String content, List<String> tags) {
+            this.title = title; this.content = content; this.tags = new java.util.ArrayList<>(tags);
+        }
+    }
     public String suggestion_id, provider, policy_version;
     public List<String> title_candidates, content_candidates, tag_suggestions, edit_suggestions;
     public Safety safety;
@@ -15,7 +22,7 @@ public final class CreationSuggestion {
     public boolean valid() {
         return suggestion_id != null && !suggestion_id.isEmpty() && safety != null
                 && java.util.Arrays.asList("low", "medium", "high", "unknown").contains(safety.risk_level)
-                && validList(title_candidates, 3, 120) && validList(content_candidates, 3, 5000)
+                && validList(title_candidates, 1, 120) && validList(content_candidates, 1, 5000)
                 && validList(tag_suggestions, 20, 32) && validList(edit_suggestions, 10, 500)
                 && validList(safety.suggestions, 10, 500)
                 && ("deepseek".equals(provider) || "rules".equals(provider));

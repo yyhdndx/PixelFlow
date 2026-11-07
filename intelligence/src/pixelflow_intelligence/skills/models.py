@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -122,7 +122,7 @@ class RankOutput(Model):
 class DraftSnapshot(Model):
     title: str = Field(max_length=120)
     content: str = Field(max_length=5000)
-    tags: list[str] = Field(max_length=20)
+    tags: list[Annotated[str, Field(max_length=32)]] = Field(default_factory=list, max_length=20)
 
 
 class ContentSafetyInput(Model):
@@ -147,6 +147,7 @@ class CreateAssistInput(Model):
     goal: Literal["improve_title", "suggest_tags", "polish_content", "write_content", "all"]
     audience: str = Field(default="", max_length=64)
     prompt: str = Field(default="", max_length=200)
+    previous_result: DraftSnapshot | None = None
 
 
 class CreateAssistOutput(Model):

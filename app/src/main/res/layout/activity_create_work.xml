@@ -37,6 +37,16 @@
             android:textColor="@color/profile_ink"
             android:gravity="center" />
 
+        <ImageButton
+            android:id="@+id/copilot_entry"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginEnd="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/copilot_title"
+            android:padding="10dp"
+            android:src="@drawable/ic_sparkle"
+            android:tint="@color/profile_accent" />
         <!-- 占位，保持对称 -->
         <View
             android:layout_width="44dp"
@@ -118,13 +128,13 @@
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/et_description"
                     android:layout_width="match_parent"
-                    android:layout_height="130dp"
+                    android:layout_height="wrap_content"
+                    android:minLines="5"
                     android:hint="分享你的创作故事或灵感..."
                     android:textColor="@color/profile_ink"
                     android:textSize="15sp"
                     android:gravity="top"
                     android:padding="14dp"
-                    android:maxLines="10"
                     android:inputType="textMultiLine" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -276,11 +286,16 @@
                     android:layout_height="40dp"
                     android:layout_weight="1"
                     android:background="@android:color/transparent"
-                    android:text="跳过 AI"
+                    android:text="停止生成"
                     android:textAllCaps="false"
                     android:textColor="@color/profile_muted"
                     android:textSize="13sp"
                     android:visibility="gone" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/creation_assist_undo"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="@string/ai_creation_undo" android:visibility="gone" />
             </LinearLayout>
 
             <!-- 话题标签 -->

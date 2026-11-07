@@ -34,21 +34,21 @@
                 android:layout_height="wrap_content"
                 android:textSize="13sp"
                 android:textStyle="bold"
-                android:textColor="#1A1A1A" />
+                android:textColor="@color/profile_ink" />
 
             <TextView
                 android:id="@+id/c_auto"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
-                android:paddingStart="5dp"
-                android:paddingEnd="5dp"
-                android:paddingTop="1dp"
-                android:paddingBottom="1dp"
-                android:background="@drawable/edittext_rounded_bg"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:background="@drawable/profile_badge"
                 android:text="@string/auto_reply_badge"
                 android:textSize="10sp"
-                android:textColor="#7A7A80"
+                android:textColor="@color/profile_accent"
                 android:visibility="gone" />
         </LinearLayout>
 
@@ -58,13 +58,14 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
             android:textSize="14sp"
-            android:textColor="#1A1A1A"
+            android:textColor="@color/profile_ink"
             android:lineSpacingExtra="3dp" />
 
+        <!-- 时间与「回复」同一行：时间居左、回复右对齐，热区 ≥40dp -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="2dp"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
@@ -73,21 +74,24 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textSize="12sp"
-                android:textColor="#B0B0B4" />
+                android:textColor="@color/profile_muted" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
 
             <!-- 只有点这里才进入“回复某人”，输入框默认仍是评论这条帖子 -->
             <TextView
                 android:id="@+id/c_reply"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
+                android:layout_height="40dp"
+                android:gravity="center"
                 android:background="?android:attr/selectableItemBackground"
-                android:paddingStart="4dp"
-                android:paddingEnd="4dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
                 android:text="@string/comments_action_reply"
-                android:textColor="#7A7A80"
+                android:textColor="@color/profile_muted"
                 android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="share_title">分享作品</string>
+    <string name="share_copy">复制链接</string>
+    <string name="share_text">分享到其他应用</string>
+    <string name="share_image">生成分享图片</string>
+    <string name="share_copied">链接已复制</string>
+    <string name="share_not_public">作品发布后才能分享</string>
+    <string name="share_load_failed">无法读取最新作品，请重试</string>
+    <string name="share_config_error">分享网页地址未配置或无效，请检查 web_url</string>
+    <string name="share_generating">正在生成分享图片…</string>
+    <string name="share_failed">生成失败，请重试</string>
+    <string name="share_saved">已保存到相册</string>
+    <string name="share_no_target">没有可用的分享应用</string>
+    <string name="share_permission_denied">未获相册写入权限，仍可复制链接或分享文本</string>
+    <string name="share_brand">PixelFlow · 记录生活</string>
+    <string name="share_stats">%1$d 赞 · %2$d 评论</string>
+    <string name="share_author_fallback">PixelFlow 用户</string>
+    <string name="share_cancel">取消</string>
+</resources>

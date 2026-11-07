@@ -1,0 +1,714 @@
+[
+  {
+    "resources": {
+      "java": {
+        "peak_working_set_bytes": 676843520,
+        "peak_private_bytes": 909398016,
+        "cpu_seconds": 1089.0,
+        "sampled_seconds": 302.07,
+        "average_cpu_cores": 3.6051246399841097
+      },
+      "k6": {
+        "peak_working_set_bytes": 104472576,
+        "peak_private_bytes": 102825984,
+        "cpu_seconds": 121.765625,
+        "sampled_seconds": 302.07,
+        "average_cpu_cores": 0.40310399907306255
+      },
+      "mysqld": {
+        "peak_working_set_bytes": 359600128,
+        "peak_private_bytes": 1135128576,
+        "cpu_seconds": null,
+        "sampled_seconds": 302.07,
+        "average_cpu_cores": null
+      }
+    },
+    "actual_write_fraction": 0.0,
+    "run": {
+      "scenario": "read-50-cache",
+      "exit_code": 0,
+      "directory": "20261105-174048-read-50-cache",
+      "smoke": false
+    },
+    "total": {
+      "http_reqs": {
+        "count": 128250,
+        "rate": 427.34238088805023
+      },
+      "http_req_duration": {
+        "max": 523.3608,
+        "avg": 116.64557307446316,
+        "med": 91.05600000000001,
+        "p(95)": 281.87100499999985,
+        "p(99)": 333.8904069999999
+      },
+      "business_errors": {
+        "rate": 0,
+        "passes": 0,
+        "fails": 128250
+      }
+    },
+    "endpoints": {
+      "notifications": {
+        "avg": 19.64273129811911,
+        "med": 16.59055,
+        "p(95)": 45.973265000000005,
+        "p(99)": 63.67481600000004,
+        "max": 138.3891,
+        "count": 20522,
+        "rate": 68.38144515075686,
+        "error_rate": 0
+      },
+      "detail": {
+        "p(99)": 80.244968,
+        "max": 161.9754,
+        "avg": 25.443008486712397,
+        "med": 21.6376,
+        "p(95)": 57.91156,
+        "count": 21787,
+        "rate": 72.59655713378518,
+        "error_rate": 0
+      },
+      "feed": {
+        "avg": 198.76731909540888,
+        "med": 194.83545,
+        "p(95)": 288.709765,
+        "p(99)": 335.1332900000001,
+        "max": 458.0563,
+        "count": 21822,
+        "rate": 72.71318078548953,
+        "error_rate": 0
+      },
+      "following": {
+        "p(99)": 347.60640599999994,
+        "max": 503.6567,
+        "avg": 208.82875772477084,
+        "med": 204.97,
+        "p(95)": 301.17224500000003,
+        "rate": 72.63987449013251,
+        "count": 21800,
+        "error_rate": 0
+      },
+      "search": {
+        "avg": 226.32397542125315,
+        "med": 222.2253,
+        "p(95)": 320.6007899999999,
+        "p(99)": 368.20350999999937,
+        "max": 523.3608,
+        "count": 20534,
+        "rate": 68.42143040276977,
+        "error_rate": 0
+      },
+      "comments": {
+        "avg": 21.347529134725697,
+        "med": 18.2894,
+        "p(95)": 48.57739999999999,
+        "p(99)": 68.710668,
+        "max": 133.0952,
+        "count": 21785,
+        "rate": 72.58989292511637,
+        "error_rate": 0
+      }
+    },
+    "status_distribution": [
+      {
+        "endpoint": "comments",
+        "status": "200",
+        "count": 21785
+      },
+      {
+        "endpoint": "detail",
+        "status": "200",
+        "count": 21787
+      },
+      {
+        "endpoint": "feed",
+        "status": "200",
+        "count": 21822
+      },
+      {
+        "endpoint": "following",
+        "status": "200",
+        "count": 21800
+      },
+      {
+        "endpoint": "notifications",
+        "status": "200",
+        "count": 20522
+      },
+      {
+        "endpoint": "search",
+        "status": "200",
+        "count": 20534
+      }
+    ],
+    "error_distribution": [],
+    "forbidden_access_count": 0,
+    "access_request_count": 127153,
+    "environment": {
+      "commit": "900e69b7f3b7a6f4bdf9c93d572a948bb748c769",
+      "machine": "{\n    \"os\":  {\n               \"Caption\":  \"Microsoft Windows 11 专业版\",\n               \"Version\":  \"10.0.26200\",\n               \"TotalVisibleMemorySize\":  16494456\n           },\n    \"cpu\":  [\n                {\n                    \"Name\":  \"Intel(R) Core(TM) i9-14900HX\",\n                    \"NumberOfCores\":  24,\n                    \"NumberOfLogicalProcessors\":  32\n                }\n            ]\n}\n",
+      "mysql": "8.4.13",
+      "k6": "k6.exe v1.4.2 (commit/5b725e8a6a, go1.25.4, windows/amd64)",
+      "jvm_args": [
+        "-Xms512m",
+        "-Xmx1024m"
+      ],
+      "rate_limit_enabled": false,
+      "cache_enabled": true,
+      "database": "pf_load_test",
+      "jar_sha256": "2ffdfdb730e1e3298a6e3fbed4e56259da2e5af7cbd2da6931c4f87638c3869a"
+    }
+  },
+  {
+    "resources": {
+      "java": {
+        "peak_working_set_bytes": 683016192,
+        "peak_private_bytes": 897646592,
+        "cpu_seconds": 1084.90625,
+        "sampled_seconds": 297.002,
+        "average_cpu_cores": 3.6528583982599443
+      },
+      "k6": {
+        "peak_working_set_bytes": 128368640,
+        "peak_private_bytes": 140914688,
+        "cpu_seconds": 126.140625,
+        "sampled_seconds": 297.002,
+        "average_cpu_cores": 0.4247130490703766
+      },
+      "mysqld": {
+        "peak_working_set_bytes": 293117952,
+        "peak_private_bytes": 1084706816,
+        "cpu_seconds": null,
+        "sampled_seconds": 297.002,
+        "average_cpu_cores": null
+      }
+    },
+    "actual_write_fraction": 0.0,
+    "run": {
+      "scenario": "read-100-cache",
+      "exit_code": 0,
+      "directory": "20261105-174631-read-100-cache",
+      "smoke": false
+    },
+    "total": {
+      "http_reqs": {
+        "rate": 445.73771545553774,
+        "count": 133814
+      },
+      "http_req_duration": {
+        "med": 166.37465,
+        "p(95)": 558.5122399999998,
+        "p(99)": 675.7432509999999,
+        "max": 1048.9879,
+        "avg": 223.95538748038206
+      },
+      "business_errors": {
+        "passes": 0,
+        "fails": 133814,
+        "rate": 0
+      }
+    },
+    "endpoints": {
+      "detail": {
+        "avg": 55.74463113506425,
+        "med": 47.31745,
+        "p(95)": 131.34337999999994,
+        "p(99)": 181.928531,
+        "max": 313.7832,
+        "count": 22730,
+        "rate": 75.71418739671762,
+        "error_rate": 0
+      },
+      "comments": {
+        "avg": 45.56902380302784,
+        "med": 38.23075,
+        "p(95)": 109.113135,
+        "p(99)": 152.89223000000013,
+        "max": 270.9046,
+        "count": 22724,
+        "rate": 75.69420124958255,
+        "error_rate": 0
+      },
+      "search": {
+        "max": 1048.9879,
+        "avg": 423.54449549528414,
+        "med": 412.9645,
+        "p(95)": 638.79994,
+        "p(99)": 742.4407590000002,
+        "count": 21422,
+        "rate": 71.35720732127079,
+        "error_rate": 0
+      },
+      "feed": {
+        "avg": 369.8144230100917,
+        "med": 360.26215,
+        "p(95)": 571.43004,
+        "p(99)": 670.0365990000007,
+        "max": 969.1491,
+        "count": 22790,
+        "rate": 75.91404886806839,
+        "error_rate": 0
+      },
+      "notifications": {
+        "med": 36.2999,
+        "p(95)": 105.09602500000003,
+        "p(99)": 146.623402,
+        "max": 292.2368,
+        "avg": 43.29169568530285,
+        "count": 21392,
+        "rate": 71.2572765855954,
+        "error_rate": 0
+      },
+      "following": {
+        "med": 395.93945,
+        "p(95)": 620.232875,
+        "p(99)": 724.5716800000001,
+        "max": 962.1146,
+        "avg": 405.978353871507,
+        "count": 22756,
+        "rate": 75.80079403430295,
+        "error_rate": 0
+      }
+    },
+    "status_distribution": [
+      {
+        "endpoint": "comments",
+        "status": "200",
+        "count": 22724
+      },
+      {
+        "endpoint": "detail",
+        "status": "200",
+        "count": 22730
+      },
+      {
+        "endpoint": "feed",
+        "status": "200",
+        "count": 22790
+      },
+      {
+        "endpoint": "following",
+        "status": "200",
+        "count": 22756
+      },
+      {
+        "endpoint": "notifications",
+        "status": "200",
+        "count": 21392
+      },
+      {
+        "endpoint": "search",
+        "status": "200",
+        "count": 21422
+      }
+    ],
+    "error_distribution": [],
+    "forbidden_access_count": 0,
+    "access_request_count": 132921,
+    "environment": {
+      "commit": "900e69b7f3b7a6f4bdf9c93d572a948bb748c769",
+      "machine": "{\n    \"os\":  {\n               \"Caption\":  \"Microsoft Windows 11 专业版\",\n               \"Version\":  \"10.0.26200\",\n               \"TotalVisibleMemorySize\":  16494456\n           },\n    \"cpu\":  [\n                {\n                    \"Name\":  \"Intel(R) Core(TM) i9-14900HX\",\n                    \"NumberOfCores\":  24,\n                    \"NumberOfLogicalProcessors\":  32\n                }\n            ]\n}\n",
+      "mysql": "8.4.13",
+      "k6": "k6.exe v1.4.2 (commit/5b725e8a6a, go1.25.4, windows/amd64)",
+      "jvm_args": [
+        "-Xms512m",
+        "-Xmx1024m"
+      ],
+      "rate_limit_enabled": false,
+      "cache_enabled": true,
+      "database": "pf_load_test",
+      "jar_sha256": "2ffdfdb730e1e3298a6e3fbed4e56259da2e5af7cbd2da6931c4f87638c3869a"
+    }
+  },
+  {
+    "resources": {
+      "java": {
+        "peak_working_set_bytes": 730308608,
+        "peak_private_bytes": 936226816,
+        "cpu_seconds": 1080.5625,
+        "sampled_seconds": 297.016,
+        "average_cpu_cores": 3.63806158590783
+      },
+      "k6": {
+        "peak_working_set_bytes": 141910016,
+        "peak_private_bytes": 139923456,
+        "cpu_seconds": 130.3125,
+        "sampled_seconds": 297.016,
+        "average_cpu_cores": 0.4387389904920947
+      },
+      "mysqld": {
+        "peak_working_set_bytes": 303292416,
+        "peak_private_bytes": 1084215296,
+        "cpu_seconds": null,
+        "sampled_seconds": 297.016,
+        "average_cpu_cores": null
+      }
+    },
+    "actual_write_fraction": 0.09546072578944689,
+    "run": {
+      "scenario": "mixed-100-cache",
+      "exit_code": 0,
+      "directory": "20261105-175211-mixed-100-cache",
+      "smoke": false
+    },
+    "total": {
+      "http_reqs": {
+        "count": 137533,
+        "rate": 458.1178245848419
+      },
+      "http_req_duration": {
+        "med": 94.5522,
+        "p(95)": 573.3797999999999,
+        "p(99)": 688.9985959999991,
+        "max": 1198.8035,
+        "avg": 217.90885956679813
+      },
+      "business_errors": {
+        "rate": 6.543884013291356e-05,
+        "passes": 9,
+        "fails": 137524
+      }
+    },
+    "endpoints": {
+      "favorites": {
+        "avg": 41.54847684103607,
+        "med": 34.854600000000005,
+        "p(95)": 99.72638999999995,
+        "p(99)": 138.586639,
+        "max": 264.3715,
+        "rate": 13.117346332989955,
+        "count": 3938,
+        "error_rate": 0
+      },
+      "notifications": {
+        "avg": 41.55733569357175,
+        "med": 34.775800000000004,
+        "p(95)": 99.97755499999998,
+        "p(99)": 137.46812300000005,
+        "max": 273.3237,
+        "count": 20690,
+        "rate": 68.91769822995484,
+        "error_rate": 0
+      },
+      "comment_write": {
+        "med": 36.2194,
+        "p(95)": 103.8806,
+        "p(99)": 142.6292,
+        "max": 312.0627,
+        "avg": 43.921906436869186,
+        "count": 5251,
+        "rate": 17.490905432841608,
+        "error_rate": 0.0011426394972386211
+      },
+      "likes": {
+        "avg": 42.202149746192894,
+        "med": 35.061049999999994,
+        "p(95)": 101.12084,
+        "p(99)": 139.6557630000001,
+        "max": 254.6017,
+        "count": 3940,
+        "rate": 13.124008266119965,
+        "error_rate": 0.0007614213197969543
+      },
+      "detail": {
+        "avg": 55.76291639407558,
+        "med": 47.881,
+        "p(95)": 129.42593000000005,
+        "p(99)": 178.1136500000004,
+        "max": 300.4081,
+        "count": 20727,
+        "rate": 69.04094399286004,
+        "error_rate": 0
+      },
+      "following": {
+        "avg": 433.4192850303442,
+        "med": 424.9425,
+        "p(95)": 640.48364,
+        "p(99)": 747.7282809999999,
+        "max": 993.1618,
+        "count": 20762,
+        "rate": 69.1575278226352,
+        "error_rate": 0
+      },
+      "search": {
+        "avg": 447.604897403473,
+        "med": 439.53265,
+        "p(95)": 653.0877849999999,
+        "p(99)": 761.8620510000005,
+        "max": 1198.8035,
+        "count": 20720,
+        "rate": 69.01762722690499,
+        "error_rate": 0
+      },
+      "feed": {
+        "avg": 395.3042883793677,
+        "med": 385.11075000000005,
+        "p(95)": 595.41972,
+        "p(99)": 698.122002,
+        "max": 992.5138,
+        "count": 20782,
+        "rate": 69.2241471539353,
+        "error_rate": 0
+      },
+      "comments": {
+        "avg": 43.684468735221614,
+        "med": 37.1004,
+        "p(95)": 102.72897999999995,
+        "p(99)": 141.15632199999993,
+        "max": 281.4833,
+        "count": 20723,
+        "rate": 69.02762012660001,
+        "error_rate": 0
+      }
+    },
+    "status_distribution": [
+      {
+        "endpoint": "comment_write",
+        "status": "200",
+        "count": 5245
+      },
+      {
+        "endpoint": "comment_write",
+        "status": "500",
+        "count": 6
+      },
+      {
+        "endpoint": "comments",
+        "status": "200",
+        "count": 20723
+      },
+      {
+        "endpoint": "detail",
+        "status": "200",
+        "count": 20727
+      },
+      {
+        "endpoint": "favorites",
+        "status": "200",
+        "count": 3938
+      },
+      {
+        "endpoint": "feed",
+        "status": "200",
+        "count": 20782
+      },
+      {
+        "endpoint": "following",
+        "status": "200",
+        "count": 20762
+      },
+      {
+        "endpoint": "likes",
+        "status": "200",
+        "count": 3937
+      },
+      {
+        "endpoint": "likes",
+        "status": "500",
+        "count": 3
+      },
+      {
+        "endpoint": "notifications",
+        "status": "200",
+        "count": 20690
+      },
+      {
+        "endpoint": "search",
+        "status": "200",
+        "count": 20720
+      }
+    ],
+    "error_distribution": [
+      {
+        "endpoint": "comment_write",
+        "status": "500",
+        "code": "INTERNAL_ERROR",
+        "count": 6
+      },
+      {
+        "endpoint": "likes",
+        "status": "500",
+        "code": "INTERNAL_ERROR",
+        "count": 3
+      }
+    ],
+    "forbidden_access_count": 0,
+    "access_request_count": 136804,
+    "environment": {
+      "commit": "900e69b7f3b7a6f4bdf9c93d572a948bb748c769",
+      "machine": "{\n    \"os\":  {\n               \"Caption\":  \"Microsoft Windows 11 专业版\",\n               \"Version\":  \"10.0.26200\",\n               \"TotalVisibleMemorySize\":  16494456\n           },\n    \"cpu\":  [\n                {\n                    \"Name\":  \"Intel(R) Core(TM) i9-14900HX\",\n                    \"NumberOfCores\":  24,\n                    \"NumberOfLogicalProcessors\":  32\n                }\n            ]\n}\n",
+      "mysql": "8.4.13",
+      "k6": "k6.exe v1.4.2 (commit/5b725e8a6a, go1.25.4, windows/amd64)",
+      "jvm_args": [
+        "-Xms512m",
+        "-Xmx1024m"
+      ],
+      "rate_limit_enabled": false,
+      "cache_enabled": true,
+      "database": "pf_load_test",
+      "jar_sha256": "2ffdfdb730e1e3298a6e3fbed4e56259da2e5af7cbd2da6931c4f87638c3869a"
+    }
+  },
+  {
+    "resources": {
+      "java": {
+        "peak_working_set_bytes": 670650368,
+        "peak_private_bytes": 876539904,
+        "cpu_seconds": 1087.421875,
+        "sampled_seconds": 297.513,
+        "average_cpu_cores": 3.655039863804271
+      },
+      "k6": {
+        "peak_working_set_bytes": 142245888,
+        "peak_private_bytes": 140861440,
+        "cpu_seconds": 131.3125,
+        "sampled_seconds": 297.513,
+        "average_cpu_cores": 0.4413672679849284
+      },
+      "mysqld": {
+        "peak_working_set_bytes": 287072256,
+        "peak_private_bytes": 1056755712,
+        "cpu_seconds": null,
+        "sampled_seconds": 297.513,
+        "average_cpu_cores": null
+      }
+    },
+    "actual_write_fraction": 0.0,
+    "run": {
+      "scenario": "read-100-no-cache",
+      "exit_code": 0,
+      "directory": "20261105-175751-read-100-no-cache",
+      "smoke": false
+    },
+    "total": {
+      "http_reqs": {
+        "rate": 445.19904666621005,
+        "count": 133641
+      },
+      "http_req_duration": {
+        "med": 167.0013,
+        "p(95)": 557.9261,
+        "p(99)": 673.5771400000002,
+        "max": 1122.6862,
+        "avg": 224.2362206179287
+      },
+      "business_errors": {
+        "rate": 0,
+        "passes": 0,
+        "fails": 133641
+      }
+    },
+    "endpoints": {
+      "comments": {
+        "avg": 44.384884794677355,
+        "med": 37.015150000000006,
+        "p(95)": 106.8027,
+        "p(99)": 152.21638499999983,
+        "max": 306.8704,
+        "count": 22696,
+        "rate": 75.60731783761199,
+        "error_rate": 0
+      },
+      "search": {
+        "avg": 423.4436705277406,
+        "med": 415.3621,
+        "p(95)": 634.1925199999998,
+        "p(99)": 736.9155519999987,
+        "max": 1122.6862,
+        "rate": 71.26662629978996,
+        "count": 21393,
+        "error_rate": 0
+      },
+      "notifications": {
+        "avg": 41.509525794523725,
+        "med": 34.406,
+        "p(95)": 101.37125999999999,
+        "p(99)": 143.642196,
+        "max": 321.7662,
+        "count": 21365,
+        "rate": 71.17334973566179,
+        "error_rate": 0
+      },
+      "feed": {
+        "p(95)": 572.0232349999999,
+        "p(99)": 675.9363840000001,
+        "max": 978.2165,
+        "avg": 371.6431854864214,
+        "med": 362.94939999999997,
+        "count": 22758,
+        "rate": 75.81385880103866,
+        "error_rate": 0
+      },
+      "detail": {
+        "avg": 56.23855929776623,
+        "med": 48.2283,
+        "p(95)": 130.46933,
+        "p(99)": 178.022314,
+        "max": 320.7744,
+        "count": 22699,
+        "rate": 75.61731175519715,
+        "error_rate": 0
+      },
+      "following": {
+        "p(95)": 618.98194,
+        "p(99)": 724.4442169999999,
+        "max": 932.3991,
+        "avg": 408.26208883854036,
+        "med": 398.62744999999995,
+        "count": 22730,
+        "rate": 75.72058223691049,
+        "error_rate": 0
+      }
+    },
+    "status_distribution": [
+      {
+        "endpoint": "comments",
+        "status": "200",
+        "count": 22696
+      },
+      {
+        "endpoint": "detail",
+        "status": "200",
+        "count": 22699
+      },
+      {
+        "endpoint": "feed",
+        "status": "200",
+        "count": 22758
+      },
+      {
+        "endpoint": "following",
+        "status": "200",
+        "count": 22730
+      },
+      {
+        "endpoint": "notifications",
+        "status": "200",
+        "count": 21365
+      },
+      {
+        "endpoint": "search",
+        "status": "200",
+        "count": 21393
+      }
+    ],
+    "error_distribution": [],
+    "forbidden_access_count": 0,
+    "access_request_count": 132838,
+    "environment": {
+      "commit": "900e69b7f3b7a6f4bdf9c93d572a948bb748c769",
+      "machine": "{\n    \"os\":  {\n               \"Caption\":  \"Microsoft Windows 11 专业版\",\n               \"Version\":  \"10.0.26200\",\n               \"TotalVisibleMemorySize\":  16494456\n           },\n    \"cpu\":  [\n                {\n                    \"Name\":  \"Intel(R) Core(TM) i9-14900HX\",\n                    \"NumberOfCores\":  24,\n                    \"NumberOfLogicalProcessors\":  32\n                }\n            ]\n}\n",
+      "mysql": "8.4.13",
+      "k6": "k6.exe v1.4.2 (commit/5b725e8a6a, go1.25.4, windows/amd64)",
+      "jvm_args": [
+        "-Xms512m",
+        "-Xmx1024m"
+      ],
+      "rate_limit_enabled": false,
+      "cache_enabled": false,
+      "database": "pf_load_test",
+      "jar_sha256": "2ffdfdb730e1e3298a6e3fbed4e56259da2e5af7cbd2da6931c4f87638c3869a"
+    }
+  }
+]

@@ -2,10 +2,10 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp"
-    android:paddingTop="12dp"
-    android:paddingBottom="12dp"
+    android:paddingStart="20dp"
+    android:paddingEnd="20dp"
+    android:paddingTop="14dp"
+    android:paddingBottom="14dp"
     android:background="?android:attr/selectableItemBackground">
 
     <ImageView
@@ -16,25 +16,17 @@
         android:layout_centerVertical="true"
         android:contentDescription="@string/messages_settings" />
 
-    <View
-        android:id="@+id/n_dot"
-        android:layout_width="8dp"
-        android:layout_height="8dp"
-        android:layout_alignParentEnd="true"
-        android:layout_centerVertical="true"
-        android:layout_marginStart="8dp"
-        android:background="@drawable/bg_ai_dot_on" />
-
     <TextView
         android:id="@+id/n_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_toEndOf="@id/n_avatar"
         android:layout_toStartOf="@id/n_dot"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="8dp"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="10dp"
         android:textSize="14sp"
-        android:textColor="#1A1A1A"
+        android:lineSpacingExtra="2dp"
+        android:textColor="@color/profile_ink"
         android:maxLines="2"
         android:ellipsize="end" />
 
@@ -44,8 +36,26 @@
         android:layout_height="wrap_content"
         android:layout_below="@id/n_text"
         android:layout_alignStart="@id/n_text"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="5dp"
         android:textSize="12sp"
-        android:textColor="#B0B0B4" />
+        android:textColor="@color/profile_muted" />
+
+    <!-- 未读圆点：与消息 Tab 角标同色 -->
+    <View
+        android:id="@+id/n_dot"
+        android:layout_width="8dp"
+        android:layout_height="8dp"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:background="@drawable/bg_ai_dot_on" />
+
+    <View
+        android:id="@+id/n_divider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_below="@id/n_time"
+        android:layout_marginTop="14dp"
+        android:layout_marginStart="58dp"
+        android:background="@drawable/divider_horizontal" />
 
 </RelativeLayout>

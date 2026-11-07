@@ -178,7 +178,7 @@ public class MediaPickerActivity extends AppCompatActivity {
         boolean has = !selected.isEmpty();
         btnDone.setEnabled(has);
         btnDone.setText(has ? "完成（" + selected.size() + "）" : "完成");
-        btnDone.setAlpha(has ? 1f : 0.4f);
+        btnDone.setAlpha(has ? 1f : 0.9f);
     }
 
     private void confirm() {

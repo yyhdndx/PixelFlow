@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="1080dp" android:layout_height="wrap_content"
+    android:orientation="vertical" android:background="#FFFFFF" android:padding="48dp">
+    <ImageView android:id="@+id/share_cover" android:layout_width="match_parent"
+        android:layout_height="720dp" android:scaleType="centerCrop" android:importantForAccessibility="no" />
+    <TextView android:id="@+id/share_card_title" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="32dp" android:textSize="52sp"
+        android:textColor="#172339" android:textStyle="bold" android:maxLines="2" android:ellipsize="end" />
+    <TextView android:id="@+id/share_card_body" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="20dp" android:textSize="36sp"
+        android:textColor="#38465C" android:maxLines="12" android:ellipsize="end" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center_vertical" android:layout_marginTop="36dp" android:orientation="horizontal">
+        <ImageView android:id="@+id/share_avatar" android:layout_width="96dp" android:layout_height="96dp"
+            android:scaleType="centerCrop" android:importantForAccessibility="no" />
+        <TextView android:id="@+id/share_author" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:layout_marginStart="24dp" android:textSize="34sp"
+            android:textColor="#172339" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:id="@+id/share_time" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textSize="28sp" android:textColor="#66758C" />
+    </LinearLayout>
+    <TextView android:id="@+id/share_statistics" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="28dp" android:textSize="32sp" android:textColor="#66758C" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="40dp" android:text="@string/share_brand" android:textSize="36sp"
+        android:textStyle="bold" android:textColor="#5368C4" />
+    <TextView android:id="@+id/share_link" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="16dp" android:textSize="28sp"
+        android:textColor="#5368C4" android:maxLines="3" android:ellipsize="end" />
+</LinearLayout>

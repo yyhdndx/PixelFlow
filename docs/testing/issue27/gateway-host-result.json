@@ -1,0 +1,9 @@
+{
+  "route": "Nginx -> real Java -> controlled Python HTTP upstream",
+  "first_ms": 73.49,
+  "total_ms": 5067.58,
+  "ordinary_search_ms": 19.37,
+  "requests": 1,
+  "real_model": false,
+  "passed": true
+}

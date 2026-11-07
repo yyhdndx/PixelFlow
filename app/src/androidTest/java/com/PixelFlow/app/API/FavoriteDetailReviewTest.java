@@ -239,14 +239,21 @@ public class FavoriteDetailReviewTest {
             }));
             listScreen.onActivity(a -> ((RecyclerView)a.findViewById(R.id.favorites_list))
                     .findViewHolderForAdapterPosition(0).itemView.performClick());
-            await(() -> androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withId(R.id.collect_button))
-                    .check(androidx.test.espresso.assertion.ViewAssertions.matches(
-                            androidx.test.espresso.matcher.ViewMatchers.withContentDescription(R.string.favorite_action_remove))));
+            final WorkDetailActivity[] detail = new WorkDetailActivity[1];
+            await(() -> androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+                java.util.Collection<android.app.Activity> resumed = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+                        .getInstance().getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED);
+                for (android.app.Activity activity : resumed) {
+                    if (activity instanceof WorkDetailActivity) detail[0] = (WorkDetailActivity) activity;
+                }
+                assertNotNull(detail[0]);
+                assertEquals(detail[0].getString(R.string.favorite_action_remove),
+                        detail[0].findViewById(R.id.collect_button).getContentDescription());
+            }));
             Gate gate = new Gate(); writeGate = gate;
-            androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withId(R.id.collect_button))
-                    .perform(androidx.test.espresso.action.ViewActions.click());
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> detail[0].findViewById(R.id.collect_button).performClick());
             gate.awaitEntry();
-            androidx.test.espresso.Espresso.pressBackUnconditionally();
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> detail[0].onBackPressed());
             await(() -> listScreen.onActivity(a -> assertEquals(View.VISIBLE, a.findViewById(R.id.favorites_loading).getVisibility())));
             gate.release.countDown();
             await(() -> listScreen.onActivity(a -> {

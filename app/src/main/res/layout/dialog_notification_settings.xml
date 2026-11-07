@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:text="@string/messages_mute_hint"
         android:textSize="13sp"
-        android:textColor="#8A8A8E"
+        android:textColor="@color/profile_muted"
         android:paddingBottom="8dp" />
 
     <CheckBox
@@ -22,7 +22,7 @@
         android:layout_height="wrap_content"
         android:text="@string/messages_mute_mention"
         android:textSize="15sp"
-        android:textColor="#1A1A1A" />
+        android:textColor="@color/profile_ink" />
 
     <CheckBox
         android:id="@+id/ns_reply"
@@ -30,7 +30,7 @@
         android:layout_height="wrap_content"
         android:text="@string/messages_mute_reply"
         android:textSize="15sp"
-        android:textColor="#1A1A1A" />
+        android:textColor="@color/profile_ink" />
 
     <CheckBox
         android:id="@+id/ns_like"
@@ -38,6 +38,6 @@
         android:layout_height="wrap_content"
         android:text="@string/messages_mute_like"
         android:textSize="15sp"
-        android:textColor="#1A1A1A" />
+        android:textColor="@color/profile_ink" />
 
 </LinearLayout>

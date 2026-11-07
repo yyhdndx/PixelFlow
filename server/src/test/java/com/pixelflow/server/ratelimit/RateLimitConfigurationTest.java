@@ -16,7 +16,8 @@ class RateLimitConfigurationTest {
                         "pixelflow.rate-limit.login-ip.window=1s","pixelflow.rate-limit.login-account.limit=5",
                         "pixelflow.rate-limit.login-account.window=1s","pixelflow.rate-limit.register-ip.limit=5",
                         "pixelflow.rate-limit.register-ip.window=1s","pixelflow.rate-limit.upload-user.limit=5",
-                        "pixelflow.rate-limit.upload-user.window=1s");
+                        "pixelflow.rate-limit.upload-user.window=1s","pixelflow.rate-limit.message-user.limit=20",
+                        "pixelflow.rate-limit.message-user.window=1s");
         runner.run(context -> {
             assertNotNull(context.getStartupFailure());
             Throwable cause=context.getStartupFailure();
@@ -34,7 +35,7 @@ class RateLimitConfigurationTest {
             assertFalse(validator.validate(new RateLimitProperties.Rule(5,Duration.ZERO)).isEmpty());
             assertFalse(validator.validate(new RateLimitProperties.Rule(5,Duration.ofNanos(1))).isEmpty());
             assertFalse(validator.validate(new RateLimitProperties.Rule(5,Duration.ofDays(366))).isEmpty());
-            assertFalse(validator.validate(new RateLimitProperties(false,"",List.of(),valid,valid,valid,valid)).isEmpty());
+            assertFalse(validator.validate(new RateLimitProperties(false,"",List.of(),valid,valid,valid,valid,valid)).isEmpty());
         }
     }
 }

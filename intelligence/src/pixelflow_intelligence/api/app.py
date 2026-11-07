@@ -18,6 +18,7 @@ from ..agents.moderation import suggest_moderation
 from ..agents.comment_reply import decide_reply
 from ..agents.auto_reply_suggest import suggest_rules
 from ..agents.post_summary import summarize_post
+from ..agents.copilot import run_copilot
 
 
 class ProfileRefreshInput(BaseModel):
@@ -59,6 +60,7 @@ class CreateAssistRequest(BaseModel):
     goal: Literal["improve_title", "suggest_tags", "polish_content", "write_content", "all"]
     prompt: str = Field(default="", max_length=200)
     audience: str = Field(default="", max_length=64)
+    previous_result: DraftSnapshot | None = None
 
 
 Question = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
@@ -91,6 +93,20 @@ class CommentReplyRequest(BaseModel):
     content: str = Field(max_length=5000)
     comment: str = Field(min_length=1, max_length=500)
     rules: list[CommentReplyRule] = Field(min_length=1, max_length=10)
+
+
+class CopilotHistoryItem(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    role: str = Field(pattern=r"^(user|assistant)$")
+    content: str = Field(max_length=500)
+
+
+class CopilotRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    screen: str = Field(pattern=r"^(detail|create|messages)$")
+    message: str = Field(min_length=1, max_length=2000)
+    history: list[CopilotHistoryItem] = Field(default_factory=list, max_length=20)
+    context: dict = Field(default_factory=dict)
 
 
 class PostSummaryRequest(BaseModel):
@@ -143,6 +159,10 @@ def create_app(settings=None, upstream=None):
     store = Store(settings.database)
     upstream = upstream or JavaClient(settings)
     app = FastAPI(title="PixelFlow analytics", version="0.1.0")
+    from .search_stream import router as search_stream_router
+    app.include_router(search_stream_router(settings, upstream, store))
+    from .summary_stream import router as summary_stream_router
+    app.include_router(summary_stream_router(settings, upstream, store))
     bearer = HTTPBearer(auto_error=False)
 
     @app.middleware("http")
@@ -290,6 +310,21 @@ def create_app(settings=None, upstream=None):
             raise HTTPException(502, "Comment reply store unavailable") from None
         return {"status_code": 0, "reply": decision}
 
+    @app.post("/internal/copilot")
+    def copilot(body: CopilotRequest,
+                credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        verify_maintenance(credentials)
+        context = Context("copilot-service", frozenset({"posts:read", "drafts:write", "messages:write"}),
+                          int(time.time()), time.monotonic() + 45)
+        try:
+            result = run_copilot(screen=body.screen, context=body.context, message=body.message,
+                                 history=[item.model_dump() for item in body.history],
+                                 settings=settings, store=store, ctx=context)
+        except (SkillError, TimeoutError, ValidationError, ValueError):
+            raise HTTPException(502, "Copilot unavailable") from None
+        except (KeyError, TypeError, *DATABASE_ERRORS):
+            raise HTTPException(502, "Copilot store unavailable") from None
+        return {"status_code": 0, "copilot": result}
     @app.post("/internal/post-summary")
     def post_summary(body: PostSummaryRequest,
                      credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
@@ -391,12 +426,21 @@ def create_app(settings=None, upstream=None):
         except UpstreamError:
             raise HTTPException(503, "Java identity service unavailable") from None
         try:
+            if not (body.draft.title.strip() or body.draft.content.strip() or body.prompt.strip()):
+                raise HTTPException(422, "Draft or writing instructions required")
+            if body.goal == "polish_content" and not body.draft.content.strip():
+                raise HTTPException(422, "Polishing requires draft content")
+            if body.previous_result is not None and not body.prompt.strip():
+                raise HTTPException(422, "Revision instructions required")
+            if body.previous_result is not None and not settings.deepseek_api_key:
+                raise HTTPException(503, "Revision requires model service")
             registry = create_registry(DeepSeekAssist(settings) if settings.deepseek_api_key else None)
             context = Context(user, frozenset({"content:check", "content:assist"}),
                               int(time.time()), time.monotonic() + 40)
             assist = registry.invoke("creator_assist", {
                 "user_id": user, "draft": body.draft.model_dump(), "goal": body.goal,
-                "prompt": body.prompt, "audience": body.audience}, context)["output"]
+                "prompt": body.prompt, "audience": body.audience,
+                "previous_result": body.previous_result.model_dump() if body.previous_result is not None else None}, context)["output"]
             safety = registry.invoke("content_safety", {
                 "user_id": user, "title": body.draft.title, "content": body.draft.content,
                 "tags": body.draft.tags}, context)["output"]

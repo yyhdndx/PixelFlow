@@ -164,32 +164,7 @@
                 android:inputType="textMultiLine" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-            app:hintEnabled="false"
-            app:boxBackgroundColor="@color/profile_surface"
-            app:boxStrokeColor="@color/profile_border"
-            app:boxStrokeWidth="1dp"
-            app:boxCornerRadiusTopStart="14dp"
-            app:boxCornerRadiusTopEnd="14dp"
-            app:boxCornerRadiusBottomStart="14dp"
-            app:boxCornerRadiusBottomEnd="14dp">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/et_ai_audience"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/ai_creation_audience_hint"
-                android:textColor="@color/profile_ink"
-                android:textSize="14.5sp"
-                android:maxLines="1"
-                android:singleLine="true" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <LinearLayout
+<LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"

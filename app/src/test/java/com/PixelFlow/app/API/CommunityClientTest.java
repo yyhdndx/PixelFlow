@@ -51,6 +51,30 @@ public class CommunityClientTest {
         reply(200, TOKENS);
         Result<Void> result = new Result<>(); client.login("alice", "test-password", result); result.get();
     }
+    @Test public void searchEncodesChineseAndReservedCharactersWithoutChangingQueryOrCursor() throws Exception {
+        reply(200, FEED);
+        Result<ApiResponse> result = new Result<>();
+        client.searchPosts("  咖啡 & tea+豆/#?  ", 20, "1018", result);
+        assertEquals(0, result.get().getStatusCode());
+        RecordedRequest request = server.takeRequest(5, TimeUnit.SECONDS);
+        assertNotNull(request);
+        assertEquals("/api/search/posts", request.getRequestUrl().encodedPath());
+        assertEquals("咖啡 & tea+豆/#?", request.getRequestUrl().queryParameter("q"));
+        assertEquals("20", request.getRequestUrl().queryParameter("count"));
+        assertEquals("1018", request.getRequestUrl().queryParameter("cursor"));
+        assertEquals(3, request.getRequestUrl().querySize());
+        assertNull(request.getHeader("Authorization"));
+    }
+    @Test public void failedSearchStillAllowsNextSearch() throws Exception {
+        reply(503, "{\"message\":\"temporarily unavailable\"}");
+        Result<ApiResponse> failed = new Result<>();
+        client.searchPosts("咖啡", 20, null, failed); failed.fails();
+        reply(200, FEED);
+        Result<ApiResponse> recovered = new Result<>();
+        client.searchPosts("阅读", 20, null, recovered);
+        assertEquals(0, recovered.get().getStatusCode());
+        assertEquals(2, requests.size());
+    }
     private String ownPost(String id, String status) {
         return "{\"post_id\":\"" + id + "\",\"status\":\"" + status + "\",\"title\":\"作品\",\"clips\":[],\"media_ids\":[]}";
     }

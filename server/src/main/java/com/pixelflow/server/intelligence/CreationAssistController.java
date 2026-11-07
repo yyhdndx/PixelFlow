@@ -27,7 +27,12 @@ public class CreationAssistController {
     }
     public record CreateAssistRequest(@NotNull @Valid AssistDraft draft,
             @NotBlank @Pattern(regexp="improve_title|suggest_tags|polish_content|write_content|all") String goal,
-            @Size(max=200) String prompt, @Size(max=64) String audience) {}
+            @Size(max=200) String prompt, @Size(max=64) String audience,
+            @Valid AssistDraft previous_result) {
+        public CreateAssistRequest(AssistDraft draft, String goal, String prompt, String audience) {
+            this(draft, goal, prompt, audience, null);
+        }
+    }
     public record AssistApplication(@NotNull @Size(max=120) String title, @NotNull @Size(max=5000) String content,
             @NotNull @Min(0) Long expected_version,
             @NotBlank @Pattern(regexp="[a-fA-F0-9-]{36}") String suggestion_id) {}
@@ -56,6 +61,13 @@ public class CreationAssistController {
     @PostMapping("/api/agent/create-assist")
     public ResponseEntity<JsonNode> createAssist(@Valid @RequestBody CreateAssistRequest body,
             @AuthenticationPrincipal Actor actor, @RequestHeader("Authorization") String token) {
+        String prompt = body.prompt() == null ? "" : body.prompt().strip();
+        if (body.draft().title().isBlank() && body.draft().content().isBlank() && prompt.isEmpty())
+            throw new ApiException(400, "ASSIST_INPUT_REQUIRED", "先写一点内容，或告诉我你想写什么");
+        if ("polish_content".equals(body.goal()) && body.draft().content().isBlank())
+            throw new ApiException(400, "ASSIST_CONTENT_REQUIRED", "请先补充正文，或选择生成文案");
+        if (body.previous_result() != null && prompt.isEmpty())
+            throw new ApiException(400, "ASSIST_REVISION_REQUIRED", "请填写这次的修改要求");
         if (endpoint == null) throw unavailable();
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("draft", Map.of("title", body.draft().title(), "content", body.draft().content(),
@@ -63,6 +75,7 @@ public class CreationAssistController {
         payload.put("goal", body.goal());
         payload.put("prompt", body.prompt() == null ? "" : body.prompt());
         payload.put("audience", body.audience() == null ? "" : body.audience());
+        if (body.previous_result() != null) payload.put("previous_result", body.previous_result());
         try {
             var request = HttpRequest.newBuilder(endpoint).timeout(Duration.ofSeconds(45))
                     .header("Authorization", token).header("Content-Type", "application/json")
@@ -79,6 +92,16 @@ public class CreationAssistController {
                 if (!result.path(field).isArray() || result.path(field).size()>20) throw invalidResponse();
                 for (JsonNode value : result.path(field)) if (!value.isTextual() || value.asText().length()>5000) throw invalidResponse();
             }
+            if (result.path("title_candidates").size() > 1 || result.path("content_candidates").size() > 1)
+                throw invalidResponse();
+            Set<String> allowed = switch (body.goal()) {
+                case "improve_title" -> Set.of("title_candidates");
+                case "suggest_tags" -> Set.of("tag_suggestions");
+                case "polish_content", "write_content" -> Set.of("content_candidates");
+                default -> Set.of("title_candidates", "content_candidates", "tag_suggestions");
+            };
+            for (String field : List.of("title_candidates", "content_candidates", "tag_suggestions"))
+                if (!allowed.contains(field) && !result.path(field).isEmpty()) throw invalidResponse();
             String suggestionId=java.util.UUID.randomUUID().toString();
             ((com.fasterxml.jackson.databind.node.ObjectNode)result).put("suggestion_id",suggestionId);
             suggestions.save(suggestionId,actor,body.draft().title(),body.draft().content(),result);

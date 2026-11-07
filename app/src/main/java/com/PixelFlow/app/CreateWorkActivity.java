@@ -20,8 +20,10 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.PixelFlow.app.API.ApiClient;
 import com.PixelFlow.app.API.AccountMedia;
+import com.PixelFlow.app.API.CommunityClient;
 import com.PixelFlow.app.creation.DraftEditorModel;
 import com.PixelFlow.app.creation.DraftEditorModel.MediaEntry;
+import com.PixelFlow.app.DetailPage.FullScreenMediaDialog;
 import androidx.lifecycle.ViewModelProvider;
 import com.google.gson.Gson;
 import com.google.android.material.button.MaterialButton;
@@ -61,6 +63,7 @@ public class CreateWorkActivity extends AppCompatActivity {
     private Button checkState, myWorks;
     private boolean binding;
     private android.app.Dialog assistDialog;
+    private com.PixelFlow.app.API.CreationSuggestion previewShown;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,6 +108,15 @@ public class CreateWorkActivity extends AppCompatActivity {
         findViewById(R.id.creation_assist).setOnClickListener(v -> showAssistRequest());
         findViewById(R.id.creation_assist_preview).setOnClickListener(v -> showAssistPreview());
         findViewById(R.id.creation_assist_cancel).setOnClickListener(v -> model.cancelAssist());
+        findViewById(R.id.creation_assist_undo).setOnClickListener(v -> {
+            captureText();
+            if (model.state.assistUndo.needsConfirmation(model.state.title, model.state.content)) {
+                new androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setMessage(R.string.ai_creation_undo_confirm)
+                        .setNegativeButton(R.string.ai_creation_cancel, null)
+                        .setPositiveButton(R.string.ai_creation_undo, (dialog, which) -> undoAssist(true)).show();
+            } else undoAssist(false);
+        });
 
         findViewById(R.id.btn_back).setOnClickListener(v -> onBackPressed());
         operationStatus = findViewById(R.id.creation_status);
@@ -136,6 +148,13 @@ public class CreateWorkActivity extends AppCompatActivity {
                 if (ids != null) for (int i = 0; i < ids.size(); i++)
                     initial.media.add(new MediaEntry(null, urls != null && i < urls.size() ? urls.get(i) : null, ids.get(i)));
                 initial.needsReconcile = initial.postId != null;
+                // 空白创作（未指定作品、未带初始图片/自动选图）时，恢复上次保存的草稿
+                if (initial.postId == null
+                        && !getIntent().getBooleanExtra(EXTRA_AUTO_PICK, false)
+                        && getIntent().getStringArrayListExtra(EXTRA_INITIAL_URIS) == null) {
+                    DraftEditorModel.State lastDraft = model.loadLastDraft();
+                    if (lastDraft != null) initial = lastDraft;
+                }
             }
             model.initialize(initial, restored);
         }
@@ -150,6 +169,11 @@ public class CreateWorkActivity extends AppCompatActivity {
     private String textExtra(String key) {
         String value = getIntent().getStringExtra(key);
         return value == null ? "" : value;
+    }
+    /** 话题按空白拆分，词首自动补单个 #（保留手动输入的 #，重复 # 归一为单 #）。 */
+    private static String normalizeHashtags(String raw) {
+        if (raw == null || raw.isEmpty()) return "";
+        return raw.replaceAll("(^|\\s)(?=[^\\s#])", "$1#");
     }
     private void captureText() {
         if (binding || model.state == null) return;
@@ -168,6 +192,19 @@ public class CreateWorkActivity extends AppCompatActivity {
             Toast.makeText(this, model.state.message, Toast.LENGTH_LONG).show();
             finish(); return;
         }
+        View copilotEntry = findViewById(R.id.copilot_entry);
+        if (copilotEntry != null) copilotEntry.setOnClickListener(v -> {
+            if (!com.PixelFlow.app.API.ApiClient.getInstance(this).isLoggedIn()) {
+                startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
+                return;
+            }
+            if (model.state.postId == null) {
+                android.widget.Toast.makeText(this, R.string.copilot_need_draft, android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
+            com.PixelFlow.app.copilot.CopilotSheet.open(this, "create", null, model.state.postId, 0, null,
+                    tvTitle.getText().toString());
+        });
         tvTitle.setText(model.state.postId == null ? "创作作品" : "编辑作品");
         findViewById(R.id.creation_assist).setEnabled(model.editable() && !model.assistBusy);
         TextView assistStatus = findViewById(R.id.creation_assist_status);
@@ -175,6 +212,9 @@ public class CreateWorkActivity extends AppCompatActivity {
         assistStatus.setVisibility(model.assistMessage.isEmpty() ? View.GONE : View.VISIBLE);
         findViewById(R.id.creation_assist_preview).setVisibility(model.suggestion == null ? View.GONE : View.VISIBLE);
         findViewById(R.id.creation_assist_cancel).setVisibility(model.assistBusy ? View.VISIBLE : View.GONE);
+        findViewById(R.id.creation_assist_undo).setVisibility(model.state.assistUndo.available ? View.VISIBLE : View.GONE);
+        findViewById(R.id.creation_assist_undo).setEnabled(model.editable() && !model.assistBusy);
+        refreshAssistPreview();
         operationStatus.setText(model.state.message);
         operationStatus.setVisibility(model.state.message.isEmpty() ? View.GONE : View.VISIBLE);
         checkState.setVisibility(model.state.needsReconcile && !model.busy ? View.VISIBLE : View.GONE);
@@ -205,19 +245,22 @@ public class CreateWorkActivity extends AppCompatActivity {
             @Override public void afterTextChanged(Editable s) { captureText(); updateSaveButtonState(); }
         });
 
-        // 话题标签：后端尚未实现标签提取，这里保留输入但不参与提交。
+        // 话题标签：按空格拆分后自动补 #，保留手动输入的 #（重复 # 归一为单 #）。
         etHashtags.addTextChangedListener(new TextWatcher() {
+            private boolean normalizing = false;
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (s.length() > 0 && s.charAt(s.length() - 1) == ' ') {
-                    String current = s.toString();
-                    if (!current.endsWith(" #") && !current.endsWith("  ")) {
-                        etHashtags.setText(current + "#");
-                        etHashtags.setSelection(etHashtags.getText().length());
-                    }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                if (normalizing) return;
+                String normalized = normalizeHashtags(s.toString());
+                if (!normalized.equals(s.toString())) {
+                    normalizing = true;
+                    etHashtags.setText(normalized);
+                    etHashtags.setSelection(normalized.length());
+                    normalizing = false;
                 }
+                captureText();
             }
-            @Override public void afterTextChanged(Editable s) { captureText(); }
         });
 
         btnAddImage.setOnClickListener(v -> openImagePicker());
@@ -263,8 +306,10 @@ public class CreateWorkActivity extends AppCompatActivity {
         com.google.android.material.chip.ChipGroup goals = view.findViewById(R.id.cg_goals);
         EditText prompt = view.findViewById(R.id.et_ai_prompt);
         prompt.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)});
-        EditText audience = view.findViewById(R.id.et_ai_audience);
-        audience.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(64)});
+        previewShown = null;
+        if (model.state.assistPrompt != null) prompt.setText(model.state.assistPrompt);
+        for (int i = 0; i < GOAL_KEYS.length; i++)
+            if (GOAL_KEYS[i].equals(model.state.assistGoal)) goals.check(GOAL_CHIP_IDS[i]);
         view.findViewById(R.id.btn_ai_cancel).setOnClickListener(v -> assistDialog.dismiss());
         view.findViewById(R.id.btn_ai_generate).setOnClickListener(v -> {
             int checked = goals.getCheckedChipId();
@@ -272,8 +317,9 @@ public class CreateWorkActivity extends AppCompatActivity {
             for (int i = 0; i < GOAL_CHIP_IDS.length; i++)
                 if (GOAL_CHIP_IDS[i] == checked) { goal = GOAL_KEYS[i]; break; }
             captureText();
-            model.requestAssist(goal, prompt.getText().toString().trim(), audience.getText().toString().trim());
-            assistDialog.dismiss();
+            model.requestAssist(goal, prompt.getText().toString().trim(), "");
+            if (model.assistBusy) assistDialog.dismiss();
+            else prompt.setError(model.assistMessage);
         });
         assistDialog = aiDialog(view);
         assistDialog.show();
@@ -317,6 +363,7 @@ public class CreateWorkActivity extends AppCompatActivity {
     }
 
     private void showAssistPreview() {
+        captureText();
         com.PixelFlow.app.API.CreationSuggestion value = model.suggestion;
         if (value == null || !model.editable()) return;
         View view = getLayoutInflater().inflate(R.layout.dialog_ai_assist_preview, null);
@@ -344,6 +391,10 @@ public class CreateWorkActivity extends AppCompatActivity {
         fillCandidates(titles, value.title_candidates);
         final LinearLayout copies = view.findViewById(R.id.container_copies);
         fillCandidates(copies, value.content_candidates);
+        titles.setVisibility(value.title_candidates.isEmpty() ? View.GONE : View.VISIBLE);
+        view.findViewById(R.id.label_titles).setVisibility(titles.getVisibility());
+        copies.setVisibility(value.content_candidates.isEmpty() ? View.GONE : View.VISIBLE);
+        view.findViewById(R.id.label_copies).setVisibility(copies.getVisibility());
 
         final com.google.android.material.chip.Chip chipTags = view.findViewById(R.id.chip_tags);
         boolean hasTags = value.tag_suggestions != null && !value.tag_suggestions.isEmpty();
@@ -355,6 +406,22 @@ public class CreateWorkActivity extends AppCompatActivity {
         view.findViewById(R.id.tv_tags_label).setVisibility(hasTags ? View.VISIBLE : View.GONE);
 
         view.findViewById(R.id.btn_ai_edit).setOnClickListener(v -> assistDialog.dismiss());
+        EditText revision = view.findViewById(R.id.et_ai_revision);
+        view.findViewById(R.id.btn_ai_refine).setOnClickListener(v -> {
+            captureText();
+            if (model.refineAssist(revision.getText().toString())) assistDialog.dismiss();
+            else revision.setError(model.assistMessage);
+        });
+        view.findViewById(R.id.btn_ai_refresh).setOnClickListener(v -> {
+            assistDialog.dismiss(); showAssistRequest();
+        });
+        view.findViewById(R.id.btn_ai_copy).setOnClickListener(v -> {
+            List<String> parts = new ArrayList<>();
+            parts.addAll(value.title_candidates); parts.addAll(value.content_candidates); parts.addAll(value.tag_suggestions);
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("AI 创作建议", android.text.TextUtils.join("\n\n", parts)));
+            Toast.makeText(this, "已复制建议", Toast.LENGTH_SHORT).show();
+        });
         view.findViewById(R.id.btn_ai_apply).setOnClickListener(v -> {
             captureText();
             String pickedTitle = selectedCandidate(titles);
@@ -373,7 +440,35 @@ public class CreateWorkActivity extends AppCompatActivity {
             } else Toast.makeText(this, model.assistMessage, Toast.LENGTH_LONG).show();
         });
         assistDialog = aiDialog(view);
+        previewShown = value;
         assistDialog.show();
+        refreshAssistPreview();
+    }
+
+    private void refreshAssistPreview() {
+        if (assistDialog == null || !assistDialog.isShowing() || previewShown == null) return;
+        if (!model.ownsSession() || model.suggestion == null) { assistDialog.dismiss(); previewShown = null; return; }
+        if (previewShown != model.suggestion) {
+            assistDialog.dismiss(); showAssistPreview(); return;
+        }
+        boolean stale = model.suggestionStale();
+        ((TextView) assistDialog.findViewById(R.id.ai_preview_status)).setText(stale
+                ? getString(R.string.ai_assist_changed) : model.assistMessage);
+        boolean enabled = model.editable() && !model.assistBusy && !stale;
+        assistDialog.findViewById(R.id.btn_ai_apply).setEnabled(enabled);
+        assistDialog.findViewById(R.id.btn_ai_refine).setEnabled(enabled);
+        assistDialog.findViewById(R.id.et_ai_revision).setEnabled(enabled);
+        assistDialog.findViewById(R.id.btn_ai_refresh).setVisibility(stale ? View.VISIBLE : View.GONE);
+        assistDialog.findViewById(R.id.btn_ai_refresh).setEnabled(model.editable() && !model.assistBusy);
+    }
+
+    private void undoAssist(boolean confirmed) {
+        captureText();
+        if (!model.undoAssist(confirmed)) return;
+        binding = true;
+        etTitle.setText(model.state.title); etDescription.setText(model.state.content);
+        binding = false;
+        updateSaveButtonState();
     }
 
     private void updateMediaCount() {
@@ -488,6 +583,7 @@ public class CreateWorkActivity extends AppCompatActivity {
                     .placeholder(R.drawable.ic_image_placeholder)
                     .error(R.drawable.ic_image_error).centerCrop().into(imageView);
         }
+        imageView.setOnClickListener(v -> openFullScreen(entry));
 
         View deleteButton = new View(this);
         LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(dpToPx(20), dpToPx(20));
@@ -505,6 +601,22 @@ public class CreateWorkActivity extends AppCompatActivity {
         cardView.addView(imageView);
         cardView.addView(deleteButton);
         mediaPreviewContainer.addView(cardView);
+    }
+
+    /** 点击已上传图片：全屏查看；私有媒体带鉴权取字节，本地 URI 直接加载。 */
+    private void openFullScreen(MediaEntry entry) {
+        if (entry.mediaId != null && entry.url != null) {
+            api.getMediaContent(entry.url, new CommunityClient.Callback<byte[]>() {
+                @Override public void onSuccess(byte[] bytes) {
+                    new FullScreenMediaDialog(CreateWorkActivity.this, bytes).show();
+                }
+                @Override public void onFailure(String message) {
+                    Toast.makeText(CreateWorkActivity.this, "图片加载失败", Toast.LENGTH_SHORT).show();
+                }
+            });
+        } else if (entry.uri != null) {
+            new FullScreenMediaDialog(CreateWorkActivity.this, entry.uri).show();
+        }
     }
 
     private void addMoreIndicator(int moreCount) {

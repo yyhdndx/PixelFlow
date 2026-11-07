@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { request, write, session } from '../api/client'
 import PostMedia from '../components/PostMedia.vue'
@@ -11,7 +11,34 @@ const post = ref(null)
 const error = ref('')
 const busy = ref(false)
 
-function requireLogin() { router.replace(`/login?from=/post/${route.params.id}`) }
+const following = ref(null)
+const followBusy = ref(false)
+const followError = ref('')
+const followNotice = ref('')
+const own = computed(() => session.user?.id === post.value?.author?.user_id)
+let alive = true
+onBeforeUnmount(() => { alive = false })
+function requireLogin() { router.replace({ path: '/login', query: { from: route.fullPath } }) }
+async function loadFollowing() {
+  if (!session.user || own.value) return
+  followBusy.value = true; followError.value = ''
+  try {
+    const profile = await request(`/api/users/${encodeURIComponent(post.value.author.user_id)}/profile`)
+    if (alive) following.value = profile.is_following
+  } catch (e) { if (alive) followError.value = e.message }
+  finally { if (alive) followBusy.value = false }
+}
+async function toggleFollow() {
+  if (!session.user) { requireLogin(); return }
+  if (followBusy.value || following.value == null) return
+  followBusy.value = true; followError.value = ''; followNotice.value = ''
+  const active = !following.value
+  try {
+    await write('/api/interactions/follows', 'PUT', { targetId: post.value.author.user_id, active })
+    if (alive) { following.value = active; followNotice.value = active ? '已关注作者' : '已取消关注' }
+  } catch (e) { if (alive) followError.value = e.message }
+  finally { if (alive) followBusy.value = false }
+}
 function timeAgo(ts) {
   if (!ts) return ''
   const diff = Math.max(0, Date.now() / 1000 - ts)
@@ -37,7 +64,13 @@ const publishedTime = computed(() => post.value?.publish_time || post.value?.cre
 
 async function load() {
   error.value = ''
-  try { post.value = await request(`/api/posts/${route.params.id}`) }
+  try {
+    const result = await request(`/api/posts/${route.params.id}`)
+    if (!alive) return
+    post.value = result
+    following.value = null
+    loadFollowing()
+  }
   catch (e) { error.value = e.message }
 }
 async function toggle(kind, active) {
@@ -71,10 +104,13 @@ onMounted(load)
         <div class="detail-author">
           <span class="avatar">{{ (post.author?.nickname || post.author?.username || 'U').charAt(0).toUpperCase() }}</span>
           <div class="meta">
-            <div class="nick">{{ post.author?.nickname }}</div>
+            <RouterLink :to="`/author/${post.author?.user_id}`" class="nick">{{ post.author?.nickname }}</RouterLink>
             <small>{{ timeAgo(publishedTime) }}</small>
           </div>
+          <button v-if="!own" class="secondary follow-button" :disabled="followBusy || (!!session.user && following == null)" @click="toggleFollow">{{ followBusy ? '请稍候…' : following === true ? '已关注' : '关注' }}</button>
         </div>
+        <p v-if="followError" class="error" role="alert">{{ followError }} <button v-if="following == null" class="quiet" @click="loadFollowing">重试关注状态</button></p>
+        <p v-if="followNotice" class="success" role="status">{{ followNotice }}</p>
         <div class="detail-actions">
           <button :class="{ on: post.is_liked }" :disabled="busy" @click="toggle('likes', !post.is_liked)">
             ♥ {{ post.is_liked ? '已赞' : '点赞' }} {{ post.like_count || 0 }}

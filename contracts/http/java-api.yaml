@@ -8,6 +8,44 @@ servers:
 security:
   - bearerAuth: []
 paths:
+  /api/agent/search/stream:
+    post:
+      summary: 智能搜索的增量回答
+      description: |
+        需要登录，保留 /api/agent/search 完整响应接口。question 为1–200个Unicode字符且非空白。
+        POST SSE，不自动重连。事件顺序为 meta、phase、sources、delta、done；任意流内故障以error终止。
+        每条data为JSON，包含request_id(UUID)及从1递增的seq。meta返回session_id/trace_id，尚不代表会话成功保存。
+        phase.phase为retrieving/preparing/generating/validating。sources.sources为已确认公开且作者启用的来源列表。
+        delta.text为真实生成增量；done含完整answer/sources/session_id/trace_id/degraded及validated=true，只有done代表成功。
+        error含code/message/incomplete=true，已展示内容必须标记未完成；无done断开也视为中断。
+        Java在来源及正文输出前校验来源，完成前再次检查来源与引用；失效不得标成功。
+        整体预算55秒含完成校验及会话提交，空闲上限15秒，心跳5秒不延长总预算。
+        单帧最多16384字节，总流最多262144字节(UTF-8)，answer最多1500字符，sources最多5项。
+        主动停止及提交新问题取消旧流；页面返回只重订阅，重试只能由用户触发。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [question]
+              properties:
+                question: {type: string, minLength: 1, maxLength: 200}
+                session_id: {type: string, nullable: true, maxLength: 36, pattern: '^$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'}
+      responses:
+        '200':
+          description: SSE事件流；流开始后失败通过error事件表达，不改变HTTP状态
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+            X-Accel-Buffering: {schema: {type: string, enum: ['no']}}
+          content:
+            text/event-stream:
+              schema: {type: string, description: 'event为meta/phase/sources/delta/done/error，data的schema见AgentSearchStreamEvent'}
+              example: "event: delta\ndata: {\"request_id\":\"5cc3b214-1a4e-4be9-a127-6b9a392cbfa1\",\"seq\":4,\"text\":\"第一段〔1〕\"}\n\n"
+        '400': {description: 流开始前参数无效, content: {application/json: {schema: {$ref: '#/components/schemas/AgentSearchError'}}}}
+        '401': {$ref: '#/components/responses/Error'}
+        '502': {description: 流开始前上游不可用或协议无效, content: {application/json: {schema: {$ref: '#/components/schemas/AgentSearchError'}}}}
   /api/agent/search:
     post:
       summary: 智能搜索社区作品并返回带出处的综合回答
@@ -55,6 +93,74 @@ paths:
         '400': {description: 请求字段或格式无效, content: {application/json: {schema: {$ref: '#/components/schemas/AgentSearchError'}}}}
         '401': {$ref: '#/components/responses/Error'}
         '502': {description: AGENT_SEARCH_UNAVAILABLE（配置缺失、上游故障或超时）或 INVALID_AGENT_SEARCH_RESPONSE（响应或来源无效）；统一错误结构，不含上游正文或半截回答, content: {application/json: {schema: {$ref: '#/components/schemas/AgentSearchError'}}}}
+  /api/agent/copilot:
+    post:
+      description: 应用内 Copilot。客户端只上报页面与实体 ID，实际上下文由服务端按当前用户权限重新读取；模型只返回提案，写入仍走各自业务接口。仅在登录状态下可用。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [screen, message]
+              properties:
+                screen: {type: string, enum: [detail, create, messages]}
+                postId: {type: string, pattern: '^[1-9][0-9]{0,18}$', description: screen=detail 时必填}
+                draftId: {type: string, pattern: '^[1-9][0-9]{0,18}$', description: screen=create 时必填，必须是自己的草稿}
+                conversationIds:
+                  type: array
+                  maxItems: 10
+                  description: screen=messages 时必填，且都必须是当前用户参与的会话
+                  items: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+                selection: {type: string, maxLength: 500}
+                message: {type: string, minLength: 1, maxLength: 2000}
+                history:
+                  type: array
+                  maxItems: 20
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [role, content]
+                    properties:
+                      role: {type: string, enum: [user, assistant]}
+                      content: {type: string, maxLength: 500}
+      responses:
+        '200':
+          description: '{status_code, reply, actions, screen, trace_id}；actions 为空表示只回话不动作'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, reply, actions, screen]
+                properties:
+                  status_code: {type: integer}
+                  reply: {type: string, maxLength: 600}
+                  screen: {type: string}
+                  trace_id: {type: string, nullable: true}
+                  actions:
+                    type: array
+                    description: 按 screen 限定的动作提案；越界、超长或不属于当前用户的动作会被服务端丢弃
+                    items:
+                      type: object
+                      properties:
+                        type: {type: string, enum: [POST_COMMENT, UPDATE_DRAFT, SEND_MESSAGES]}
+                        rationale: {type: string}
+                        text: {type: string, description: POST_COMMENT}
+                        title: {type: string, description: UPDATE_DRAFT}
+                        content: {type: string, description: UPDATE_DRAFT}
+                        items:
+                          type: array
+                          description: SEND_MESSAGES
+                          items:
+                            type: object
+                            properties:
+                              conversation_id: {type: string}
+                              text: {type: string}
+        '400': {description: 参数缺失（如 detail 无 postId、messages 无会话）}
+        '403': {description: 上下文越权（他人草稿、非本人参与的会话）}
+        '503': {description: AI 暂不可用，客户端应提示稍后再试}
+        default: {$ref: '#/components/responses/Error'}
   /api/agent/create-assist:
     post:
       summary: 为编辑器草稿生成候选及内容风险建议
@@ -75,8 +181,16 @@ paths:
                     content: {type: string, maxLength: 5000}
                     tags: {type: array, maxItems: 20, items: {type: string, maxLength: 32}}
                 goal: {type: string, enum: [all, improve_title, suggest_tags, polish_content, write_content]}
-                prompt: {type: string, maxLength: 200}
-                audience: {type: string, maxLength: 64}
+                prompt: {type: string, maxLength: 200, description: 唯一的写作或修改要求；有草稿时可省略，继续修改时必须非空}
+                audience: {type: string, maxLength: 64, description: 兼容旧客户端，新客户端不再填写}
+                previous_result:
+                  type: object
+                  description: 可选的上一版文字快照。与原始 draft、goal 和本次 prompt 一起用于继续修改；不保存对话历史。无模型时继续修改返回 503。
+                  required: [title, content]
+                  properties:
+                    title: {type: string, maxLength: 120}
+                    content: {type: string, maxLength: 5000}
+                    tags: {type: array, maxItems: 20, items: {type: string, maxLength: 32}}
       responses:
         '200':
           description: 候选预览；Cache-Control 为 no-store
@@ -92,8 +206,8 @@ paths:
                   goal: {type: string}
                   provider: {type: string, enum: [deepseek, rules]}
                   policy_version: {type: string}
-                  title_candidates: {type: array, items: {type: string, maxLength: 120}}
-                  content_candidates: {type: array, items: {type: string, maxLength: 5000}}
+                  title_candidates: {type: array, maxItems: 1, items: {type: string, maxLength: 120}}
+                  content_candidates: {type: array, maxItems: 1, items: {type: string, maxLength: 5000}}
                   tag_suggestions: {type: array, items: {type: string}}
                   edit_suggestions: {type: array, items: {type: string}}
                   safety:
@@ -103,7 +217,7 @@ paths:
                       rule_hits: {type: array, items: {type: string}}
                       suggestions: {type: array, items: {type: string}}
                       requires_human_review: {type: boolean}
-        '400': {description: 参数无效}
+        '400': {description: 参数无效；草稿与要求均空；润色没有正文；继续修改未填写要求}
         '401': {description: 登录失效}
         '502': {description: 上游响应不完整}
         '503': {description: 模型超时、不可用、输出无效或服务繁忙；保留原稿，可重试或跳过}
@@ -656,6 +770,21 @@ paths:
         '400': {description: 正文过短（SHORT_TEXT），客户端应隐藏入口}
         '503': {description: AI 不可用，客户端提示先读原文}
         default: {$ref: '#/components/responses/Error'}
+  /api/posts/{id}/summary/stream:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    get:
+      description: 登录用户提炼已公开长文。SSE 先发 summary（完整概括），再发 point（完整要点），最终 done 再确认作品版本与输出完整性；断开或 error 时保留内容并标为未完成。55秒整体预算、15秒空闲、5秒心跳、16KiB单帧、256KiB总量。取消关闭连接，不自动重试。原完整接口保留。
+      responses:
+        '200':
+          description: '每个 data JSON 遵循 components.schemas.PostSummaryStreamEvent。事件 payload 均有 seq；summary 含 summary，point 含 point，done 含 summary/points/content_length/trace_id/validated=true；error 含 code/message/incomplete=true。完成前的内容不可标为成功。'
+          content:
+            text/event-stream:
+              schema: {type: string}
+        '400': {description: 正文不足200字}
+        '401': {description: 未登录}
+        '404': {description: 作品不可见}
+        '503': {description: AI服务不可用}
   /api/posts/{id}/auto-replies:
     parameters:
       - {$ref: '#/components/parameters/Id'}
@@ -1264,6 +1393,155 @@ paths:
       responses:
         '200': {description: 本地生成演示封面, content: {image/png: {schema: {type: string, format: binary}}}}
         default: {$ref: '#/components/responses/Error'}
+  /api/conversations:
+    post:
+      description: 与目标用户创建一对一会话；已存在时返回既有会话（去重）。不能和自己建会话（400）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [targetUserId]
+              properties:
+                targetUserId: {type: string, pattern: '^[A-Za-z0-9_-]{1,36}$'}
+      responses:
+        '200': {description: 会话（新建或既有）, content: {application/json: {schema: {$ref: '#/components/schemas/Conversation'}}}}
+        default: {$ref: '#/components/responses/Error'}
+    get:
+      description: 会话列表，按 last_message_time 倒序游标分页；每条带对方资料、最后消息摘要与未读数。
+      parameters:
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+        - {name: cursor, in: query, schema: {type: string}, description: 上一页末项游标（last_message_time:conversation_id）}
+      responses:
+        '200':
+          description: '{status_code, conversation_list, has_more, next_cursor}'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ConversationPage'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/conversations/{id}/messages:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
+    get:
+      description: 历史消息，id 倒序游标分页；带 after 参数时只取增量（id > after，正序）。
+      parameters:
+        - {name: count, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 30}}
+        - {name: cursor, in: query, schema: {type: integer, format: int64, minimum: 1}, description: 上一页末项 message id}
+        - {name: after, in: query, schema: {type: integer, format: int64, minimum: 1}, description: 轮询增量：返回 id 大于该值的消息}
+      responses:
+        '200':
+          description: '{status_code, message_list, has_more, next_cursor}'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PrivateMessagePage'}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      description: 发送纯文本消息（1–1000 字，空白拒绝）；成功后更新会话最后消息。同用户 20 条/分钟限流。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [content]
+              properties:
+                content: {type: string, minLength: 1, maxLength: 1000}
+      responses:
+        '200': {description: 新消息, content: {application/json: {schema: {$ref: '#/components/schemas/PrivateMessage'}}}}
+        '429': {description: 频率超限，返回 Retry-After 头}
+        default: {$ref: '#/components/responses/Error'}
+  /api/posts/{id}/copilot-application:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    post:
+      description: 应用 Copilot 的草稿修改。带 content_version 乐观锁：版本不一致返回 409 VERSION_CONFLICT，客户端只能重新生成，不提供覆盖。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [content, expected_version]
+              properties:
+                title: {type: string, maxLength: 120}
+                content: {type: string, maxLength: 5000}
+                expected_version: {type: integer, minimum: 0}
+      responses:
+        '200': {description: 更新后的作品详情（含新的 content_version）}
+        '403': {description: 不是本人草稿}
+        '409': {description: 版本冲突或状态不允许编辑，需重新生成}
+        default: {$ref: '#/components/responses/Error'}
+  /api/conversations/messages/batch:
+    post:
+      description: 批量发送私信（Copilot 一次回复多人）。单事务，全部成功或全部失败；同一会话在一次请求里只能出现一次；每次最多 10 条。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [conversation_id, content]
+                    properties:
+                      conversation_id: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+                      content: {type: string, minLength: 1, maxLength: 1000}
+      responses:
+        '200':
+          description: '{status_code, sent: [{conversation_id, message_id, content, create_time}]}'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, sent]
+                properties:
+                  status_code: {type: integer}
+                  sent:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        conversation_id: {type: string}
+                        message_id: {type: string}
+                        content: {type: string}
+                        create_time: {type: integer}
+        '400': {description: 条数超限、重复会话或内容为空/超长}
+        '403': {description: 非会话参与者}
+        default: {$ref: '#/components/responses/Error'}
+  /api/conversations/{id}/read:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
+    put:
+      description: 标记已读；body 为空读到最新，否则读到指定消息 id；幂等。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                lastReadMessageId: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+      responses:
+        '200': {description: '{updated: true}'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/users/me/messages/unread-count:
+    get:
+      description: 私聊未读消息总数，用于消息 Tab 角标。
+      responses:
+        '200': {description: '{count}', content: {application/json: {schema: {type: object, required: [count], properties: {count: {type: integer, format: int64}}}}}}
+        default: {$ref: '#/components/responses/Error'}
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
@@ -1504,6 +1782,63 @@ components:
         latency_ms: {type: integer, format: int64, minimum: 0}
         trace_id: {type: string, format: uuid}
         degraded: {type: integer, enum: [0, 1]}
+    AgentSearchStreamEvent:
+      type: object
+      additionalProperties: false
+      required: [request_id, seq]
+      oneOf:
+        - {required: [session_id, trace_id], maxProperties: 4, description: meta}
+        - {required: [phase], maxProperties: 3, description: phase}
+        - {required: [sources], maxProperties: 3, description: sources}
+        - {required: [text], maxProperties: 3, description: delta}
+        - {required: [answer, sources, session_id, trace_id, degraded, validated], maxProperties: 8, description: done}
+        - {required: [code, message, incomplete], maxProperties: 5, description: error}
+      properties:
+        request_id: {type: string, format: uuid}
+        seq: {type: integer, minimum: 1}
+        session_id: {type: string, format: uuid, description: meta及done必需}
+        trace_id: {type: string, format: uuid, description: meta及done必需}
+        phase: {type: string, enum: [retrieving, preparing, generating, validating], description: phase事件必需}
+        text: {type: string, description: delta事件必需}
+        answer: {type: string, maxLength: 1500, description: done事件必需}
+        degraded: {type: integer, enum: [0, 1], description: done事件必需}
+        validated: {type: boolean, enum: [true], description: done事件必需}
+        incomplete: {type: boolean, enum: [true], description: error事件必需}
+        code: {type: string, description: error事件必需}
+        message: {type: string, maxLength: 200, description: error事件安全文案}
+        sources:
+          type: array
+          maxItems: 5
+          description: sources及done事件必需
+          items:
+            type: object
+            additionalProperties: false
+            required: [post_id, title, excerpt, author_name]
+            properties:
+              post_id: {type: string, pattern: '^[1-9][0-9]{0,17}$'}
+              title: {type: string, maxLength: 120}
+              excerpt: {type: string, maxLength: 100}
+              author_name: {type: string, maxLength: 64}
+    PostSummaryStreamEvent:
+      type: object
+      additionalProperties: false
+      required: [seq]
+      oneOf:
+        - {required: [summary], maxProperties: 2, description: summary}
+        - {required: [point], maxProperties: 2, description: point}
+        - {required: [summary, points, content_length, trace_id, validated], maxProperties: 6, description: done}
+        - {required: [code, message, incomplete], maxProperties: 4, description: error}
+      properties:
+        seq: {type: integer, minimum: 1}
+        summary: {type: string, minLength: 1, maxLength: 60}
+        point: {type: string, minLength: 1, maxLength: 80}
+        points: {type: array, minItems: 3, maxItems: 5, items: {type: string, minLength: 1, maxLength: 80}}
+        content_length: {type: integer, minimum: 200}
+        trace_id: {type: string, format: uuid}
+        validated: {type: boolean, enum: [true]}
+        code: {type: string}
+        message: {type: string, maxLength: 200}
+        incomplete: {type: boolean, enum: [true]}
     AgentSearchError:
       type: object
       required: [status_code, code, message, requestId]
@@ -1743,3 +2078,54 @@ components:
         after_status: {type: string}
         reason: {type: string}
         created_at: {type: integer, format: int64}
+    Conversation:
+      type: object
+      additionalProperties: false
+      required: [conversation_id, create_time, last_message_time, partner, last_message, unread_count]
+      description: 一对一会话。last_message 在无消息时为 null。
+      properties:
+        conversation_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        create_time: {type: integer, format: int64, minimum: 0}
+        last_message_time: {type: integer, format: int64, nullable: true}
+        partner:
+          type: object
+          additionalProperties: false
+          required: [user_id, nickname, avatar]
+          properties:
+            user_id: {type: string, maxLength: 36}
+            nickname: {type: string, maxLength: 40}
+            avatar: {type: string}
+        last_message:
+          type: object
+          nullable: true
+          properties:
+            message_id: {type: string, pattern: '^[1-9][0-9]*$'}
+            content: {type: string, maxLength: 1000}
+            create_time: {type: integer, format: int64}
+        unread_count: {type: integer, minimum: 0}
+    PrivateMessage:
+      type: object
+      additionalProperties: false
+      required: [message_id, conversation_id, sender_id, content, create_time]
+      properties:
+        message_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        conversation_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        sender_id: {type: string, maxLength: 36}
+        content: {type: string, minLength: 1, maxLength: 1000}
+        create_time: {type: integer, format: int64, minimum: 0}
+    ConversationPage:
+      type: object
+      required: [status_code, conversation_list, has_more, next_cursor]
+      properties:
+        status_code: {type: integer, enum: [0]}
+        conversation_list: {type: array, items: {$ref: '#/components/schemas/Conversation'}}
+        has_more: {type: integer, enum: [0, 1]}
+        next_cursor: {type: string, nullable: true, description: 存在下一页时为本页末条会话的 last_message_time 与 id 组合串，否则为 null}
+    PrivateMessagePage:
+      type: object
+      required: [status_code, message_list, has_more, next_cursor]
+      properties:
+        status_code: {type: integer, enum: [0]}
+        message_list: {type: array, items: {$ref: '#/components/schemas/PrivateMessage'}}
+        has_more: {type: integer, enum: [0, 1]}
+        next_cursor: {type: string, nullable: true, description: 存在下一页时为本页末条消息 id，否则为 null}
