@@ -23,4 +23,12 @@
     <string name="copilot_history_count">%1$d 条消息</string>
     <string name="copilot_need_draft">先保存一次草稿后，AI 才能帮你改内容</string>
     <string name="copilot_intro">可以让我帮你写评论、改草稿或回复消息。我会先给出方案，你确认后才会生效。</string>
-</resources>
+    <string name="copilot_hint_detail">例如：帮我写一条评论，问问这是在哪拍的</string>
+    <string name="copilot_hint_create">例如：帮我润色这段正文，保持原意</string>
+    <string name="copilot_hint_messages">例如：帮我回一下，告诉他们周末我有空</string>
+    <string name="copilot_suggest_detail_1">帮我写条评论</string>
+    <string name="copilot_suggest_detail_2">这条帖子讲了什么</string>
+    <string name="copilot_suggest_create_1">帮我润色正文</string>
+    <string name="copilot_suggest_create_2">帮我起个标题</string>
+    <string name="copilot_suggest_messages_1">帮我回复这几条</string>
+    <string name="copilot_suggest_messages_2">先说说他们问了什么</string></resources>

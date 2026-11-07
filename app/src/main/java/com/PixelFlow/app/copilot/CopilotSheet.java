@@ -96,9 +96,11 @@ public class CopilotSheet extends BottomSheetDialogFragment {
         status = view.findViewById(R.id.copilot_status);
         ((TextView) view.findViewById(R.id.copilot_label)).setText(label);
         view.findViewById(R.id.copilot_close).setOnClickListener(v -> dismiss());
+        view.findViewById(R.id.copilot_back).setOnClickListener(v -> dismiss());
         view.findViewById(R.id.copilot_history).setOnClickListener(v ->
                 startActivity(new Intent(requireContext(), CopilotHistoryActivity.class)));
 
+        applyDefaults(view);
         session = CopilotStore.load(requireContext(), key);
         if (session == null) {
             session = new CopilotStore.Session();
@@ -119,6 +121,45 @@ public class CopilotSheet extends BottomSheetDialogFragment {
         }
     }
 
+
+    /** 不同页面的默认指令：输入框提示 + 一键填写的建议胶囊。 */
+    private void applyDefaults(View view) {
+        int hint;
+        int[] suggestions;
+        if ("create".equals(screen)) {
+            hint = R.string.copilot_hint_create;
+            suggestions = new int[]{R.string.copilot_suggest_create_1, R.string.copilot_suggest_create_2};
+        } else if ("messages".equals(screen)) {
+            hint = R.string.copilot_hint_messages;
+            suggestions = new int[]{R.string.copilot_suggest_messages_1, R.string.copilot_suggest_messages_2};
+        } else {
+            hint = R.string.copilot_hint_detail;
+            suggestions = new int[]{R.string.copilot_suggest_detail_1, R.string.copilot_suggest_detail_2};
+        }
+        input.setHint(hint);
+        LinearLayout row = view.findViewById(R.id.copilot_suggestions);
+        row.removeAllViews();
+        for (int res : suggestions) {
+            TextView chip = new TextView(requireContext());
+            chip.setText(res);
+            chip.setTextSize(13);
+            chip.setTextColor(requireContext().getColor(R.color.profile_accent));
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(requireContext().getColor(R.color.profile_soft));
+            bg.setCornerRadius(dp(16));
+            chip.setBackground(bg);
+            chip.setPadding(dp(12), dp(8), dp(12), dp(8));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            params.setMarginEnd(dp(8));
+            chip.setLayoutParams(params);
+            chip.setOnClickListener(v -> {
+                input.setText(chip.getText());
+                input.setSelection(input.getText().length());
+            });
+            row.addView(chip);
+        }
+    }
     private void submit() {
         if (busy) return;
         String text = input.getText().toString().trim();

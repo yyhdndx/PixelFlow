@@ -16,6 +16,16 @@
         android:paddingStart="20dp"
         android:paddingEnd="12dp">
 
+        <ImageView
+            android:id="@+id/copilot_back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/copilot_close"
+            android:padding="10dp"
+            android:src="@drawable/profile_back" />
+
         <TextView
             android:id="@+id/copilot_label"
             android:layout_width="0dp"
@@ -69,6 +79,20 @@
             android:paddingTop="12dp"
             android:paddingBottom="12dp" />
     </ScrollView>
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/copilot_suggestions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
 
     <TextView
         android:id="@+id/copilot_status"
