@@ -118,13 +118,13 @@
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/et_description"
                     android:layout_width="match_parent"
-                    android:layout_height="130dp"
+                    android:layout_height="wrap_content"
+                    android:minLines="5"
                     android:hint="分享你的创作故事或灵感..."
                     android:textColor="@color/profile_ink"
                     android:textSize="15sp"
                     android:gravity="top"
                     android:padding="14dp"
-                    android:maxLines="10"
                     android:inputType="textMultiLine" />
             </com.google.android.material.textfield.TextInputLayout>
 
