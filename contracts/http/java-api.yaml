@@ -93,6 +93,74 @@ paths:
         '400': {description: 请求字段或格式无效, content: {application/json: {schema: {$ref: '#/components/schemas/AgentSearchError'}}}}
         '401': {$ref: '#/components/responses/Error'}
         '502': {description: AGENT_SEARCH_UNAVAILABLE（配置缺失、上游故障或超时）或 INVALID_AGENT_SEARCH_RESPONSE（响应或来源无效）；统一错误结构，不含上游正文或半截回答, content: {application/json: {schema: {$ref: '#/components/schemas/AgentSearchError'}}}}
+  /api/agent/copilot:
+    post:
+      description: 应用内 Copilot。客户端只上报页面与实体 ID，实际上下文由服务端按当前用户权限重新读取；模型只返回提案，写入仍走各自业务接口。仅在登录状态下可用。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [screen, message]
+              properties:
+                screen: {type: string, enum: [detail, create, messages]}
+                postId: {type: string, pattern: '^[1-9][0-9]{0,18}$', description: screen=detail 时必填}
+                draftId: {type: string, pattern: '^[1-9][0-9]{0,18}$', description: screen=create 时必填，必须是自己的草稿}
+                conversationIds:
+                  type: array
+                  maxItems: 10
+                  description: screen=messages 时必填，且都必须是当前用户参与的会话
+                  items: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+                selection: {type: string, maxLength: 500}
+                message: {type: string, minLength: 1, maxLength: 2000}
+                history:
+                  type: array
+                  maxItems: 20
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [role, content]
+                    properties:
+                      role: {type: string, enum: [user, assistant]}
+                      content: {type: string, maxLength: 500}
+      responses:
+        '200':
+          description: '{status_code, reply, actions, screen, trace_id}；actions 为空表示只回话不动作'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, reply, actions, screen]
+                properties:
+                  status_code: {type: integer}
+                  reply: {type: string, maxLength: 600}
+                  screen: {type: string}
+                  trace_id: {type: string, nullable: true}
+                  actions:
+                    type: array
+                    description: 按 screen 限定的动作提案；越界、超长或不属于当前用户的动作会被服务端丢弃
+                    items:
+                      type: object
+                      properties:
+                        type: {type: string, enum: [POST_COMMENT, UPDATE_DRAFT, SEND_MESSAGES]}
+                        rationale: {type: string}
+                        text: {type: string, description: POST_COMMENT}
+                        title: {type: string, description: UPDATE_DRAFT}
+                        content: {type: string, description: UPDATE_DRAFT}
+                        items:
+                          type: array
+                          description: SEND_MESSAGES
+                          items:
+                            type: object
+                            properties:
+                              conversation_id: {type: string}
+                              text: {type: string}
+        '400': {description: 参数缺失（如 detail 无 postId、messages 无会话）}
+        '403': {description: 上下文越权（他人草稿、非本人参与的会话）}
+        '503': {description: AI 暂不可用，客户端应提示稍后再试}
+        default: {$ref: '#/components/responses/Error'}
   /api/agent/create-assist:
     post:
       summary: 为编辑器草稿生成候选及内容风险建议
@@ -1376,6 +1444,51 @@ paths:
       responses:
         '200': {description: 新消息, content: {application/json: {schema: {$ref: '#/components/schemas/PrivateMessage'}}}}
         '429': {description: 频率超限，返回 Retry-After 头}
+        default: {$ref: '#/components/responses/Error'}
+  /api/conversations/messages/batch:
+    post:
+      description: 批量发送私信（Copilot 一次回复多人）。单事务，全部成功或全部失败；同一会话在一次请求里只能出现一次；每次最多 10 条。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [conversation_id, content]
+                    properties:
+                      conversation_id: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
+                      content: {type: string, minLength: 1, maxLength: 1000}
+      responses:
+        '200':
+          description: '{status_code, sent: [{conversation_id, message_id, content, create_time}]}'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, sent]
+                properties:
+                  status_code: {type: integer}
+                  sent:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        conversation_id: {type: string}
+                        message_id: {type: string}
+                        content: {type: string}
+                        create_time: {type: integer}
+        '400': {description: 条数超限、重复会话或内容为空/超长}
+        '403': {description: 非会话参与者}
         default: {$ref: '#/components/responses/Error'}
   /api/conversations/{id}/read:
     parameters:
