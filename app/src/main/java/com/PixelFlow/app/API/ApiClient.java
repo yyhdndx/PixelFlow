@@ -5,7 +5,6 @@ import android.os.Handler;
 import android.os.Looper;
 import java.io.File;
 import java.io.InputStream;
-import java.util.Properties;
 
 public final class ApiClient extends CommunityClient {
     private static ApiClient instance;
@@ -30,8 +29,7 @@ public final class ApiClient extends CommunityClient {
     }
     private static String configuredUrl(Context context) {
         try (InputStream input = context.getAssets().open("api.properties")) {
-            Properties values = new Properties(); values.load(input);
-            return values.getProperty("url", "").trim();
+            return ApiConfiguration.readUrl(input);
         } catch (Exception ignored) { return ""; }
     }
 }
