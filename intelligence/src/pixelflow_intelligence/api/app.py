@@ -16,7 +16,7 @@ from ..clients.deepseek import DeepSeekAssist
 from ..agents.search import answer_question
 from ..agents.moderation import suggest_moderation
 from ..agents.comment_reply import decide_reply
-from ..agents.auto_reply_suggest import suggest_rules
+from ..agents.auto_reply_suggest import suggest_rules
 from ..agents.post_summary import summarize_post
 from ..agents.copilot import run_copilot
 
@@ -163,6 +163,8 @@ def create_app(settings=None, upstream=None):
     app.include_router(search_stream_router(settings, upstream, store))
     from .summary_stream import router as summary_stream_router
     app.include_router(summary_stream_router(settings, upstream, store))
+    from .assist_stream import router as assist_stream_router
+    app.include_router(assist_stream_router(settings, upstream, store))
     bearer = HTTPBearer(auto_error=False)
 
     @app.middleware("http")

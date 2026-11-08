@@ -833,6 +833,51 @@ public class CommunityClient implements AutoCloseable {
         }, callback);
     }
 
+    /** 流式创作辅助：delta 为增量文本，完成后回调最终建议。仅支持单一目标（不含 all）。 */
+    public Job createAssistStream(String title, String content, List<String> tags, String goal, String prompt,
+            String audience, CreationSuggestion.PreviousResult previous,
+            java.util.function.Consumer<String> delta, Callback<CreationSuggestion> callback) {
+        return submitAi((job, expected) -> {
+            if (title.length() > 120 || content.length() > 5000 || prompt.length() > 200 || audience.length() > 64)
+                throw new ApiError(400, "输入内容过长，请精简后重试");
+            if (base == null) throw new ApiError(0, "服务地址无效，请检查 api.properties");
+            JsonObject draft = new JsonObject();
+            draft.addProperty("title", title); draft.addProperty("content", content);
+            draft.add("tags", gson.toJsonTree(tags));
+            JsonObject input = new JsonObject(); input.add("draft", draft);
+            input.addProperty("goal", goal); input.addProperty("prompt", prompt); input.addProperty("audience", audience);
+            if (previous != null) input.add("previous_result", gson.toJsonTree(previous));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(55);
+            for (int attempt = 0; attempt < 2; attempt++) {
+                String token = access(expected);
+                if (token == null) throw new ApiError(401, "请先登录");
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0 || job.cancelled) throw new IOException("AI 辅助创作已中断");
+                Request request = new Request.Builder().url(base.resolve("/api/agent/create-assist/stream"))
+                        .header("Authorization", "Bearer " + token).header("Accept", "text/event-stream")
+                        .post(RequestBody.create(gson.toJson(input), JSON)).build();
+                job.call = http.newBuilder().readTimeout(15, TimeUnit.SECONDS).build().newCall(request);
+                job.call.timeout().timeout(remaining, TimeUnit.NANOSECONDS);
+                if (job.cancelled) job.call.cancel();
+                try (Response response = job.call.execute()) {
+                    if (response.code() == 401 && attempt == 0) {
+                        refreshCredentials(expected, token);
+                        continue;
+                    }
+                    if (!response.isSuccessful() || response.body() == null)
+                        throw new ApiError(response.code(), "创作辅助服务暂时不可用");
+                    return CreationAssistStreamReader.read(response.body().source(), piece -> {
+                        synchronized (CommunityClient.this) {
+                            if (job.cancelled || generation != expected) return;
+                        }
+                        delta.accept(piece);
+                    });
+                }
+            }
+            throw new ApiError(401, "请重新登录");
+        }, callback);
+    }
+
     /** Agent 智能搜索与多帖总结；契约见 docs/issues/21-java-agent-搜索接口.md。仅登录用户，游客 401。 */
     public Job agentSearchStream(String question, String sessionId,
             java.util.function.Consumer<JsonObject> progress, Callback<AgentSearchResult> callback) {

@@ -106,7 +106,7 @@ public class CreateWorkActivity extends AppCompatActivity {
         btnPublish = findViewById(R.id.btn_publish);
         btnCancel = findViewById(R.id.btn_cancel);
         findViewById(R.id.creation_assist).setOnClickListener(v -> showAssistRequest());
-        findViewById(R.id.creation_assist_preview).setOnClickListener(v -> showAssistPreview());
+        findViewById(R.id.creation_assist_refine).setOnClickListener(v -> showRefineDialog());
         findViewById(R.id.creation_assist_cancel).setOnClickListener(v -> model.cancelAssist());
         findViewById(R.id.creation_assist_undo).setOnClickListener(v -> {
             captureText();
@@ -210,7 +210,10 @@ public class CreateWorkActivity extends AppCompatActivity {
         TextView assistStatus = findViewById(R.id.creation_assist_status);
         assistStatus.setText(model.assistMessage);
         assistStatus.setVisibility(model.assistMessage.isEmpty() ? View.GONE : View.VISIBLE);
-        findViewById(R.id.creation_assist_preview).setVisibility(model.suggestion == null ? View.GONE : View.VISIBLE);
+        TextView assistStream = findViewById(R.id.creation_assist_stream);
+        assistStream.setText(model.streamText);
+        assistStream.setVisibility(model.assistBusy && !model.streamText.isEmpty() ? View.VISIBLE : View.GONE);
+        findViewById(R.id.creation_assist_refine).setVisibility(model.suggestion == null ? View.GONE : View.VISIBLE);
         findViewById(R.id.creation_assist_cancel).setVisibility(model.assistBusy ? View.VISIBLE : View.GONE);
         findViewById(R.id.creation_assist_undo).setVisibility(model.state.assistUndo.available ? View.VISIBLE : View.GONE);
         findViewById(R.id.creation_assist_undo).setEnabled(model.editable() && !model.assistBusy);
@@ -323,6 +326,26 @@ public class CreateWorkActivity extends AppCompatActivity {
         });
         assistDialog = aiDialog(view);
         assistDialog.show();
+    }
+
+    /** 继续修改：底部弹出输入框，输入新要求后基于当前结果继续生成。 */
+    private void showRefineDialog() {
+        captureText();
+        if (model.suggestion == null || !model.editable()) return;
+        EditText input = new EditText(this);
+        input.setHint(R.string.ai_creation_revision_hint);
+        input.setSingleLine(true);
+        input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)});
+        input.setText(model.state.assistPrompt == null ? "" : model.state.assistPrompt);
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.ai_creation_refine)
+                .setView(input)
+                .setNegativeButton(R.string.ai_creation_cancel, null)
+                .setPositiveButton(R.string.ai_creation_generate, (dialog, which) -> {
+                    captureText();
+                    if (!model.refineAssist(input.getText().toString().trim()))
+                        Toast.makeText(this, model.assistMessage, Toast.LENGTH_LONG).show();
+                }).show();
     }
 
     /** 候选项卡片：同组点击单选；tag 为 null 表示「保留原文」 */
