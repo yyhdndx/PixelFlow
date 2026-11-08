@@ -26,7 +26,8 @@ public class SearchPostsQueryService {
         Long cursor=rawCursor==null ? null : positive(rawCursor);
         String escaped=keyword.toLowerCase(Locale.ROOT).replace("!","!!").replace("%","!%").replace("_","!_");
         var arguments=new ArrayList<Object>();
-        arguments.add(escaped+"%"); arguments.add("%#"+escaped+"%");
+        // 与 AI 智能搜索（intelligence skills/search_posts）保持一致的子串匹配：标题/正文任意位置命中即可
+        arguments.add("%"+escaped+"%"); arguments.add("%"+escaped+"%");
         if (cursor!=null) arguments.add(cursor);
         arguments.add(count+1);
         var rows=db.queryForList(sql(cursor!=null),arguments.toArray());
