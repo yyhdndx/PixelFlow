@@ -109,10 +109,15 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         if (viewType == TYPE_HEADER) {
             if (headerView == null) headerView = LayoutInflater.from(context)
                     .inflate(R.layout.item_ai_search_header, parent, false);
-            StaggeredGridLayoutManager.LayoutParams lp = new StaggeredGridLayoutManager.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            lp.setFullSpan(true);
-            headerView.setLayoutParams(lp);
+            ViewGroup.LayoutParams params = headerView.getLayoutParams();
+            if (params instanceof StaggeredGridLayoutManager.LayoutParams) {
+                ((StaggeredGridLayoutManager.LayoutParams) params).setFullSpan(true);
+            } else {
+                StaggeredGridLayoutManager.LayoutParams lp = new StaggeredGridLayoutManager.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                lp.setFullSpan(true);
+                headerView.setLayoutParams(lp);
+            }
             return new HeaderViewHolder(headerView);
         }
         if (viewType == TYPE_LOADING) {

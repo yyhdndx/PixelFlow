@@ -170,6 +170,9 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         stateMessage = findViewById(R.id.search_state_message);
         retryButton = findViewById(R.id.search_retry);
 
+        // 先给结果流设置 LayoutManager：inflate 头部项时 RecyclerView.generateLayoutParams 需要它
+        resultsView.setLayoutManager(new StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL));
+
         // AI 综合回答卡片：作为瀑布流全宽头部项，随作品一起滚动
         aiCard = getLayoutInflater().inflate(R.layout.item_ai_search_header, resultsView, false);
         aiLoadingView = aiCard.findViewById(R.id.ai_loading);
@@ -216,7 +219,6 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
             @Override public void afterTextChanged(Editable s) { }
         });
 
-        resultsView.setLayoutManager(new StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL));
         adapter = new WaterfallAdapter(this);
         adapter.setOnWorkActionListener(this);
         adapter.setHeader(aiCard);
