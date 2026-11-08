@@ -42,6 +42,7 @@ public final class DraftEditorModel extends AndroidViewModel {
     public boolean assistBusy;
     public CreationSuggestion suggestion;
     public String assistMessage = "";
+    public String streamText = "";
     private String assistSnapshot;
     private AiTaskRegistry.Task assistTask;
     private AiTaskRegistry.Subscription assistSubscription;
@@ -183,8 +184,23 @@ public final class DraftEditorModel extends AndroidViewModel {
         assistBusy = task.state == AiTaskRegistry.State.NEW || task.isRunning();
         final String instructions = prompt;
         final List<String> inputTags = tags;
-        AiTaskRegistry.get().start(task, callback -> client.createAssist(title, content, inputTags, goal, instructions, audience, previous,
-                AiCallbacks.forward(callback)));
+        streamText = "";
+        // 单一目标走流式：逐字预览；all（综合）仍走非流式（一次返回标题+正文+标签）
+        if (!"all".equals(goal)) {
+            AiTaskRegistry.get().start(task, callback -> client.createAssistStream(
+                    title, content, inputTags, goal, instructions, audience, previous,
+                    piece -> main.post(() -> {
+                        if (current() && assistTask == task && task.isRunning()) {
+                            streamText += piece;
+                            changes.setValue(changes.getValue() + 1);
+                        }
+                    }),
+                    AiCallbacks.forward(callback)));
+        } else {
+            AiTaskRegistry.get().start(task, callback -> client.createAssist(
+                    title, content, inputTags, goal, instructions, audience, previous,
+                    AiCallbacks.forward(callback)));
+        }
         return true;
     }
     private void observeAssist(AiTaskRegistry.Task task) {
@@ -200,10 +216,18 @@ public final class DraftEditorModel extends AndroidViewModel {
                 state.assistPreview = suggestion; state.previewSnapshot = snapshot;
                 state.previewGoal = state.assistGoal; state.previewTitle = state.requestTitle;
                 state.previewContent = state.requestContent; state.previewTags = state.requestTags;
+                streamText = "";
+                // 自动填入标题/正文；草稿在生成期间被修改过则不覆盖（保留旧建议供复制）
+                if (!suggestionStale()) {
+                    String beforeTitle = state.title, beforeContent = state.content;
+                    if (!suggestion.title_candidates.isEmpty()) state.title = suggestion.title_candidates.get(0);
+                    if (!suggestion.content_candidates.isEmpty()) state.content = suggestion.content_candidates.get(0);
+                    state.assistUndo.record(beforeTitle, beforeContent, state.title, state.content);
+                }
                 checkpoint();
                 assistMessage = getApplication().getString(suggestionStale()
                         ? com.PixelFlow.app.R.string.ai_assist_changed : com.PixelFlow.app.R.string.ai_assist_ready);
-            } else if (value.error != null) assistMessage = value.error;
+            } else if (value.error != null) { streamText = ""; assistMessage = value.error; }
             else assistMessage = getApplication().getString(value.state == AiTaskRegistry.State.EXPIRED
                     ? com.PixelFlow.app.R.string.ai_expired
                     : value.state == AiTaskRegistry.State.CANCELLED ? com.PixelFlow.app.R.string.ai_cancelled
