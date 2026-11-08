@@ -41,16 +41,26 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     private static final int TYPE_ITEM = 0;
     private static final int TYPE_LOADING = 1;
     private static final int TYPE_END = 2;
+    private static final int TYPE_HEADER = 3;
     public static final int REQUEST_CODE_DETAIL = 1001; // 改为public，方便外部使用
 
     private Context context;
     private List<WorkItem> workItems;
     private boolean isLoading = false;
     private boolean endVisible = false;
+    private View headerView;
+    private boolean headerVisible = false;
     private final java.util.Map<String, CommunityClient.Job> likeJobs = new java.util.HashMap<>();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private boolean released;
     private final java.util.Set<String> exposed = new java.util.HashSet<>();
+
+    /** 头部项（如 AI 综合回答卡片）占据的条目数：0 或 1。 */
+    private int headerCount() { return headerVisible ? 1 : 0; }
+    /** 把适配器 position 转成 workItems 下标；头部项返回 -1。 */
+    private int workIndex(int position) { return position - headerCount(); }
+    /** 把 workItems 下标转成适配器 position。 */
+    private int positionOf(int workIndex) { return workIndex + headerCount(); }
 
     // 简化的回调接口
     public interface OnWorkActionListener {
@@ -79,9 +89,37 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         this.onStartActivityListener = listener;
     }
 
+    /** 设置全宽头部项视图（如 AI 综合回答卡片），不改变显示状态。 */
+    public void setHeader(View view) { headerView = view; }
+
+    /** 显示/隐藏头部项。 */
+    public void setHeaderVisible(boolean visible) {
+        if (headerVisible == visible) return;
+        headerVisible = visible;
+        if (visible) notifyItemInserted(0);
+        else notifyItemRemoved(0);
+    }
+
+    /** 当前头部项视图（可能尚未被 RecyclerView 绑定）。 */
+    public View getHeaderView() { return headerView; }
+
     @NonNull
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        if (viewType == TYPE_HEADER) {
+            if (headerView == null) headerView = LayoutInflater.from(context)
+                    .inflate(R.layout.item_ai_search_header, parent, false);
+            ViewGroup.LayoutParams params = headerView.getLayoutParams();
+            if (params instanceof StaggeredGridLayoutManager.LayoutParams) {
+                ((StaggeredGridLayoutManager.LayoutParams) params).setFullSpan(true);
+            } else {
+                StaggeredGridLayoutManager.LayoutParams lp = new StaggeredGridLayoutManager.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                lp.setFullSpan(true);
+                headerView.setLayoutParams(lp);
+            }
+            return new HeaderViewHolder(headerView);
+        }
         if (viewType == TYPE_LOADING) {
             View view = LayoutInflater.from(context).inflate(R.layout.item_loading_more, parent, false);
             return new LoadingViewHolder(view);
@@ -100,8 +138,9 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+        if (holder instanceof HeaderViewHolder) return; // 头部项由外部持有视图并更新
         if (holder instanceof WorkViewHolder) {
-            WorkItem workItem = workItems.get(position);
+            WorkItem workItem = workItems.get(workIndex(position));
             ((WorkViewHolder) holder).bind(workItem, position);
         } else if (holder instanceof LoadingViewHolder) {
             // 加载更多视图不需要绑定数据
@@ -116,12 +155,13 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
     @Override
     public int getItemCount() {
-        return workItems.size() + ((isLoading || endVisible) ? 1 : 0);
+        return headerCount() + workItems.size() + ((isLoading || endVisible) ? 1 : 0);
     }
 
     @Override
     public int getItemViewType(int position) {
-        if (position == workItems.size() && (isLoading || endVisible)) {
+        if (headerVisible && position == 0) return TYPE_HEADER;
+        if (position == positionOf(workItems.size()) && (isLoading || endVisible)) {
             return isLoading ? TYPE_LOADING : TYPE_END;
         }
         return TYPE_ITEM;
@@ -137,7 +177,7 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     public void addData(List<WorkItem> newItems) {
-        int startPosition = workItems.size();
+        int startPosition = positionOf(workItems.size());
         workItems.addAll(newItems);
 
         notifyItemRangeInserted(startPosition, newItems.size());
@@ -149,8 +189,8 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         if (loading) endVisible = false;
         boolean hasFooter = isLoading || endVisible;
         if (hadFooter != hasFooter) {
-            if (hasFooter) notifyItemInserted(workItems.size());
-            else notifyItemRemoved(workItems.size());
+            if (hasFooter) notifyItemInserted(positionOf(workItems.size()));
+            else notifyItemRemoved(positionOf(workItems.size()));
         }
     }
 
@@ -160,8 +200,8 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         if (visible) isLoading = false;
         boolean hasFooter = isLoading || endVisible;
         if (hadFooter != hasFooter) {
-            if (hasFooter) notifyItemInserted(workItems.size());
-            else notifyItemRemoved(workItems.size());
+            if (hasFooter) notifyItemInserted(positionOf(workItems.size()));
+            else notifyItemRemoved(positionOf(workItems.size()));
         }
     }
 
@@ -171,8 +211,9 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     @Override public void onViewAttachedToWindow(@NonNull RecyclerView.ViewHolder holder) {
         super.onViewAttachedToWindow(holder);
         int position=holder.getBindingAdapterPosition();
-        if (!released && position>=0 && position<workItems.size()) {
-            String id=workItems.get(position).getId();
+        int index = workIndex(position);
+        if (!released && index>=0 && index<workItems.size()) {
+            String id=workItems.get(index).getId();
             if (exposed.add(id)) ApiClient.getInstance(context).trackEvent(id,"EXPOSURE",null,"HOME");
         }
     }
@@ -191,8 +232,9 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     public void updateLikeStatus(int position, boolean liked) {
-        if (released || position < 0 || position >= workItems.size()) return;
-        WorkItem item = workItems.get(position);
+        int index = workIndex(position);
+        if (released || index < 0 || index >= workItems.size()) return;
+        WorkItem item = workItems.get(index);
         if (likeJobs.containsKey(item.getId())) return;
         CommunityClient.Job job = ApiClient.getInstance(context).setLike(item.getId(), liked,
                 new CommunityClient.Callback<PostItem>() {
@@ -204,7 +246,7 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                     if (current.getId().equals(post.getPostId())) {
                         current.setLiked(post.isLiked());
                         current.setLikeCount(post.getLikeCount());
-                        notifyItemChanged(i);
+                        notifyItemChanged(positionOf(i));
                     }
                 }
             }
@@ -384,7 +426,7 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 if (onWorkActionListener != null) {
                     int current = getBindingAdapterPosition();
                     if (current != RecyclerView.NO_POSITION)
-                        onWorkActionListener.onLikeClick(workItems.get(current), current);
+                        onWorkActionListener.onLikeClick(workItems.get(workIndex(current)), current);
                 }
             });
 
@@ -441,9 +483,17 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
     }
 
+    // 全宽头部项（如 AI 综合回答卡片）
+    static class HeaderViewHolder extends RecyclerView.ViewHolder {
+        HeaderViewHolder(@NonNull View itemView) {
+            super(itemView);
+        }
+    }
+
     public WorkItem getItemAtPosition(int position) {
-        if (position >= 0 && position < workItems.size()) {
-            return workItems.get(position);
+        int index = workIndex(position);
+        if (index >= 0 && index < workItems.size()) {
+            return workItems.get(index);
         }
         return null;
     }

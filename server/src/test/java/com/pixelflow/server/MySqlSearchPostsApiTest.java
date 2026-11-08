@@ -25,7 +25,7 @@ class MySqlSearchPostsApiTest extends SearchPostsApiTest {
         assertEquals(30,db.queryForObject("SELECT SUB_PART FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='posts' AND index_name='posts_search_title'",Integer.class));
         fixture(9,"摄影","","PUBLISHED"); fixture(10,"无关","正文 #摄影","PUBLISHED");
         assertTrue(db.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE version='12' AND success=TRUE",Integer.class)>0);
-        System.out.println("SEARCH_EXPLAIN_FIRST "+db.queryForList("EXPLAIN "+SearchPostsQueryService.sql(false),"摄影%","%#摄影%",21));
-        System.out.println("SEARCH_EXPLAIN_CURSOR "+db.queryForList("EXPLAIN "+SearchPostsQueryService.sql(true),"摄影%","%#摄影%",10L,21));
+        System.out.println("SEARCH_EXPLAIN_FIRST "+db.queryForList("EXPLAIN "+SearchPostsQueryService.sql(false),"%摄影%","%摄影%",21));
+        System.out.println("SEARCH_EXPLAIN_CURSOR "+db.queryForList("EXPLAIN "+SearchPostsQueryService.sql(true),"%摄影%","%摄影%",10L,21));
     }
 }
