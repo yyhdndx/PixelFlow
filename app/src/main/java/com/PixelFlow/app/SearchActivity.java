@@ -170,14 +170,15 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         stateMessage = findViewById(R.id.search_state_message);
         retryButton = findViewById(R.id.search_retry);
 
-        aiCard = findViewById(R.id.ai_card);
-        aiLoadingView = findViewById(R.id.ai_loading);
-        aiContentView = findViewById(R.id.ai_content);
-        aiCloseButton = findViewById(R.id.ai_close);
-        aiDegradedView = findViewById(R.id.ai_degraded);
-        aiAnswerView = findViewById(R.id.ai_answer);
-        aiSourcesTitle = findViewById(R.id.ai_sources_title);
-        aiSourcesView = findViewById(R.id.ai_sources);
+        // AI 综合回答卡片：作为瀑布流全宽头部项，随作品一起滚动
+        aiCard = getLayoutInflater().inflate(R.layout.item_ai_search_header, resultsView, false);
+        aiLoadingView = aiCard.findViewById(R.id.ai_loading);
+        aiContentView = aiCard.findViewById(R.id.ai_content);
+        aiCloseButton = aiCard.findViewById(R.id.ai_close);
+        aiDegradedView = aiCard.findViewById(R.id.ai_degraded);
+        aiAnswerView = aiCard.findViewById(R.id.ai_answer);
+        aiSourcesTitle = aiCard.findViewById(R.id.ai_sources_title);
+        aiSourcesView = aiCard.findViewById(R.id.ai_sources);
         aiCloseButton.setOnClickListener(v -> {
             aiDismissed = true;
             updateAiCard();
@@ -218,6 +219,8 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         resultsView.setLayoutManager(new StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL));
         adapter = new WaterfallAdapter(this);
         adapter.setOnWorkActionListener(this);
+        adapter.setHeader(aiCard);
+        adapter.setHeaderVisible(false);
         resultsView.setAdapter(adapter);
 
         renderHistoryChips();
@@ -440,11 +443,11 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
     private void updateAiCard() {
         boolean visible = !aiDismissed && aiState != AI_NONE
                 && resultsContainer.getVisibility() == View.VISIBLE;
-        aiCard.setVisibility(visible ? View.VISIBLE : View.GONE);
+        adapter.setHeaderVisible(visible);
         if (!visible) return;
-        ((TextView) findViewById(R.id.ai_loading_status)).setText(aiTask != null
+        ((TextView) aiCard.findViewById(R.id.ai_loading_status)).setText(aiTask != null
                 && aiTask.state == AiTaskRegistry.State.WAITING ? R.string.ai_waiting : R.string.ai_preparing);
-        View stop = findViewById(R.id.ai_stop);
+        View stop = aiCard.findViewById(R.id.ai_stop);
         stop.setVisibility(aiTask != null && aiTask.isRunning() ? View.VISIBLE : View.GONE);
         stop.setOnClickListener(view -> { if (aiKey != null) AiTaskRegistry.get().cancel(aiKey); });
         if (aiState == AI_DEGRADED) {
