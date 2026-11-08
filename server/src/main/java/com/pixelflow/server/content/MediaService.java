@@ -88,9 +88,11 @@ public class MediaService {
         if (!after.isEmpty() && !after.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"))
             throw new ApiException(400,"INVALID_ARGUMENT","after 须为列表返回的媒体 ID");
         var rows=db.queryForList("SELECT m.id,m.width,m.height,m.created_at,OCTET_LENGTH(m.content_bytes) AS byte_size,"
-                + "(SELECT COUNT(*) FROM post_media pm WHERE pm.media_id=m.id) AS reference_count "
+                + "((SELECT COUNT(*) FROM post_media pm WHERE pm.media_id=m.id)"
+                + " + (SELECT COUNT(*) FROM users au WHERE au.avatar_media_id=m.id)) AS reference_count "
                 + "FROM media m WHERE m.owner_id=? AND m.id>? "
-                + (unusedOnly ? "AND NOT EXISTS (SELECT 1 FROM post_media pm WHERE pm.media_id=m.id) " : "")
+                + (unusedOnly ? "AND NOT EXISTS (SELECT 1 FROM post_media pm WHERE pm.media_id=m.id)"
+                    + " AND NOT EXISTS (SELECT 1 FROM users au WHERE au.avatar_media_id=m.id) " : "")
                 + "ORDER BY m.id LIMIT ?",actor.id(),after,count+1);
         boolean more=rows.size()>count;
         var items=rows.subList(0,Math.min(count,rows.size())).stream().map(row -> Map.<String,Object>of(
@@ -110,8 +112,9 @@ public class MediaService {
         lockOwner(actor);
         if (db.queryForObject("SELECT COUNT(*) FROM media WHERE id=? AND owner_id=?",Integer.class,id,actor.id())==0)
             throw new ApiException(404,"MEDIA_NOT_FOUND","媒体不存在或不属于当前用户");
-        if (db.queryForObject("SELECT COUNT(*) FROM post_media WHERE media_id=?",Integer.class,id)>0)
-            throw new ApiException(409,"MEDIA_IN_USE","图片仍被作品或草稿引用，请先移除引用");
+        if (db.queryForObject("SELECT COUNT(*) FROM post_media WHERE media_id=?",Integer.class,id)>0
+                || db.queryForObject("SELECT COUNT(*) FROM users WHERE avatar_media_id=?",Integer.class,id)>0)
+            throw new ApiException(409,"MEDIA_IN_USE","图片仍被作品、草稿或头像引用，请先移除引用");
         db.update("DELETE FROM media WHERE id=? AND owner_id=?",id,actor.id());
     }
     public void attach(long postId,List<String> ids) {
@@ -122,7 +125,8 @@ public class MediaService {
         // 条件与读取合为一条查询，不能通过猜测 UUID 访问私有媒体。
         var rows=db.query("SELECT m.content_bytes FROM media m WHERE m.id=? AND "
                 + "(m.owner_id=? OR ?=TRUE OR EXISTS (SELECT 1 FROM post_media pm JOIN posts p ON pm.post_id=p.id "
-                + "JOIN users u ON p.author_id=u.id WHERE pm.media_id=m.id AND p.status='PUBLISHED' AND u.enabled=TRUE))",
+                + "JOIN users u ON p.author_id=u.id WHERE pm.media_id=m.id AND p.status='PUBLISHED' AND u.enabled=TRUE)"
+                + " OR EXISTS (SELECT 1 FROM users au WHERE au.avatar_media_id=m.id AND au.enabled=TRUE))",
                 (rs,n)->rs.getBytes(1),id,actor==null ? "" : actor.id(),actor!=null && actor.role().equals("ADMIN"));
         if (rows.isEmpty()) throw new ApiException(404,"MEDIA_NOT_FOUND","媒体不存在或不可见");
         return rows.get(0);

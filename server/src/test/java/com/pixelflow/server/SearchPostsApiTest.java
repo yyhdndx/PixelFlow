@@ -61,16 +61,16 @@ class SearchPostsApiTest {
                 .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
     }
 
-    @Test void matchesTitleOrAnchoredTopicCaseInsensitivelyWithoutSplitting() throws Exception {
+    @Test void matchesSubstringCaseInsensitivelyWithoutSplitting() throws Exception {
         fixture(9,"Travel摄影","普通正文","PUBLISHED");
         fixture(10,"无关标题","正文 #tRaVeL摄影指南","PUBLISHED");
         fixture(100,"非前缀Travel","普通正文 travel","PUBLISHED");
-        assertEquals(List.of("10","9"),ids(page("  TRAVEL  ",null,null,null)));
-        assertEquals(List.of("10","9"),ids(page("#travel",null,null,null)));
+        assertEquals(List.of("100","10","9"),ids(page("  TRAVEL  ",null,null,null)));
+        assertEquals(List.of("100","10","9"),ids(page("#travel",null,null,null)));
         fixture(101,"城市 光影记录","","PUBLISHED");
         assertEquals(List.of("101"),ids(page("城市 光影",null,null,null)));
         assertEquals(List.of(),ids(page("城市 记录",null,null,null)));
-        assertEquals(List.of(),ids(page("摄影",null,null,null)));
+        assertEquals(List.of("10","9"),ids(page("摄影",null,null,null)));
     }
 
     @Test void treatsWildcardAndEscapeCharactersLiterally() throws Exception {
@@ -78,7 +78,7 @@ class SearchPostsApiTest {
         assertEquals(List.of("9"),ids(page("100%_!\\",null,null,null)));
         fixture(100,"无关","正文 #50%_!\\话题","PUBLISHED");
         assertEquals(List.of("100"),ids(page("50%_!\\",null,null,null)));
-        assertEquals(List.of(),ids(page("%",null,null,null)));
+        assertEquals(List.of("100","9"),ids(page("%",null,null,null)));
     }
 
     @Test void validatesQueryUtf16Boundaries() throws Exception {

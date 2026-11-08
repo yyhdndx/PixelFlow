@@ -94,7 +94,7 @@ mvn -B -ntp -f server/pom.xml -Dtest=SearchPostsApiTest,MySqlSearchPostsApiTest,
 
 应用不自动读取 `.env`；变量由终端、IDE 或部署平台注入。未固定 JWT 密钥时重启会使旧 access token 失效，但数据库中未过期的 refresh token 仍可换新令牌。`runtime-data/` 已忽略，请单独备份，不要当构建产物删除。
 
-Flyway 自动选择 `src/main/resources/db/mysql/` 或 `db/h2/`。H2 历史脚本内容及校验和保留；双库维护 V1–V7 和 V9（作品创建幂等记录）。V8 已由头像分支占用，须先合入/部署真实 V8 再部署 V9；本分支不制造 V8 占位，也不启用 out-of-order 或 repair。V7 为旧账号补充默认空简介。新增结构修改必须追加版本，不能改已执行的脚本。H2 的 PostgreSQL 模式只是测试兼容选项，不代表部署 PostgreSQL。
+Flyway 自动选择 `src/main/resources/db/mysql/` 或 `db/h2/`。H2 历史脚本内容及校验和保留；双库维护 V1–V9（V7 简介、V8 头像媒体引用、V9 作品创建幂等）。V7 为旧账号补充默认空简介，V8 新增可空头像媒体引用，保留旧头像 URL。新增结构修改必须追加版本，不能改已执行的脚本。H2 的 PostgreSQL 模式只是测试兼容选项，不代表部署 PostgreSQL。
 
 `POST /api/posts` 可选 `Idempotency-Key`：单个标准 UUID，大小写等价；无键仍每次201，新键201，同用户同键同 Draft 重试200并返回当前作品，同键不同请求409 `IDEMPOTENCY_CONFLICT`。空/重复/非法头400，认证失败401，原作品不存在404且不补建。记录不自动过期；文本不trim，媒体顺序保留，null/省略列表按空列表处理。客户端须持久保存一次逻辑创作的键及原 Draft，取得 ID 后改用编辑/提交接口。调用示例、Kotlin示意及验收见 [创建幂等验收](../docs/issues/java-作品创建幂等.md)。
 
@@ -114,6 +114,18 @@ curl -X PUT -H "Authorization: Bearer <access-token>" -H "Content-Type: applicat
 
 ## Android 联调
 
+### 设置和清除头像
+
+1. 用 `POST /api/media` 上传 JPEG/PNG，取得 `mediaId`（仍受 8 MiB、400 万像素限制）。
+2. 带登录令牌调用 `PUT /api/users/me/avatar`，正文 `{"mediaId":"上传返回的ID"}`，得到 `{"user_id":"本人ID","avatar":"图片URL"}`。
+3. 需要恢复默认时调用 `DELETE /api/users/me/avatar`；响应 avatar 为空字符串，客户端展示默认图。
+
+设置为启用账号头像意味着该图片可被其他用户及游客读取；旧图在更换/清除后仅在仍有关联公开作品时保持公开。所有图片响应 no-store，但不能撤回已下载副本。新 URL 可直接用于现有资料、用户卡片和作品作者显示；昵称/简介 PUT 不修改头像。
+
+当前头像不能被媒体删除接口删除，referenceCount 包含头像引用，unusedOnly 排除头像。清除只解除引用，不物理删除图片；旧图可在确认无其他引用后手动删除。无需传入外部 URL，也不需要单独的头像上传服务。
+
+此功能引入 **V8 迁移**，上线须备份并人工评审，不要关闭部署门禁。旧 H2 导入工具不支持 V8 源库。详见 [issue 09](../docs/issues/09-java-本人头像设置与清除.md)。
+
 ### 本人收藏作品
 
 `GET /api/users/me/favorites?count=20` 返回可直接展示的图文/视频卡片，下一页传 `cursor=<next_cursor>`。响应沿用 Feed 的 `status_code`、`post_list`、数字 `has_more` 和字符串或 null 的 `next_cursor`；卡片含请求用户的 `is_liked` 及恒为 true 的 `is_favorited`。只返回启用作者的 PUBLISHED 作品，作者本人和管理员也不能通过收藏页看到私有作品。
@@ -126,7 +138,7 @@ curl -X PUT -H "Authorization: Bearer <access-token>" -H "Content-Type: applicat
 
 items 是版本降序的已保存摘要：version、rule_version、generated_at、window_days、timezone、cold_start、topics、media、event_counts、explanation。历史摘要不按当前抑制主题重写，不触发同步或重算，无历史时返回空 items。Java 校验本人归属、字段类型、版本顺序及游标一致性，剔除未约定字段。参数错误返回400；上游401保留为401；无效JSON/摘要返回502 `INVALID_ANALYTICS_RESPONSE`；未配置、连接失败、三秒请求超时或其他上游非成功状态返回503 `ANALYTICS_UNAVAILABLE`。全部响应禁止缓存，不向客户端透出上游错误正文，不跟随重定向。
 
-本轮接口交付及测试见 [后端接口补全验收](../docs/testing/后端接口补全验收.md)。新增接口无需数据库迁移；作者作品分页仍由任务07交付，头像接口仍在独立分支。
+本轮接口交付及测试见 [后端接口补全验收](../docs/testing/后端接口补全验收.md)。新增接口无需数据库迁移；作者作品分页仍由任务07交付。
 
 ### 本人粉丝与关注列表
 
@@ -208,15 +220,15 @@ mvn -B -ntp -f server/pom.xml -Dtest=UserPostsApiTest,UserPostsHttpTest,OpenApiC
 
 图片与元数据当前同存数据库，V3 迁移自动建表；无需另建上传目录。每用户最多 100 张，未引用图片可由本人手动删除，自动过期清理尚未实现。该方案用于小规模课程演示，后续迁移对象存储；文件库备份包含图片。`PIXELFLOW_PUBLIC_BASE_URL` 同时用于生成上传图片地址，不使用请求 Host 头。它须为无路径/查询/凭据的 HTTP(S) origin；模拟器、真机地址要按上文配置。
 
-未公开图片只能由上传者或管理员带 Bearer 令牌访问；作品公开后游客可访问。下架/停用作者后重新鉴权，响应禁止缓存，但无法收回用户此前已下载的副本。一张图关联多个作品时，只要仍有一个公开作品就保持公开可读。
+未公开图片只能由上传者或管理员带 Bearer 令牌访问；作品公开或图片成为启用用户的当前头像后，游客可访问。下架/停用作者后重新鉴权，响应禁止缓存，但无法收回用户此前已下载的副本。一张图有关联公开作品或启用用户头像时，保持公开可读。
 
 ## 上传图片管理
 
 登录后使用 `GET /api/media?count=20` 查询本人的上传记录、referenceCount、usedCount 和 limit。用响应 nextCursor 作为下一页的 after 参数；末页 nextCursor 为 null。按 UUID 字符串排序，不是时间排序；新增图片后应从第一页刷新。
 
-`GET /api/media?unusedOnly=true` 只返回没有作品引用的图片，便于挑选需要清理的上传内容。usedCount 仍是本人全部上传数量。列表仅为当前查询结果，最终删除会在事务内重新校验。
+`GET /api/media?unusedOnly=true` 只返回没有作品或头像引用的图片，便于挑选需要清理的上传内容。referenceCount 是作品引用数加头像引用数（含停用账号）；usedCount 仍是本人全部上传数量。列表仅为当前查询结果，最终删除会在事务内重新校验。
 
-`DELETE /api/media/{mediaId}` 删除本人未引用的图片，成功返回 204 并释放一个上传名额；此操作没有回收站，客户端执行前应让用户确认。已删除或不属于本人的 ID 返回 404，不能用管理员身份代删；仍被任何草稿、待审、公开、驳回或下架作品引用时返回 409 MEDIA_IN_USE。先从所有相关作品移除引用再删除，单纯下架不会移除引用。数据库文件不保证立即缩小，已做备份和已下载副本也不会随之消失。
+`DELETE /api/media/{mediaId}` 删除本人未引用的图片，成功返回 204 并释放一个上传名额；此操作没有回收站，客户端执行前应让用户确认。已删除或不属于本人的 ID 返回 404，不能用管理员身份代删；仍被头像或任何状态作品引用时返回 409 MEDIA_IN_USE。先解除头像及所有作品引用再删除，单纯下架不会移除引用。数据库文件不保证立即缩小，已做备份和已下载副本也不会随之消失。
 
 
 ## 作品时间字段（任务 20）
