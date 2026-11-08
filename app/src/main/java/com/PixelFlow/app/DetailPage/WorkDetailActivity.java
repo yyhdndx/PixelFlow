@@ -96,6 +96,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private ImageView commentButton;  // 保持
     private ImageView collectButton;  // 保持
     private ImageView shareButton;
+    private ImageView copilotButton;
 
     // 评论区
     private RecyclerView commentsList;
@@ -500,6 +501,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         commentButton = findViewById(R.id.comment_button);  // 保持
         collectButton = findViewById(R.id.collect_button);  // 保持
         shareButton = findViewById(R.id.share_button);
+        copilotButton = findViewById(R.id.copilot_button);
 
         // 评论区
         commentsList = findViewById(R.id.comments_list);
@@ -854,8 +856,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
         // 分享按钮
         shareButton.setOnClickListener(v -> shareWork());
-        View copilot = findViewById(R.id.copilot_button);
-        if (copilot != null) copilot.setOnClickListener(v -> {
+        if (copilotButton != null) copilotButton.setOnClickListener(v -> {
             if (!ApiClient.getInstance(this).isLoggedIn()) {
                 startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
                 return;
@@ -869,10 +870,10 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             if (hasFocus && !ApiClient.getInstance(this).isLoggedIn()) {
                 commentInput.clearFocus();
                 startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
-            } else if (!hasFocus) {
-                // 输入框失焦同样视为退出打字
-                cancelReplyMode();
+                return;
             }
+            if (!hasFocus) cancelReplyMode();
+            updateCommentActions();
         });
         // 输入框长按取消「回复 @xxx」状态
         commentInput.setOnLongClickListener(v -> {
@@ -908,13 +909,26 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         updateCommentSendState();
     }
 
-    /** 有内容且已登录时显示「发送」，避免空评论与游客误触。 */
+    /** 输入评论时收起右侧点赞/评论/收藏/AI/分享五个图标，只留输入框和发送；不输入时恢复。 */
+    private void updateCommentActions() {
+        boolean inputting = commentInput != null && commentInput.hasFocus()
+                && ApiClient.getInstance(this).isLoggedIn();
+        int icons = inputting ? View.GONE : View.VISIBLE;
+        if (likeButton != null) likeButton.setVisibility(icons);
+        if (commentButton != null) commentButton.setVisibility(icons);
+        if (collectButton != null) collectButton.setVisibility(icons);
+        if (copilotButton != null) copilotButton.setVisibility(icons);
+        if (shareButton != null) shareButton.setVisibility(icons);
+        updateCommentSendState();
+    }
+
+    /** 有内容、已登录且正在输入时显示「发送」，避免空评论与游客误触。 */
     private void updateCommentSendState() {
         if (commentSend == null || commentInput == null) return;
         CharSequence text = commentInput.getText();
         boolean hasText = text != null && text.toString().trim().length() > 0;
-        commentSend.setVisibility(
-                hasText && ApiClient.getInstance(this).isLoggedIn() ? View.VISIBLE : View.GONE);
+        boolean inputting = commentInput.hasFocus() && ApiClient.getInstance(this).isLoggedIn();
+        commentSend.setVisibility(inputting && hasText ? View.VISIBLE : View.GONE);
     }
 
     // ==================== 评论区 ====================
@@ -1134,6 +1148,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                     @Override public void onSuccess(CommentPage.CommentItem item) {
                         commentSending = false;
                         commentInput.setText("");
+                        commentInput.clearFocus();
                         replyTarget = null;
                         commentInput.setHint(R.string.comments_input_hint);
                         commentAdapter.prepend(item);
