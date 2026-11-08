@@ -132,6 +132,7 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                 || currentPagePosition >= getItemCount() || getItemViewType(currentPagePosition) != 1) return;
         ExoPlayer player = new ExoPlayer.Builder(context).build();
         currentPlayer = player;
+        player.setRepeatMode(Player.REPEAT_MODE_ONE); // 视频循环播放，不显示结束画面
         player.setAudioAttributes(new AudioAttributes.Builder().setUsage(C.USAGE_MEDIA)
                 .setContentType(C.CONTENT_TYPE_MOVIE).build(), true);
         player.setVolume(MainActivity.isGlobalMuted() ? 0f : 1f);
