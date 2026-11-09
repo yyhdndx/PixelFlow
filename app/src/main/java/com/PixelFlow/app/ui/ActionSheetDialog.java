@@ -26,17 +26,11 @@ public final class ActionSheetDialog {
         public final int iconRes;
         public final CharSequence label;
         public final Runnable action;
-        public final boolean destructive;
 
         public Option(int iconRes, CharSequence label, Runnable action) {
-            this(iconRes, label, action, false);
-        }
-
-        public Option(int iconRes, CharSequence label, Runnable action, boolean destructive) {
             this.iconRes = iconRes;
             this.label = label;
             this.action = action;
-            this.destructive = destructive;
         }
     }
 
@@ -65,11 +59,6 @@ public final class ActionSheetDialog {
             View row = inflater.inflate(R.layout.dialog_sheet_option, optionsView, false);
             ((android.widget.ImageView) row.findViewById(R.id.option_icon)).setImageResource(option.iconRes);
             ((TextView) row.findViewById(R.id.option_label)).setText(option.label);
-            int color = androidx.core.content.ContextCompat.getColor(context,
-                    option.destructive ? R.color.profile_error : R.color.profile_ink);
-            ((TextView) row.findViewById(R.id.option_label)).setTextColor(color);
-            ((android.widget.ImageView) row.findViewById(R.id.option_icon)).setImageTintList(
-                    android.content.res.ColorStateList.valueOf(color));
             row.setOnClickListener(v -> {
                 holder[0].dismiss();
                 if (option.action != null) option.action.run();
@@ -82,7 +71,6 @@ public final class ActionSheetDialog {
         dialog.setContentView(root);
         cancelView.setOnClickListener(v -> dialog.dismiss());
 
-        dialog.show();
         Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
@@ -91,6 +79,7 @@ public final class ActionSheetDialog {
             window.setGravity(Gravity.BOTTOM);
             window.setWindowAnimations(R.style.PixelFlowBottomSheet);
         }
+        dialog.show();
         return dialog;
     }
 }

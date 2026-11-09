@@ -16,7 +16,7 @@ import com.PixelFlow.app.*;
 import com.PixelFlow.app.API.*;
 import com.PixelFlow.app.ui.ActionSheetDialog;
 import com.bumptech.glide.Glide;
-
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -209,7 +209,7 @@ public class ProfileFragment extends Fragment {
         avatarModel.clear();
     }
     private void confirmLogout() {
-        com.PixelFlow.app.ui.PixelFlowDialogs.destructive(requireContext())
+        new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.profile_logout)
                 .setMessage(R.string.profile_logout_desc)
                 .setNegativeButton(R.string.profile_cancel, null)

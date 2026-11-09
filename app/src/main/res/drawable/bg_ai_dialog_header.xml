@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- AI 弹窗头部：品牌纸面色，顶部圆角 -->
+<!-- AI 弹窗头部：品牌紫渐变，顶部圆角 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="@color/profile_surface" />
+    <gradient
+        android:startColor="@color/profile_accent"
+        android:endColor="#8B7CF6"
+        android:angle="0" />
     <corners
         android:topLeftRadius="24dp"
         android:topRightRadius="24dp" />

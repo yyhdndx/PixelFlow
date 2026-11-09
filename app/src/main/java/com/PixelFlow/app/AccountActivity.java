@@ -31,9 +31,9 @@ public class AccountActivity extends AppCompatActivity {
         findViewById(R.id.account_return).setOnClickListener(v -> finish());
         toggle.setOnClickListener(v -> { registration = !registration; clearErrors(); render(); });
         submit.setOnClickListener(v -> submit());
-        logout.setOnClickListener(v -> com.PixelFlow.app.ui.PixelFlowDialogs.destructive(this).setTitle(R.string.dialog_logout_title)
-                .setMessage(R.string.dialog_logout_message)
-                .setNegativeButton(android.R.string.cancel, null).setPositiveButton(R.string.profile_logout, (d, w) -> {
+        logout.setOnClickListener(v -> new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("退出当前账号？")
+                .setMessage("退出后仍可以浏览公开作品。")
+                .setNegativeButton("取消", null).setPositiveButton("退出登录", (d, w) -> {
                     busy = true; job = api.logout(new CommunityClient.Callback<Void>() {
                         public void onSuccess(Void value) { done("已退出登录"); }
                         public void onFailure(String message) { done("已退出本机账号，服务器退出未确认。" + message); }

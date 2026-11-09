@@ -126,16 +126,16 @@ public class FullScreenMediaDialog extends Dialog {
     private void showSaveImageDialog() {
         // 创建一个简单的对话框询问用户是否保存图片
         com.google.android.material.dialog.MaterialAlertDialogBuilder builder =
-                com.PixelFlow.app.ui.PixelFlowDialogs.builder(context);
-        builder.setTitle(R.string.dialog_save_image_title);
-        builder.setMessage(R.string.dialog_save_image_message);
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(context);
+        builder.setTitle("保存图片");
+        builder.setMessage("是否保存此图片到相册？");
 
-        builder.setPositiveButton(R.string.dialog_save, (dialog, which) -> {
+        builder.setPositiveButton("保存", (dialog, which) -> {
             saveImageToGallery();
             dialog.dismiss();
         });
 
-        builder.setNegativeButton(android.R.string.cancel, (dialog, which) -> {
+        builder.setNegativeButton("取消", (dialog, which) -> {
             dialog.dismiss();
         });
 

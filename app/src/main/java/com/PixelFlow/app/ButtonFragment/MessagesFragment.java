@@ -218,7 +218,7 @@ public class MessagesFragment extends Fragment {
     }
 
     private void presentSettings(Set<String> muted) {
-        View content = com.PixelFlow.app.ui.PixelFlowDialogs.inflate(requireContext(), R.layout.dialog_notification_settings);
+        View content = LayoutInflater.from(getContext()).inflate(R.layout.dialog_notification_settings, null);
         CheckBox mention = content.findViewById(R.id.ns_mention);
         CheckBox reply = content.findViewById(R.id.ns_reply);
         CheckBox like = content.findViewById(R.id.ns_like);
@@ -226,7 +226,7 @@ public class MessagesFragment extends Fragment {
         reply.setChecked(muted.contains("REPLY"));
         like.setChecked(muted.contains("LIKE"));
 
-        com.PixelFlow.app.ui.PixelFlowDialogs.builder(requireContext())
+        new android.app.AlertDialog.Builder(getContext())
                 .setTitle(R.string.messages_settings)
                 .setView(content)
                 .setNegativeButton(android.R.string.cancel, null)

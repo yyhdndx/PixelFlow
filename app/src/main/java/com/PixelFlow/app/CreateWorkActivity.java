@@ -111,7 +111,7 @@ public class CreateWorkActivity extends AppCompatActivity {
         findViewById(R.id.creation_assist_undo).setOnClickListener(v -> {
             captureText();
             if (model.state.assistUndo.needsConfirmation(model.state.title, model.state.content)) {
-                com.PixelFlow.app.ui.PixelFlowDialogs.builder(this)
+                new androidx.appcompat.app.AlertDialog.Builder(this)
                         .setMessage(R.string.ai_creation_undo_confirm)
                         .setNegativeButton(R.string.ai_creation_cancel, null)
                         .setPositiveButton(R.string.ai_creation_undo, (dialog, which) -> undoAssist(true)).show();
@@ -328,24 +328,24 @@ public class CreateWorkActivity extends AppCompatActivity {
         assistDialog.show();
     }
 
+    /** 继续修改：底部弹出输入框，输入新要求后基于当前结果继续生成。 */
     private void showRefineDialog() {
         captureText();
         if (model.suggestion == null || !model.editable()) return;
-        View form = com.PixelFlow.app.ui.PixelFlowDialogs.inflate(this, R.layout.dialog_ai_refine);
-        EditText input = form.findViewById(R.id.dialog_refine_input);
+        EditText input = new EditText(this);
+        input.setHint(R.string.ai_creation_revision_hint);
+        input.setSingleLine(true);
+        input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)});
         input.setText(model.state.assistPrompt == null ? "" : model.state.assistPrompt);
-        androidx.appcompat.app.AlertDialog dialog = com.PixelFlow.app.ui.PixelFlowDialogs.builder(this)
+        new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle(R.string.ai_creation_refine)
-                .setView(form)
+                .setView(input)
                 .setNegativeButton(R.string.ai_creation_cancel, null)
-                .setPositiveButton(R.string.ai_creation_generate, null).create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE)
-                .setOnClickListener(view -> {
+                .setPositiveButton(R.string.ai_creation_generate, (dialog, which) -> {
                     captureText();
-                    if (model.refineAssist(input.getText().toString().trim())) dialog.dismiss();
-                    else input.setError(model.assistMessage);
-                }));
-        com.PixelFlow.app.ui.PixelFlowDialogs.showForm(dialog);
+                    if (!model.refineAssist(input.getText().toString().trim()))
+                        Toast.makeText(this, model.assistMessage, Toast.LENGTH_LONG).show();
+                }).show();
     }
 
     /** 候选项卡片：同组点击单选；tag 为 null 表示「保留原文」 */
@@ -729,11 +729,11 @@ public class CreateWorkActivity extends AppCompatActivity {
         String title = etTitle.getText().toString().trim();
         String description = etDescription.getText().toString().trim();
         if (!title.isEmpty() || !description.isEmpty() || !media.isEmpty()) {
-            com.PixelFlow.app.ui.PixelFlowDialogs.destructive(this)
-                    .setTitle(R.string.dialog_discard_title)
-                    .setMessage(R.string.dialog_discard_message)
-                    .setPositiveButton(R.string.dialog_discard, (dialog, which) -> { model.discard(); finish(); })
-                    .setNegativeButton(android.R.string.cancel, null)
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("放弃编辑")
+                    .setMessage("您有未保存的内容，确定要退出吗？")
+                    .setPositiveButton("确定", (dialog, which) -> { model.discard(); finish(); })
+                    .setNegativeButton("取消", null)
                     .show();
         } else {
             super.onBackPressed();

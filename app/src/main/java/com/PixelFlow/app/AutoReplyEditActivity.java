@@ -243,19 +243,23 @@ public class AutoReplyEditActivity extends AppCompatActivity {
     }
 
     private void editCandidate(Candidate candidate) {
-        View form = com.PixelFlow.app.ui.PixelFlowDialogs.inflate(this, R.layout.dialog_rule_edit);
-        EditText q = form.findViewById(R.id.dialog_rule_question);
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        EditText q = new EditText(this);
         q.setText(candidate.rule.question);
-        EditText a = form.findViewById(R.id.dialog_rule_answer);
+        q.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(500)});
+        EditText a = new EditText(this);
         a.setText(candidate.rule.answer);
-        androidx.appcompat.app.AlertDialog dialog = com.PixelFlow.app.ui.PixelFlowDialogs.builder(this)
+        a.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(2000)});
+        form.addView(q);
+        form.addView(a);
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
                 .setTitle(R.string.ai_rule_edit).setView(form)
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(android.R.string.ok, null).create();
         dialog.setOnShowListener(ignored -> dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
             if (q.getText().toString().trim().isEmpty() || a.getText().toString().trim().isEmpty()) {
-                if (q.getText().toString().trim().isEmpty()) q.setError(getString(R.string.dialog_required));
-                if (a.getText().toString().trim().isEmpty()) a.setError(getString(R.string.dialog_required));
+                toast(getString(R.string.auto_reply_need_both));
                 return;
             }
             com.google.gson.JsonObject fields = new com.google.gson.JsonObject();
@@ -265,7 +269,7 @@ public class AutoReplyEditActivity extends AppCompatActivity {
             candidate.box.setText(getString(R.string.auto_reply_ai_candidate, candidate.rule.question, candidate.rule.answer));
             dialog.dismiss();
         }));
-        com.PixelFlow.app.ui.PixelFlowDialogs.showForm(dialog);
+        dialog.show();
     }
 
     private void updateSelection() {

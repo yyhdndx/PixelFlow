@@ -65,7 +65,7 @@ public class CreationAssistFlowTest {
         awaitDone();
         screen.onActivity(a -> {
             assertNotNull(model(a).suggestion);
-            assertTrue(a.findViewById(R.id.creation_assist_refine).isShown());
+            assertTrue(a.findViewById(R.id.creation_assist_preview).isShown());
             assertEquals("原正文", model(a).state.content);
         });
         assertEquals(1, server.getRequestCount());
@@ -217,13 +217,7 @@ public class CreationAssistFlowTest {
 
     @Test public void previewDialogAppliesSelectedCandidateToVisibleEditor() throws Exception {
         request(new MockResponse().setBody(RESPONSE)); awaitDone();
-        screen.onActivity(a -> {
-            try {
-                java.lang.reflect.Method method = CreateWorkActivity.class.getDeclaredMethod("showAssistPreview");
-                method.setAccessible(true);
-                method.invoke(a);
-            } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
-        });
+        screen.onActivity(a -> a.findViewById(R.id.creation_assist_preview).performClick());
         screen.onActivity(a -> {
             try {
                 Field field = CreateWorkActivity.class.getDeclaredField("assistDialog");

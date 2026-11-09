@@ -2,6 +2,7 @@ package com.PixelFlow.app.share;
 
 import android.Manifest;
 import android.app.Dialog;
+import android.app.ProgressDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -111,11 +112,10 @@ public final class PostShareController {
 
     private void generate(PostItem post, String link) {
         busy = true;
-        androidx.appcompat.app.AlertDialog progress = com.PixelFlow.app.ui.PixelFlowDialogs.builder(activity)
-                .setTitle(R.string.share_image)
-                .setView(com.PixelFlow.app.ui.PixelFlowDialogs.inflate(activity, R.layout.dialog_share_loading))
-                .setCancelable(false)
-                .setNegativeButton(R.string.share_cancel, (dialog, which) -> cancel()).create();
+        ProgressDialog progress = new ProgressDialog(activity);
+        progress.setMessage(activity.getString(R.string.share_generating));
+        progress.setCancelable(false);
+        progress.setButton(Dialog.BUTTON_NEGATIVE, activity.getString(R.string.share_cancel), (dialog, which) -> cancel());
         progress.show(); loading = progress;
         final int version = generation;
         ShareImageJob job = new ShareImageJob(activity, api); imageJob = job;
