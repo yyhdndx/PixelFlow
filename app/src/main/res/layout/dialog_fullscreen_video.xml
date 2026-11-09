@@ -40,6 +40,7 @@
 
     <Button
         android:id="@+id/video_retry"
+        style="@style/PixelFlowFullscreenVideoRetryButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
