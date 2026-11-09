@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -24,6 +25,9 @@
         android:textSize="15sp"
         android:button="@drawable/notification_checkbox"
         android:buttonTint="@null"
+        app:buttonCompat="@drawable/notification_checkbox"
+        app:buttonTint="@null"
+        app:useMaterialThemeColors="false"
         android:textColor="@color/profile_ink" />
 
     <CheckBox
@@ -34,6 +38,9 @@
         android:textSize="15sp"
         android:button="@drawable/notification_checkbox"
         android:buttonTint="@null"
+        app:buttonCompat="@drawable/notification_checkbox"
+        app:buttonTint="@null"
+        app:useMaterialThemeColors="false"
         android:textColor="@color/profile_ink" />
 
     <CheckBox
@@ -44,6 +51,9 @@
         android:textSize="15sp"
         android:button="@drawable/notification_checkbox"
         android:buttonTint="@null"
+        app:buttonCompat="@drawable/notification_checkbox"
+        app:buttonTint="@null"
+        app:useMaterialThemeColors="false"
         android:textColor="@color/profile_ink" />
 
 </LinearLayout>
