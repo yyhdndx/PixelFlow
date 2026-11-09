@@ -11,31 +11,39 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:buttonTint="@color/profile_accent"
         android:text="@string/messages_mute_hint"
         android:textSize="13sp"
         android:textColor="@color/profile_muted"
         android:paddingBottom="8dp" />
 
-    <CheckBox
+    <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/ns_mention"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:buttonTint="@color/profile_accent"
         android:text="@string/messages_mute_mention"
         android:textSize="15sp"
         android:textColor="@color/profile_ink" />
 
-    <CheckBox
+    <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/ns_reply"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:buttonTint="@color/profile_accent"
         android:text="@string/messages_mute_reply"
         android:textSize="15sp"
         android:textColor="@color/profile_ink" />
 
-    <CheckBox
+    <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/ns_like"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:buttonTint="@color/profile_accent"
         android:text="@string/messages_mute_like"
         android:textSize="15sp"
         android:textColor="@color/profile_ink" />
