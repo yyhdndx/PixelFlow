@@ -31,13 +31,10 @@ public class ProfileFragment extends Fragment {
     private Button edit, retry;
     private View loading, insights, logout;
     private AvatarModel avatarModel;
+    private ProfileDataModel profileData;
     private int observedAvatarCompletion;
     private String avatarUrl = "";
     private int requestVersion;
-    // 已加载账号的缓存：避免每次切到「我的」都闪现「正在读取」
-    private long loadedSession = -1L;
-    private String cachedName = "", cachedUsername = "", cachedBio = "", cachedAvatarUrl = "";
-    private String cachedPosts = "", cachedFollowers = "", cachedFollowing = "";
     private final ActivityResultLauncher<Intent> avatarPicker = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
@@ -54,6 +51,7 @@ public class ProfileFragment extends Fragment {
     @Override public void onViewCreated(@NonNull View view, @Nullable Bundle state) {
         api = ApiClient.getInstance(requireContext());
         avatarModel = new ViewModelProvider(requireActivity()).get(AvatarModel.class);
+        profileData = new ViewModelProvider(requireActivity()).get(ProfileDataModel.class);
         observedAvatarCompletion = avatarModel.completedVersion;
         refresh = view.findViewById(R.id.profile_refresh); refresh.setColorSchemeResources(R.color.profile_accent);
         name = view.findViewById(R.id.tv_user_name); username = view.findViewById(R.id.profile_username);
@@ -112,7 +110,7 @@ public class ProfileFragment extends Fragment {
 
     /** 填充用户资料视图并写入缓存。 */
     private void applyUser(String nickname, String usernameValue, String bioValue, String avatarValue) {
-        cachedName = nickname; cachedUsername = usernameValue; cachedBio = bioValue; cachedAvatarUrl = avatarValue;
+        profileData.name = nickname; profileData.username = usernameValue; profileData.bio = bioValue; profileData.avatarUrl = avatarValue;
         if (!isAdded() || name == null || avatar == null) return;
         name.setText(nickname); username.setText("@" + usernameValue);
         bio.setText(bioValue == null || bioValue.isEmpty() ? getString(R.string.profile_bio_empty) : bioValue);
@@ -125,18 +123,18 @@ public class ProfileFragment extends Fragment {
 
     /** 填充统计视图并写入缓存。 */
     private void applyStats(String postsValue, String followersValue, String followingValue) {
-        cachedPosts = postsValue; cachedFollowers = followersValue; cachedFollowing = followingValue;
+        profileData.posts = postsValue; profileData.followers = followersValue; profileData.following = followingValue;
         if (posts == null || followers == null || following == null) return;
         posts.setText(postsValue); followers.setText(followersValue); following.setText(followingValue);
     }
 
     /** 用缓存数据立即恢复视图，避免加载闪烁。 */
     private void restoreCached() {
-        applyUser(cachedName, cachedUsername, cachedBio, cachedAvatarUrl);
-        applyStats(cachedPosts, cachedFollowers, cachedFollowing);
+        applyUser(profileData.name, profileData.username, profileData.bio, profileData.avatarUrl);
+        applyStats(profileData.posts, profileData.followers, profileData.following);
     }
     private void guest() {
-        loadedSession = -1L;
+        profileData.loadedSession = -1L;
         clear(); name.setText(R.string.profile_guest); username.setText("PixelFlow"); bio.setText(R.string.profile_guest_bio);
         edit.setText(R.string.profile_sign_in); edit.setEnabled(true);
         insights.setEnabled(false); insights.setAlpha(0.5f); logout.setVisibility(View.GONE); finishLoading();
@@ -156,7 +154,7 @@ public class ProfileFragment extends Fragment {
         avatar.setEnabled(!avatarModel.isBusy());
         if (!api.isLoggedIn()) { guest(); return; }
         final long session = api.sessionVersion();
-        final boolean firstLoad = loadedSession != session;
+        final boolean firstLoad = profileData.loadedSession != session;
         if (firstLoad) {
             clear(); name.setText("正在读取…"); username.setText("@" + api.username()); bio.setText(R.string.profile_loading);
             edit.setText(R.string.profile_edit); edit.setEnabled(false);
@@ -172,7 +170,7 @@ public class ProfileFragment extends Fragment {
         userJob = api.getCurrentUser(new CommunityClient.Callback<CurrentUser>() {
             public void onSuccess(CurrentUser value) {
                 if (!alive(version)) return;
-                loadedSession = session;
+                profileData.loadedSession = session;
                 applyUser(value.nickname, value.username, value.bio, value.avatar);
                 edit.setEnabled(true);
                 statsJob = api.getUserStats(value.id, new CommunityClient.Callback<UserStats>() {
@@ -187,7 +185,7 @@ public class ProfileFragment extends Fragment {
             public void onFailure(String message) { failed(message, false); }
             private void failed(String message, boolean partial) {
                 if (!alive(version)) return;
-                if (!api.isLoggedIn()) { loadedSession = -1L; guest(); status.setText("登录已失效，请重新登录"); status.setVisibility(View.VISIBLE); }
+                if (!api.isLoggedIn()) { profileData.loadedSession = -1L; guest(); status.setText("登录已失效，请重新登录"); status.setVisibility(View.VISIBLE); }
                 else if (api.sessionVersion() != session) load();
                 else if (!partial && firstLoad) {
                     name.setText("资料暂未加载"); bio.setText("重新加载后即可编辑个人资料。");
