@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp" android:height="32dp"
+    android:viewportWidth="32" android:viewportHeight="32">
+    <path android:fillColor="@color/profile_surface" android:strokeColor="@color/profile_muted"
+        android:strokeWidth="1.5"
+        android:pathData="M11,5 L21,5 Q27,5 27,11 L27,21 Q27,27 21,27 L11,27 Q5,27 5,21 L5,11 Q5,5 11,5 Z" />
+</vector>

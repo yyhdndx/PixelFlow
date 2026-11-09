@@ -22,7 +22,8 @@
         android:layout_height="wrap_content"
         android:text="@string/messages_mute_mention"
         android:textSize="15sp"
-        android:buttonTint="@color/dialog_control_tint"
+        android:button="@drawable/notification_checkbox"
+        android:buttonTint="@null"
         android:textColor="@color/profile_ink" />
 
     <CheckBox
@@ -31,7 +32,8 @@
         android:layout_height="wrap_content"
         android:text="@string/messages_mute_reply"
         android:textSize="15sp"
-        android:buttonTint="@color/dialog_control_tint"
+        android:button="@drawable/notification_checkbox"
+        android:buttonTint="@null"
         android:textColor="@color/profile_ink" />
 
     <CheckBox
@@ -40,7 +42,8 @@
         android:layout_height="wrap_content"
         android:text="@string/messages_mute_like"
         android:textSize="15sp"
-        android:buttonTint="@color/dialog_control_tint"
+        android:button="@drawable/notification_checkbox"
+        android:buttonTint="@null"
         android:textColor="@color/profile_ink" />
 
 </LinearLayout>
