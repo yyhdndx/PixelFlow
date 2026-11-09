@@ -106,6 +106,10 @@ public class CreateWorkActivity extends AppCompatActivity {
         btnPublish = findViewById(R.id.btn_publish);
         btnCancel = findViewById(R.id.btn_cancel);
         findViewById(R.id.creation_assist).setOnClickListener(v -> showAssistRequest());
+        findViewById(R.id.creation_assist_accept).setOnClickListener(v -> {
+            captureText();
+            model.confirmAssist();
+        });
         findViewById(R.id.creation_assist_refine).setOnClickListener(v -> showRefineDialog());
         findViewById(R.id.creation_assist_cancel).setOnClickListener(v -> model.cancelAssist());
         findViewById(R.id.creation_assist_undo).setOnClickListener(v -> {
@@ -205,6 +209,12 @@ public class CreateWorkActivity extends AppCompatActivity {
             com.PixelFlow.app.copilot.CopilotSheet.open(this, "create", null, model.state.postId, 0, null,
                     tvTitle.getText().toString());
         });
+        // Bind model changes atomically: watchers must not copy the old second field back.
+        binding = true;
+        try {
+            if (!etTitle.getText().toString().equals(model.state.title)) etTitle.setText(model.state.title);
+            if (!etDescription.getText().toString().equals(model.state.content)) etDescription.setText(model.state.content);
+        } finally { binding = false; }
         tvTitle.setText(model.state.postId == null ? "创作作品" : "编辑作品");
         findViewById(R.id.creation_assist).setEnabled(model.editable() && !model.assistBusy);
         TextView assistStatus = findViewById(R.id.creation_assist_status);
@@ -213,9 +223,12 @@ public class CreateWorkActivity extends AppCompatActivity {
         TextView assistStream = findViewById(R.id.creation_assist_stream);
         assistStream.setText(model.streamText);
         assistStream.setVisibility(model.assistBusy && !model.streamText.isEmpty() ? View.VISIBLE : View.GONE);
-        findViewById(R.id.creation_assist_refine).setVisibility(model.suggestion == null ? View.GONE : View.VISIBLE);
+        findViewById(R.id.creation_assist_actions).setVisibility(
+                model.state.assistPendingAcceptance ? View.VISIBLE : View.GONE);
+        findViewById(R.id.creation_assist_accept).setEnabled(model.editable() && !model.assistBusy);
+        findViewById(R.id.creation_assist_refine).setEnabled(
+                model.editable() && !model.assistBusy && model.suggestion != null && !model.suggestionStale());
         findViewById(R.id.creation_assist_cancel).setVisibility(model.assistBusy ? View.VISIBLE : View.GONE);
-        findViewById(R.id.creation_assist_undo).setVisibility(model.state.assistUndo.available ? View.VISIBLE : View.GONE);
         findViewById(R.id.creation_assist_undo).setEnabled(model.editable() && !model.assistBusy);
         refreshAssistPreview();
         operationStatus.setText(model.state.message);
