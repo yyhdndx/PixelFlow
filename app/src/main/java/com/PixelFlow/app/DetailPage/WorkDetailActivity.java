@@ -20,7 +20,6 @@ import android.view.ViewConfiguration;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.*;
-import androidx.appcompat.app.AlertDialog;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -1094,22 +1093,18 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     /** 长按评论：自己的可删除，所有人可复制。 */
     private void showCommentActions(CommentPage.CommentItem item) {
         boolean own = commentAdapter != null && commentAdapter.isOwn(item);
-        String[] options = own
-                ? new String[]{getString(R.string.comments_dialog_copy), getString(R.string.comments_dialog_delete)}
-                : new String[]{getString(R.string.comments_dialog_copy)};
-        new android.app.AlertDialog.Builder(this)
-                .setItems(options, (dialog, which) -> {
-                    if (getString(R.string.comments_dialog_copy).equals(options[which])) {
-                        ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-                        if (cm != null) {
-                            cm.setPrimaryClip(ClipData.newPlainText("comment", item.content));
-                            android.widget.Toast.makeText(this, R.string.comments_copied, android.widget.Toast.LENGTH_SHORT).show();
-                        }
-                    } else {
-                        deleteComment(item);
+        java.util.List<com.PixelFlow.app.ui.ActionSheetDialog.Option> actions = new java.util.ArrayList<>();
+        actions.add(new com.PixelFlow.app.ui.ActionSheetDialog.Option(android.R.drawable.ic_menu_set_as,
+                getString(R.string.comments_dialog_copy), () -> {
+                    ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    if (cm != null) {
+                        cm.setPrimaryClip(ClipData.newPlainText("comment", item.content));
+                        android.widget.Toast.makeText(this, R.string.comments_copied, android.widget.Toast.LENGTH_SHORT).show();
                     }
-                })
-                .show();
+                }));
+        if (own) actions.add(new com.PixelFlow.app.ui.ActionSheetDialog.Option(android.R.drawable.ic_menu_delete,
+                getString(R.string.comments_dialog_delete), () -> deleteComment(item), true));
+        com.PixelFlow.app.ui.ActionSheetDialog.show(this, getString(R.string.dialog_comment_actions), null, actions);
     }
 
     private void deleteComment(CommentPage.CommentItem item) {
