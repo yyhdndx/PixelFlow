@@ -1097,7 +1097,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         String[] options = own
                 ? new String[]{getString(R.string.comments_dialog_copy), getString(R.string.comments_dialog_delete)}
                 : new String[]{getString(R.string.comments_dialog_copy)};
-        new android.app.AlertDialog.Builder(this)
+        new android.app.AlertDialog.Builder(this, R.style.PixelFlowPlatformDialog)
                 .setItems(options, (dialog, which) -> {
                     if (getString(R.string.comments_dialog_copy).equals(options[which])) {
                         ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
