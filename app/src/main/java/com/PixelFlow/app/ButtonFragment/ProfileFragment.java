@@ -113,16 +113,20 @@ public class ProfileFragment extends Fragment {
     /** 填充用户资料视图并写入缓存。 */
     private void applyUser(String nickname, String usernameValue, String bioValue, String avatarValue) {
         cachedName = nickname; cachedUsername = usernameValue; cachedBio = bioValue; cachedAvatarUrl = avatarValue;
+        if (!isAdded() || name == null || avatar == null) return;
         name.setText(nickname); username.setText("@" + usernameValue);
         bio.setText(bioValue == null || bioValue.isEmpty() ? getString(R.string.profile_bio_empty) : bioValue);
         avatarUrl = avatarValue;
-        Glide.with(this).load(avatarValue == null || avatarValue.isEmpty() ? null : avatarValue)
+        // 用 application context 加载头像，避免 Fragment 生命周期异常导致崩溃
+        Glide.with(requireContext().getApplicationContext())
+                .load(avatarValue == null || avatarValue.isEmpty() ? null : avatarValue)
                 .placeholder(R.drawable.profile_avatar).error(R.drawable.profile_avatar).circleCrop().into(avatar);
     }
 
     /** 填充统计视图并写入缓存。 */
     private void applyStats(String postsValue, String followersValue, String followingValue) {
         cachedPosts = postsValue; cachedFollowers = followersValue; cachedFollowing = followingValue;
+        if (posts == null || followers == null || following == null) return;
         posts.setText(postsValue); followers.setText(followersValue); following.setText(followingValue);
     }
 
