@@ -38,7 +38,7 @@ public class CopilotHistoryActivity extends AppCompatActivity {
                 new MaterialAlertDialogBuilder(this, R.style.PixelFlowMaterialDialog)
                         .setTitle(R.string.copilot_history_title)
                         .setMessage(R.string.copilot_history_clear_confirm)
-                        .setNegativeButton(android.R.string.cancel, null)
+                        .setNegativeButton(R.string.cancel, null)
                         .setPositiveButton(R.string.copilot_history_clear, (dialog, which) -> {
                             CopilotStore.clearAll(this);
                             reload();

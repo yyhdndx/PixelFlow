@@ -246,17 +246,23 @@ public class AutoReplyEditActivity extends AppCompatActivity {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         EditText q = new EditText(this);
+        q.setTextColor(getColor(R.color.profile_ink));
+        q.setHintTextColor(getColor(R.color.profile_muted));
+        q.setBackgroundTintList(androidx.core.content.ContextCompat.getColorStateList(this, R.color.dialog_input_tint));
         q.setText(candidate.rule.question);
         q.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(500)});
         EditText a = new EditText(this);
+        a.setTextColor(getColor(R.color.profile_ink));
+        a.setHintTextColor(getColor(R.color.profile_muted));
+        a.setBackgroundTintList(androidx.core.content.ContextCompat.getColorStateList(this, R.color.dialog_input_tint));
         a.setText(candidate.rule.answer);
         a.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(2000)});
         form.addView(q);
         form.addView(a);
         android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this, R.style.PixelFlowPlatformDialog)
                 .setTitle(R.string.ai_rule_edit).setView(form)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(android.R.string.ok, null).create();
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.confirm, null).create();
         dialog.setOnShowListener(ignored -> dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
             if (q.getText().toString().trim().isEmpty() || a.getText().toString().trim().isEmpty()) {
                 toast(getString(R.string.auto_reply_need_both));

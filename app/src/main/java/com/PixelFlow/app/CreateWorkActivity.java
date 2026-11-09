@@ -333,6 +333,9 @@ public class CreateWorkActivity extends AppCompatActivity {
         captureText();
         if (model.suggestion == null || !model.editable()) return;
         EditText input = new EditText(this);
+        input.setTextColor(getColor(R.color.profile_ink));
+        input.setHintTextColor(getColor(R.color.profile_muted));
+        input.setBackgroundTintList(androidx.core.content.ContextCompat.getColorStateList(this, R.color.dialog_input_tint));
         input.setHint(R.string.ai_creation_revision_hint);
         input.setSingleLine(true);
         input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)});
