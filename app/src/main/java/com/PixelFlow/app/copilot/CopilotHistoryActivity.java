@@ -10,7 +10,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.PixelFlow.app.R;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -35,7 +35,7 @@ public class CopilotHistoryActivity extends AppCompatActivity {
         list.setAdapter(adapter);
 
         findViewById(R.id.copilot_history_clear).setOnClickListener(v ->
-                new MaterialAlertDialogBuilder(this)
+                com.PixelFlow.app.ui.PixelFlowDialogs.destructive(this)
                         .setTitle(R.string.copilot_history_title)
                         .setMessage(R.string.copilot_history_clear_confirm)
                         .setNegativeButton(android.R.string.cancel, null)

@@ -8,7 +8,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.appcompat.app.AlertDialog;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -93,8 +93,9 @@ public class AutoReplyActivity extends AppCompatActivity {
     }
 
     private void confirmDelete(AutoReplyRule rule) {
-        new AlertDialog.Builder(this)
-                .setMessage("删除这条自动回复规则？")
+        com.PixelFlow.app.ui.PixelFlowDialogs.destructive(this)
+                .setTitle(R.string.dialog_delete_rule_title)
+                .setMessage(R.string.dialog_delete_rule_message)
                 .setNegativeButton(R.string.auto_reply_cancel, null)
                 .setPositiveButton(R.string.auto_reply_delete, (d, w) ->
                         ApiClient.getInstance(this).deleteAutoReply(postId, rule.id, new CommunityClient.Callback<Void>() {
