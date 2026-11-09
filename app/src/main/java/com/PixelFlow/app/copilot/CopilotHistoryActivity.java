@@ -35,7 +35,7 @@ public class CopilotHistoryActivity extends AppCompatActivity {
         list.setAdapter(adapter);
 
         findViewById(R.id.copilot_history_clear).setOnClickListener(v ->
-                new MaterialAlertDialogBuilder(this)
+                new MaterialAlertDialogBuilder(this, R.style.PixelFlowMaterialDialog)
                         .setTitle(R.string.copilot_history_title)
                         .setMessage(R.string.copilot_history_clear_confirm)
                         .setNegativeButton(android.R.string.cancel, null)

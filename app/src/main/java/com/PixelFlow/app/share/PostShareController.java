@@ -112,7 +112,7 @@ public final class PostShareController {
 
     private void generate(PostItem post, String link) {
         busy = true;
-        ProgressDialog progress = new ProgressDialog(activity);
+        ProgressDialog progress = new ProgressDialog(activity, R.style.PixelFlowPlatformDialog);
         progress.setMessage(activity.getString(R.string.share_generating));
         progress.setCancelable(false);
         progress.setButton(Dialog.BUTTON_NEGATIVE, activity.getString(R.string.share_cancel), (dialog, which) -> cancel());

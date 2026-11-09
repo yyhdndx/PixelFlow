@@ -253,7 +253,7 @@ public class AutoReplyEditActivity extends AppCompatActivity {
         a.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(2000)});
         form.addView(q);
         form.addView(a);
-        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this, R.style.PixelFlowPlatformDialog)
                 .setTitle(R.string.ai_rule_edit).setView(form)
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(android.R.string.ok, null).create();
