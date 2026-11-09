@@ -224,6 +224,18 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         adapter.setHeader(aiCard);
         adapter.setHeaderVisible(false);
         resultsView.setAdapter(adapter);
+        // 滚动到底自动加载更多（此前无滚动监听，onLoadMore 永不触发导致分页失效）
+        resultsView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
+                if (dy <= 0) return;
+                StaggeredGridLayoutManager lm = (StaggeredGridLayoutManager) rv.getLayoutManager();
+                if (lm == null) return;
+                int[] last = lm.findLastVisibleItemPositions(null);
+                int max = 0;
+                for (int p : last) if (p > max) max = p;
+                if (max >= lm.getItemCount() - 5) onLoadMore();
+            }
+        });
 
         renderHistoryChips();
         renderHotChips();
@@ -657,7 +669,12 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
     }
 
     @Override public void onLikeClick(WorkItem workItem, int position) {
-        // 复用信息流卡片：未登录时跳转登录页，与首页行为一致由适配器内部处理。
+        // 与首页一致：未登录跳登录页，登录后切换点赞状态
+        if (!ApiClient.getInstance(this).isLoggedIn()) {
+            startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
+            return;
+        }
+        adapter.updateLikeStatus(position, !workItem.isLiked());
     }
 
     @Override public void onItemClick(WorkItem workItem, int position) {
