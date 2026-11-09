@@ -34,6 +34,10 @@ public class ProfileFragment extends Fragment {
     private int observedAvatarCompletion;
     private String avatarUrl = "";
     private int requestVersion;
+    // 已加载账号的缓存：避免每次切到「我的」都闪现「正在读取」
+    private long loadedSession = -1L;
+    private String cachedName = "", cachedUsername = "", cachedBio = "", cachedAvatarUrl = "";
+    private String cachedPosts = "", cachedFollowers = "", cachedFollowing = "";
     private final ActivityResultLauncher<Intent> avatarPicker = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
@@ -105,7 +109,30 @@ public class ProfileFragment extends Fragment {
         posts.setText(R.string.profile_dash); followers.setText(R.string.profile_dash); following.setText(R.string.profile_dash);
         status.setVisibility(View.GONE); retry.setVisibility(View.GONE);
     }
+
+    /** 填充用户资料视图并写入缓存。 */
+    private void applyUser(String nickname, String usernameValue, String bioValue, String avatarValue) {
+        cachedName = nickname; cachedUsername = usernameValue; cachedBio = bioValue; cachedAvatarUrl = avatarValue;
+        name.setText(nickname); username.setText("@" + usernameValue);
+        bio.setText(bioValue == null || bioValue.isEmpty() ? getString(R.string.profile_bio_empty) : bioValue);
+        avatarUrl = avatarValue;
+        Glide.with(this).load(avatarValue == null || avatarValue.isEmpty() ? null : avatarValue)
+                .placeholder(R.drawable.profile_avatar).error(R.drawable.profile_avatar).circleCrop().into(avatar);
+    }
+
+    /** 填充统计视图并写入缓存。 */
+    private void applyStats(String postsValue, String followersValue, String followingValue) {
+        cachedPosts = postsValue; cachedFollowers = followersValue; cachedFollowing = followingValue;
+        posts.setText(postsValue); followers.setText(followersValue); following.setText(followingValue);
+    }
+
+    /** 用缓存数据立即恢复视图，避免加载闪烁。 */
+    private void restoreCached() {
+        applyUser(cachedName, cachedUsername, cachedBio, cachedAvatarUrl);
+        applyStats(cachedPosts, cachedFollowers, cachedFollowing);
+    }
     private void guest() {
+        loadedSession = -1L;
         clear(); name.setText(R.string.profile_guest); username.setText("PixelFlow"); bio.setText(R.string.profile_guest_bio);
         edit.setText(R.string.profile_sign_in); edit.setEnabled(true);
         insights.setEnabled(false); insights.setAlpha(0.5f); logout.setVisibility(View.GONE); finishLoading();
@@ -124,25 +151,31 @@ public class ProfileFragment extends Fragment {
         cancel();
         avatar.setEnabled(!avatarModel.isBusy());
         if (!api.isLoggedIn()) { guest(); return; }
-        clear(); name.setText("正在读取…"); username.setText("@" + api.username()); bio.setText(R.string.profile_loading);
-        edit.setText(R.string.profile_edit); edit.setEnabled(false); insights.setEnabled(true); insights.setAlpha(1f);
-        logout.setVisibility(View.VISIBLE); loading.setVisibility(View.VISIBLE);
-        final int version = requestVersion;
         final long session = api.sessionVersion();
+        final boolean firstLoad = loadedSession != session;
+        if (firstLoad) {
+            clear(); name.setText("正在读取…"); username.setText("@" + api.username()); bio.setText(R.string.profile_loading);
+            edit.setText(R.string.profile_edit); edit.setEnabled(false);
+            insights.setEnabled(true); insights.setAlpha(1f);
+            logout.setVisibility(View.VISIBLE); loading.setVisibility(View.VISIBLE);
+        } else {
+            // 已有当前账号缓存：立即恢复，后台静默刷新，不闪现「正在读取」
+            restoreCached();
+            edit.setEnabled(true); insights.setEnabled(true); insights.setAlpha(1f);
+            logout.setVisibility(View.VISIBLE); loading.setVisibility(View.GONE);
+        }
+        final int version = requestVersion;
         userJob = api.getCurrentUser(new CommunityClient.Callback<CurrentUser>() {
             public void onSuccess(CurrentUser value) {
                 if (!alive(version)) return;
-                name.setText(value.nickname); username.setText("@" + value.username);
-                bio.setText(value.bio.isEmpty() ? getString(R.string.profile_bio_empty) : value.bio);
-                avatarUrl = value.avatar;
-                Glide.with(ProfileFragment.this).load(value.avatar.isEmpty() ? null : value.avatar)
-                        .placeholder(R.drawable.profile_avatar).error(R.drawable.profile_avatar).circleCrop().into(avatar);
+                loadedSession = session;
+                applyUser(value.nickname, value.username, value.bio, value.avatar);
                 edit.setEnabled(true);
                 statsJob = api.getUserStats(value.id, new CommunityClient.Callback<UserStats>() {
                     public void onSuccess(UserStats stats) {
                         if (!alive(version)) return;
-                        posts.setText(Long.toString(stats.posts)); followers.setText(Long.toString(stats.followers));
-                        following.setText(Long.toString(stats.following)); finishLoading();
+                        applyStats(Long.toString(stats.posts), Long.toString(stats.followers), Long.toString(stats.following));
+                        finishLoading();
                     }
                     public void onFailure(String message) { failed(message, true); }
                 });
@@ -150,11 +183,13 @@ public class ProfileFragment extends Fragment {
             public void onFailure(String message) { failed(message, false); }
             private void failed(String message, boolean partial) {
                 if (!alive(version)) return;
-                if (!api.isLoggedIn()) { guest(); status.setText("登录已失效，请重新登录"); status.setVisibility(View.VISIBLE); }
+                if (!api.isLoggedIn()) { loadedSession = -1L; guest(); status.setText("登录已失效，请重新登录"); status.setVisibility(View.VISIBLE); }
                 else if (api.sessionVersion() != session) load();
-                else {
-                    if (!partial) { name.setText("资料暂未加载"); bio.setText("重新加载后即可编辑个人资料。"); }
-                    failure((partial ? "统计暂时无法读取。" : "") + message);
+                else if (!partial && firstLoad) {
+                    name.setText("资料暂未加载"); bio.setText("重新加载后即可编辑个人资料。");
+                    failure(message);
+                } else {
+                    failure((partial ? "统计暂时无法读取。" : "刷新失败，显示上次资料。") + message);
                 }
             }
         });
