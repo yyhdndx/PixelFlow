@@ -141,6 +141,15 @@ public class AutoReplyTaskFlowTest {
                 });
                 screen.onActivity(a -> {
                     android.view.View root = android.view.inspector.WindowInspector.getGlobalWindowViews().stream()
+                            .filter(view -> view.findViewById(R.id.dialog_rule_question) != null)
+                            .findFirst().orElseThrow(AssertionError::new);
+                    ((EditText) root.findViewById(R.id.dialog_rule_question)).setText("");
+                    root.findViewById(android.R.id.button1).performClick();
+                    assertNotNull(((EditText) root.findViewById(R.id.dialog_rule_question)).getError());
+                    ((EditText) root.findViewById(R.id.dialog_rule_question)).setText("如何拍摄");
+                });
+                screen.onActivity(a -> {
+                    android.view.View root = android.view.inspector.WindowInspector.getGlobalWindowViews().stream()
                             .filter(view -> findText(view, "保持稳定") != null).findFirst().orElseThrow(AssertionError::new);
                     ((EditText) findText(root, "保持稳定")).setText("使用三脚架");
                     root.findViewById(android.R.id.button1).performClick();
