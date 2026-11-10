@@ -285,9 +285,24 @@ public class CopilotSheet extends BottomSheetDialogFragment {
         apply.setVisibility(pending ? View.VISIBLE : View.GONE);
         ignore.setVisibility(pending ? View.VISIBLE : View.GONE);
         regenerate.setVisibility(CopilotAction.STALE.equals(action.status) ? View.VISIBLE : View.GONE);
-        if (!pending && !CopilotAction.STALE.equals(action.status))
-            rationale.setText(CopilotAction.APPLIED.equals(action.status)
-                    ? getString(R.string.copilot_applied) : getString(R.string.copilot_ignored));
+        TextView statusChip = card.findViewById(R.id.action_status);
+        if (CopilotAction.APPLIED.equals(action.status)) {
+            statusChip.setText("✓ " + getString(R.string.copilot_applied));
+            statusChip.setTextColor(requireContext().getColor(R.color.profile_accent));
+            statusChip.setBackgroundResource(R.drawable.bg_action_status);
+            statusChip.setVisibility(View.VISIBLE);
+            rationale.setVisibility(View.GONE);
+            card.findViewById(R.id.action_body).setAlpha(0.75f);
+        } else if (CopilotAction.IGNORED.equals(action.status)) {
+            statusChip.setText(getString(R.string.copilot_ignored));
+            statusChip.setTextColor(requireContext().getColor(R.color.profile_muted));
+            statusChip.setBackgroundResource(R.drawable.bg_action_status);
+            statusChip.setVisibility(View.VISIBLE);
+            rationale.setVisibility(View.GONE);
+            card.findViewById(R.id.action_body).setAlpha(0.6f);
+        } else {
+            statusChip.setVisibility(View.GONE);
+        }
 
         apply.setOnClickListener(v -> applyAction(action));
         ignore.setOnClickListener(v -> {
