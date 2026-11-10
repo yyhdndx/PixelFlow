@@ -31,7 +31,7 @@
             android:id="@+id/nested_scroll_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:paddingTop="72dp"
+            android:paddingTop="56dp"
             android:paddingBottom="80dp">
 
             <LinearLayout
@@ -376,11 +376,11 @@
                 <LinearLayout
                     android:id="@+id/top_bar"
                     android:layout_width="match_parent"
-                    android:layout_height="72dp"
+                    android:layout_height="56dp"
                     android:layout_gravity="top"
                     android:orientation="horizontal"
                     android:paddingHorizontal="16dp"
-                    android:paddingVertical="12dp"
+                    android:paddingVertical="10dp"
                     android:gravity="center_vertical"
                     android:background="@color/white"
                     android:elevation="4dp">
@@ -434,7 +434,10 @@
                         android:id="@+id/follow_button"
                         style="@style/Widget.Material3.Button.OutlinedButton"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                        android:layout_height="34dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:minWidth="0dp"
                         android:text="关 注"
                         android:textColor="@color/primary_color"
                         android:textSize="13sp"
