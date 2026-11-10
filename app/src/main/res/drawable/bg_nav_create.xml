@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 导航栏中间的发布按钮：主题色圆角矩形 + 白色加号 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/profile_accent" />
+    <corners android:radius="14dp" />
+</shape>

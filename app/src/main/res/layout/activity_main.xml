@@ -33,6 +33,7 @@
          避免遮挡底部导航中间的「消息」Tab -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab_camera"
+        android:visibility="gone"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_above="@id/bottom_navigation"
