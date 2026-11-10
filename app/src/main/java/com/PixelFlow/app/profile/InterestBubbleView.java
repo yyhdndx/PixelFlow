@@ -23,8 +23,6 @@ public final class InterestBubbleView extends ViewGroup {
     public void setTopics(JsonArray topics) {
         removeAllViews();
         weights = new double[topics.size()];
-        int[] colors = {getContext().getColor(R.color.profile_accent), Color.rgb(223, 219, 250),
-                getContext().getColor(R.color.profile_soft), Color.rgb(235, 225, 247)};
         for (int i = 0; i < topics.size(); i++) {
             JsonObject topic = topics.get(i).getAsJsonObject();
             String name = topic.get("name").getAsString();
@@ -36,16 +34,32 @@ public final class InterestBubbleView extends ViewGroup {
             label.setTextSize(15);
             label.setMaxLines(2);
             label.setEllipsize(TextUtils.TruncateAt.END);
-            label.setTextColor(getContext().getColor(i % colors.length == 0 ? R.color.white : R.color.profile_ink));
+            label.setTextColor(getContext().getColor(R.color.profile_ink));
             int inset = Math.round(10 * getResources().getDisplayMetrics().density);
             label.setPadding(inset, inset, inset, inset);
             GradientDrawable background = new GradientDrawable();
             background.setShape(GradientDrawable.OVAL);
-            background.setColor(colors[i % colors.length]);
+            background.setColor(topicColor(name));
             label.setBackground(background);
             addView(label);
         }
         requestLayout();
+    }
+
+    private static int topicColor(String name) {
+        switch (name) {
+            case "美食": return Color.rgb(249, 218, 202);
+            case "园艺": return Color.rgb(210, 229, 210);
+            case "数码": return Color.rgb(207, 225, 244);
+            case "阅读": return Color.rgb(226, 216, 246);
+            case "运动": return Color.rgb(249, 226, 190);
+            case "宠物": return Color.rgb(245, 214, 226);
+            case "其他": return Color.rgb(219, 228, 234);
+            default:
+                int[] palette = {0xFFF9DACA, 0xFFD2E5D2, 0xFFCFE1F4,
+                        0xFFE2D8F6, 0xFFF9E2BE, 0xFFF5D6E2, 0xFFDBE4EA};
+                return palette[Math.floorMod(name.hashCode(), palette.length)];
+        }
     }
 
     private static double number(JsonObject topic, String key, double fallback) {
