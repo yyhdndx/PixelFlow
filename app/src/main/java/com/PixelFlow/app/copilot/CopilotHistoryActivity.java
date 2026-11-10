@@ -39,6 +39,7 @@ public class CopilotHistoryActivity extends AppCompatActivity {
         findViewById(R.id.copilot_history_select).setOnClickListener(v -> enterSelection());
         findViewById(R.id.copilot_history_cancel).setOnClickListener(v -> exitSelection());
         findViewById(R.id.copilot_history_delete).setOnClickListener(v -> deleteSelected());
+        findViewById(R.id.copilot_history_select_all).setOnClickListener(v -> toggleSelectAll());
 
         RecyclerView list = findViewById(R.id.copilot_history_list);
         empty = findViewById(R.id.copilot_history_empty);
@@ -123,10 +124,23 @@ public class CopilotHistoryActivity extends AppCompatActivity {
         applySelectionUi();
     }
 
+    /** 全选 / 取消全选。 */
+    private void toggleSelectAll() {
+        if (!sessions.isEmpty() && selected.size() == sessions.size()) {
+            selected.clear();
+        } else {
+            selected.clear();
+            for (CopilotStore.Session session : sessions) selected.add(session.key);
+        }
+        adapter.notifyDataSetChanged();
+        updateDeleteLabel();
+    }
+
     private void applySelectionUi() {
         findViewById(R.id.copilot_history_new).setVisibility(selecting ? View.GONE : View.VISIBLE);
         findViewById(R.id.copilot_history_select).setVisibility(selecting ? View.GONE : View.VISIBLE);
         findViewById(R.id.copilot_history_cancel).setVisibility(selecting ? View.VISIBLE : View.GONE);
+        findViewById(R.id.copilot_history_select_all).setVisibility(selecting ? View.VISIBLE : View.GONE);
         findViewById(R.id.copilot_history_delete).setVisibility(selecting ? View.VISIBLE : View.GONE);
         updateDeleteLabel();
         adapter.notifyDataSetChanged();
@@ -138,6 +152,9 @@ public class CopilotHistoryActivity extends AppCompatActivity {
                 : getString(R.string.copilot_delete_selected, selected.size()));
         delete.setAlpha(selected.isEmpty() ? 0.5f : 1f);
         delete.setEnabled(!selected.isEmpty());
+        TextView selectAll = findViewById(R.id.copilot_history_select_all);
+        selectAll.setText(selected.size() == sessions.size() && !sessions.isEmpty()
+                ? R.string.copilot_select_none : R.string.copilot_select_all);
     }
 
     private void deleteSelected() {
