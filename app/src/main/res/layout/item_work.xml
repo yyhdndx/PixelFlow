@@ -70,12 +70,11 @@
 
             <ImageView
                 android:id="@+id/like_icon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="17dp"
+                android:layout_height="17dp"
                 android:layout_marginStart="8dp"
                 android:padding="2dp"
                 android:src="@drawable/ic_thumb_up_outline"
-                android:tint="@color/like_icon_tint"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/praise" />
         </LinearLayout>
