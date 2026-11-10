@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { request, write, session } from '../api/client'
+import { summaries, summaryKey, startSummary, stopSummary } from '../api/postSummary'
 import PostMedia from '../components/PostMedia.vue'
 import CommentSection from '../components/CommentSection.vue'
 
@@ -16,6 +17,15 @@ const followBusy = ref(false)
 const followError = ref('')
 const followNotice = ref('')
 const own = computed(() => session.user?.id === post.value?.author?.user_id)
+const summaryOpen = ref(false)
+const eligibleSummary = computed(() => [...(post.value?.content || '')].length >= 200 && post.value?.status === 'PUBLISHED')
+const currentSummary = computed(() => post.value && session.user ? summaries.get(summaryKey(post.value)) : null)
+const summaryBusy = computed(() => ['waiting', 'generating'].includes(currentSummary.value?.status))
+function summarize() {
+  if (!session.user) { requireLogin(); return }
+  summaryOpen.value = true
+  startSummary(post.value, !!currentSummary.value)
+}
 let alive = true
 onBeforeUnmount(() => { alive = false })
 function requireLogin() { router.replace({ path: '/login', query: { from: route.fullPath } }) }
@@ -125,6 +135,18 @@ onMounted(load)
             <span v-if="seg.type === 'tag'" class="tag">{{ seg.value }}</span><template v-else>{{ seg.value }}</template>
           </template>
         </p>
+        <section v-if="eligibleSummary" class="post-summary">
+          <div class="feed-toolbar"><h2>长文提炼</h2><button class="secondary" @click="summaryOpen = !summaryOpen">{{ summaryOpen ? '收起' : '展开' }}</button></div>
+          <div v-if="summaryOpen">
+            <div class="work-actions"><button v-if="!currentSummary || !summaryBusy" class="secondary" @click="summarize">{{ currentSummary ? '重新提炼' : '开始提炼' }}</button><button v-else class="secondary" @click="stopSummary">停止</button></div>
+            <template v-if="currentSummary">
+              <p role="status">{{ { waiting: '等待中', generating: '正在提炼', done: '提炼完成', interrupted: '提炼未完成', failed: '提炼失败', cancelled: '已停止' }[currentSummary.status] }}</p>
+              <p v-if="currentSummary.error" class="error" role="alert">{{ currentSummary.error }}</p>
+              <p v-if="currentSummary.summary">{{ currentSummary.summary }}<span v-if="currentSummary.status !== 'done'" class="muted">（未完成）</span></p>
+              <ol v-if="currentSummary.points.length"><li v-for="(point, index) in currentSummary.points" :key="index">{{ point }}</li></ol>
+            </template>
+          </div>
+        </section>
         <CommentSection :post-id="post.post_id" />
       </div>
     </div>
