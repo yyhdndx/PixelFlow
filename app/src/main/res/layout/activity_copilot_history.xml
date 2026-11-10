@@ -30,18 +30,56 @@
             android:text="@string/copilot_history_title"
             android:textColor="@color/profile_ink"
             android:textSize="18sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <!-- 新建对话 + 多选（多选模式下换成 取消 / 删除） -->
+        <ImageButton
+            android:id="@+id/copilot_history_new"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/copilot_new_chat"
+            android:padding="8dp"
+            android:src="@drawable/ic_new_chat"
+            app:tint="@color/profile_ink" />
+
+        <ImageButton
+            android:id="@+id/copilot_history_select"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="6dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/copilot_select_mode"
+            android:padding="8dp"
+            android:src="@drawable/ic_select_list"
+            app:tint="@color/profile_ink" />
 
         <TextView
-            android:id="@+id/copilot_history_clear"
+            android:id="@+id/copilot_history_cancel"
             android:layout_width="wrap_content"
             android:layout_height="40dp"
             android:gravity="center"
             android:paddingStart="10dp"
             android:paddingEnd="10dp"
-            android:text="@string/copilot_history_clear"
+            android:text="@string/copilot_cancel"
             android:textColor="@color/profile_muted"
-            android:textSize="13sp" />
+            android:textSize="14sp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/copilot_history_delete"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:text="@string/copilot_delete"
+            android:textColor="@color/profile_accent"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
     </LinearLayout>
 
     <FrameLayout
@@ -67,21 +105,5 @@
             android:textSize="14sp"
             android:visibility="gone" />
 
-        <!-- 新建对话：选择一篇作品后开始 -->
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/copilot_new"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom|end"
-            android:layout_marginEnd="20dp"
-            android:layout_marginBottom="96dp"
-            android:contentDescription="@string/copilot_new_chat"
-            android:src="@drawable/ic_add"
-            app:backgroundTint="@color/profile_accent"
-            app:elevation="6dp"
-            app:fabCustomSize="56dp"
-            app:maxImageSize="24dp"
-            app:rippleColor="@color/accent_ripple_strong"
-            app:tint="@android:color/white" />
     </FrameLayout>
 </LinearLayout>
