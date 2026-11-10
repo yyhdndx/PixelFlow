@@ -428,7 +428,7 @@
         android:elevation="6dp"
         android:paddingHorizontal="16dp"
         android:paddingTop="12dp"
-        android:paddingBottom="32dp">
+        android:paddingBottom="20dp">
 
         <Button
             android:id="@+id/btn_cancel"
