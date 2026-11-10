@@ -202,6 +202,10 @@ label input { display: block; margin-top: 6px; font-weight: 400; }
 .my-work-row strong { overflow-wrap: anywhere; }
 .my-work-row a { flex-shrink: 0; }
 .work-actions { display: flex; align-items: center; gap: 12px; }
+.interest-settings { margin: 16px 0 24px; }
+.interest-toggle { display: inline-flex; align-items: center; gap: 8px; }
+.interest-topics { display: flex; flex-wrap: wrap; gap: 10px; padding: 0; list-style: none; }
+.interest-topics li { padding: 8px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); }
 .notification-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .notification-settings label { display: inline-flex; align-items: center; gap: 5px; }
 .notification-settings input { margin: 0; }
