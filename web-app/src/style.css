@@ -202,6 +202,10 @@ label input { display: block; margin-top: 6px; font-weight: 400; }
 .my-work-row strong { overflow-wrap: anywhere; }
 .my-work-row a { flex-shrink: 0; }
 .work-actions { display: flex; align-items: center; gap: 12px; }
+.agent-answer { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 14px 0; margin: 20px 0; }
+.agent-answer h2 { font-size: 18px; }
+.agent-answer-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.agent-sources { display: flex; flex-wrap: wrap; gap: 8px 20px; list-style: none; padding: 0; }
 .interest-history-row { padding: 16px 4px; border-bottom: 1px solid var(--line); }
 .interest-history-row p { margin: 6px 0 0; }
 .preference-list { list-style: none; padding: 0; }

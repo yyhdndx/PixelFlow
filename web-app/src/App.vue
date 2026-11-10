@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { session, logout } from './api/client'
+import { agentSearch, stopSearch } from './api/agentSearch'
 const router = useRouter()
 const route = useRoute()
 const hadToken = ref(!!session.tokens.accessToken)
@@ -14,7 +15,10 @@ const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
 watch(() => route.query.q, q => { search.value = typeof q === 'string' ? q : '' })
 function submitSearch() {
   const q = search.value.trim()
-  if (q) router.push({ path: '/search', query: { q } })
+  if (q) {
+    if (q !== agentSearch.question && ['waiting', 'retrieving', 'preparing', 'generating', 'validating'].includes(agentSearch.status)) stopSearch()
+    router.push({ path: '/search', query: { q } })
+  }
 }
 const initial = computed(() => (session.user?.nickname || session.user?.username || '游').trim().charAt(0).toUpperCase())
 async function leave() { try { await logout() } catch {} }
