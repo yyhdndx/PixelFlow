@@ -199,7 +199,9 @@ public class CopilotChatActivity extends AppCompatActivity {
     private View bubble(CopilotStore.Entry entry) {
         boolean user = "user".equals(entry.role);
         TextView bubble = new TextView(this);
-        bubble.setText(entry.text);
+        // 先开启可选，再以 SPANNABLE 缓冲写入文本，长按才会出现选择/复制
+        bubble.setTextIsSelectable(true);
+        bubble.setText(entry.text, TextView.BufferType.SPANNABLE);
         bubble.setTextSize(14);
         bubble.setTextColor(Color.parseColor("#1A1A1A"));
         bubble.setLineSpacing(dp(2), 1f);
@@ -208,6 +210,7 @@ public class CopilotChatActivity extends AppCompatActivity {
         bg.setCornerRadius(dp(14));
         bubble.setBackground(bg);
         bubble.setPadding(dp(12), dp(10), dp(12), dp(10));
+
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         params.topMargin = dp(8);
@@ -218,7 +221,9 @@ public class CopilotChatActivity extends AppCompatActivity {
     private View actionCard(CopilotAction action) {
         View card = LayoutInflater.from(this).inflate(R.layout.item_copilot_action, messages, false);
         ((TextView) card.findViewById(R.id.action_title)).setText(action.summaryTitle());
-        ((TextView) card.findViewById(R.id.action_body)).setText(bodyOf(action));
+        TextView actionBody = card.findViewById(R.id.action_body);
+        actionBody.setText(bodyOf(action));
+        actionBody.setTextIsSelectable(true);
         TextView rationale = card.findViewById(R.id.action_rationale);
         rationale.setText(action.rationale);
         rationale.setVisibility(action.rationale.isEmpty() ? View.GONE : View.VISIBLE);
