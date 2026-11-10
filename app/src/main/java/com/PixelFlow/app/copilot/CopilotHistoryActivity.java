@@ -35,7 +35,6 @@ public class CopilotHistoryActivity extends AppCompatActivity {
         findViewById(R.id.copilot_history_back).setOnClickListener(v -> {
             if (selecting) exitSelection(); else finish();
         });
-        findViewById(R.id.copilot_history_new).setOnClickListener(v -> startNewChat());
         findViewById(R.id.copilot_history_select).setOnClickListener(v -> enterSelection());
         findViewById(R.id.copilot_history_cancel).setOnClickListener(v -> exitSelection());
         findViewById(R.id.copilot_history_delete).setOnClickListener(v -> deleteSelected());
@@ -61,43 +60,6 @@ public class CopilotHistoryActivity extends AppCompatActivity {
         empty.setVisibility(sessions.isEmpty() ? View.VISIBLE : View.GONE);
     }
 
-    /** 新建对话：选一篇自己的作品作为上下文，再进入 Copilot 对话层。 */
-    private void startNewChat() {
-        ApiClient api = ApiClient.getInstance(this);
-        if (!api.isLoggedIn()) {
-            startActivity(new android.content.Intent(this, com.PixelFlow.app.AccountActivity.class));
-            return;
-        }
-        android.widget.Toast.makeText(this, R.string.copilot_loading_posts, android.widget.Toast.LENGTH_SHORT).show();
-        api.getMyPosts(20, null, new CommunityClient.Callback<MyPostsPage>() {
-            @Override public void onSuccess(MyPostsPage page) {
-                java.util.List<PostItem> posts = page == null ? java.util.Collections.<PostItem>emptyList() : page.getPosts();
-                if (posts.isEmpty()) {
-                    android.widget.Toast.makeText(CopilotHistoryActivity.this, R.string.copilot_no_posts,
-                            android.widget.Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                String[] titles = new String[posts.size()];
-                for (int i = 0; i < posts.size(); i++) {
-                    String title = posts.get(i).getTitle();
-                    titles[i] = title == null || title.trim().isEmpty() ? "无标题作品" : title;
-                }
-                new MaterialAlertDialogBuilder(CopilotHistoryActivity.this)
-                        .setTitle(R.string.copilot_pick_post)
-                        .setItems(titles, (dialog, which) -> {
-                            PostItem post = posts.get(which);
-                            CopilotChatActivity.open(CopilotHistoryActivity.this, "detail", post.getPostId(),
-                                    null, 0, post.getTitle(), null);
-                        })
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .show();
-            }
-            @Override public void onFailure(String message) {
-                android.widget.Toast.makeText(CopilotHistoryActivity.this,
-                        message == null ? "加载失败" : message, android.widget.Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
 
     private void open(CopilotStore.Session session) {
         ArrayList<String> conversations = new ArrayList<>();
@@ -137,7 +99,6 @@ public class CopilotHistoryActivity extends AppCompatActivity {
     }
 
     private void applySelectionUi() {
-        findViewById(R.id.copilot_history_new).setVisibility(selecting ? View.GONE : View.VISIBLE);
         findViewById(R.id.copilot_history_select).setVisibility(selecting ? View.GONE : View.VISIBLE);
         findViewById(R.id.copilot_history_cancel).setVisibility(selecting ? View.VISIBLE : View.GONE);
         findViewById(R.id.copilot_history_select_all).setVisibility(selecting ? View.VISIBLE : View.GONE);

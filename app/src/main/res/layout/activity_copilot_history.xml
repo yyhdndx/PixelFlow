@@ -35,15 +35,6 @@
             android:ellipsize="end" />
 
         <!-- 新建对话 + 多选（多选模式下换成 取消 / 删除） -->
-        <ImageButton
-            android:id="@+id/copilot_history_new"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/copilot_new_chat"
-            android:padding="8dp"
-            android:src="@drawable/ic_new_chat"
-            app:tint="@color/profile_ink" />
 
         <ImageButton
             android:id="@+id/copilot_history_select"
