@@ -142,6 +142,9 @@ public class MyWorksActivity extends AccountDataActivity {
     private void view(PostItem post) {
         Intent intent = new Intent(this, WorkDetailActivity.class);
         intent.putExtra("work_item", new WorkItem(post));
+        // 从「我的作品」进入，作者本人可在这里撤回
+        intent.putExtra("owned", true);
+        intent.putExtra("post_status", post.getStatus());
         startActivity(intent);
         overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
     }

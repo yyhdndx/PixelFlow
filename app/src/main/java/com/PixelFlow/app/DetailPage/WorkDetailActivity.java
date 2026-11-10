@@ -77,6 +77,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private ImageView authorAvatar;
     private TextView authorName;
     private MaterialButton followButton;
+    private boolean ownedByMe;
+    private String postStatus;
 
     // 图片区域
     private ViewPager2 imagePager;
@@ -467,6 +469,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         authorAvatar = findViewById(R.id.author_avatar);
         authorName = findViewById(R.id.author_name);
         followButton = findViewById(R.id.follow_button);
+        ownedByMe = getIntent().getBooleanExtra("owned", false);
+        postStatus = getIntent().getStringExtra("post_status");
+        if (ownedByMe) followButton.setText(R.string.detail_settings);
 
         // 图片区域
         imagePager = findViewById(R.id.image_pager);
@@ -856,7 +861,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
     private void setupListeners() {
         // 关注按钮
-        followButton.setOnClickListener(v -> toggleFollowStatus());
+        followButton.setOnClickListener(v -> {
+            if (ownedByMe) showOwnerSettings(); else toggleFollowStatus();
+        });
 
         // 点赞按钮
         likeButton.setOnClickListener(v -> toggleLikeStatus());
@@ -1257,6 +1264,32 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 following = !target;
                 updateFollowButton();
                 Toast.makeText(WorkDetailActivity.this, message, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    /** 作者本人的作品：右上角「设置」里提供撤回。 */
+    private void showOwnerSettings() {
+        if (!"PUBLISHED".equals(postStatus) && !"PENDING".equals(postStatus)) {
+            Toast.makeText(this, R.string.detail_withdraw_unavailable, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.PixelFlowMaterialDialog)
+                .setTitle(R.string.detail_settings)
+                .setItems(new CharSequence[]{getString(R.string.detail_withdraw)}, (dialog, which) -> withdrawOwnWork())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void withdrawOwnWork() {
+        ApiClient.getInstance(this).withdrawPost(workItem.getId(), new CommunityClient.Callback<com.PixelFlow.app.API.PostStatus>() {
+            @Override public void onSuccess(com.PixelFlow.app.API.PostStatus value) {
+                Toast.makeText(WorkDetailActivity.this, R.string.detail_withdrawn, Toast.LENGTH_SHORT).show();
+                finish();
+            }
+            @Override public void onFailure(String message) {
+                Toast.makeText(WorkDetailActivity.this,
+                        message == null ? getString(R.string.copilot_failed) : message, Toast.LENGTH_SHORT).show();
             }
         });
     }

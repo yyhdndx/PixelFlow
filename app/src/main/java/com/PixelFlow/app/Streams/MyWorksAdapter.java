@@ -63,7 +63,6 @@ public class MyWorksAdapter extends RecyclerView.Adapter<MyWorksAdapter.Holder> 
     private void bindAction(Holder holder, PostItem post) {
         String status = post.getStatus();
         boolean canPublish = "DRAFT".equals(status) || "REJECTED".equals(status) || "WITHDRAWN".equals(status);
-        boolean canWithdraw = "PENDING".equals(status) || "PUBLISHED".equals(status) || "DRAFT".equals(status);
         holder.action.setEnabled(actionsEnabled);
         holder.action.setVisibility(View.GONE);
         holder.action.setOnClickListener(null);
@@ -73,12 +72,6 @@ public class MyWorksAdapter extends RecyclerView.Adapter<MyWorksAdapter.Holder> 
             holder.action.setBackgroundTintList(ColorStateList.valueOf(context.getColor(R.color.profile_accent)));
             holder.action.setTextColor(context.getColor(R.color.white));
             holder.action.setOnClickListener(v -> { if (actionsEnabled && listener != null) listener.onPublish(post); });
-        } else if (canWithdraw) {
-            holder.action.setVisibility(View.VISIBLE);
-            holder.action.setText(R.string.my_work_withdraw);
-            holder.action.setBackgroundTintList(ColorStateList.valueOf(context.getColor(R.color.profile_soft)));
-            holder.action.setTextColor(context.getColor(R.color.profile_accent));
-            holder.action.setOnClickListener(v -> { if (actionsEnabled && listener != null) listener.onWithdraw(post); });
         }
     }
 
