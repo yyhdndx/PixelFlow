@@ -974,11 +974,30 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                                            int oldScrollX, int oldScrollY) {
                     View child = v.getChildAt(0);
                     if (child != null && scrollY + v.getHeight() >= child.getHeight() - 200) loadMoreComments();
+                    // 悬浮顶部栏：下滑收起、上滑立刻滑回；回到顶部一定显示
+                    if (topBar == null) return;
+                    if (scrollY <= 0) { showTopBar(); showBottomBar(); }
+                    else if (scrollY > oldScrollY + 8) { hideTopBar(); hideBottomBar(); }
+                    else if (scrollY < oldScrollY - 8) { showTopBar(); showBottomBar(); }
                 }
             });
         }
     }
 
+    /** 悬浮顶部栏：下滑收起、上滑滑回。 */
+    private boolean topBarHidden;
+
+    private void hideTopBar() {
+        if (topBar == null || topBarHidden) return;
+        topBarHidden = true;
+        topBar.animate().translationY(-topBar.getHeight()).setDuration(180).start();
+    }
+
+    private void showTopBar() {
+        if (topBar == null || !topBarHidden) return;
+        topBarHidden = false;
+        topBar.animate().translationY(0f).setDuration(180).start();
+    }
     /** Copilot 应用评论后，回到前台时刷新评论区。 */
     public void refreshCommentsAfterCopilot() { reloadComments(); }
 
@@ -1069,18 +1088,19 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    /** 下滑时底部栏会被 HideBottomViewOnScrollBehavior 收起，回复前要先滑出来。 */
+    /** 底部栏与顶部栏一起受滚动方向控制：下滑收起、上滑滑回。 */
+    private boolean bottomBarHidden;
+
     private void showBottomBar() {
-        if (bottomBar == null) return;
-        ViewGroup.LayoutParams params = bottomBar.getLayoutParams();
-        if (!(params instanceof CoordinatorLayout.LayoutParams)) return;
-        CoordinatorLayout.Behavior<?> behavior = ((CoordinatorLayout.LayoutParams) params).getBehavior();
-        if (behavior instanceof com.google.android.material.behavior.HideBottomViewOnScrollBehavior) {
-            @SuppressWarnings("unchecked")
-            com.google.android.material.behavior.HideBottomViewOnScrollBehavior<View> hide =
-                    (com.google.android.material.behavior.HideBottomViewOnScrollBehavior<View>) behavior;
-            hide.slideUp(bottomBar);
-        }
+        if (bottomBar == null || !bottomBarHidden) return;
+        bottomBarHidden = false;
+        bottomBar.animate().translationY(0f).setDuration(180).start();
+    }
+
+    private void hideBottomBar() {
+        if (bottomBar == null || bottomBarHidden || bottomBar.getHeight() == 0) return;
+        bottomBarHidden = true;
+        bottomBar.animate().translationY(bottomBar.getHeight()).setDuration(180).start();
     }
 
     /** 退出打字后回到默认：输入框重新表示“评论这条帖子”，而不是回复某个人。 */
