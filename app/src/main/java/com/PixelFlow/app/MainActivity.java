@@ -67,6 +67,9 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
         }
 
         bottomNavigationView.post(this::styleCreateNavItem);
+        // BottomNavigationView 会在切 Tab / 配置变化时重建子视图，这里每次布局后重新套一次样式
+        bottomNavigationView.addOnLayoutChangeListener(
+                (v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> styleCreateNavItem());
         preloadManager = new PreloadManager(this);
 
         initializeUIForSplashTransition();
@@ -225,15 +228,15 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
         item.setBackground(null);
         View icon = findIconView(item);
         if (icon == null) return;
-        int w = Math.round(50 * getResources().getDisplayMetrics().density);
-        int h = Math.round(34 * getResources().getDisplayMetrics().density);
+        int w = Math.round(54 * getResources().getDisplayMetrics().density);
+        int h = Math.round(36 * getResources().getDisplayMetrics().density);
         android.view.ViewGroup.LayoutParams params = icon.getLayoutParams();
         params.width = w;
         params.height = h;
         icon.setLayoutParams(params);
         icon.setBackgroundResource(R.drawable.bg_nav_create);
         int padH = Math.round(12 * getResources().getDisplayMetrics().density);
-        int padV = Math.round(4 * getResources().getDisplayMetrics().density);
+        int padV = Math.round(6 * getResources().getDisplayMetrics().density);
         icon.setPadding(padH, padV, padH, padV);
         if (icon instanceof android.widget.ImageView) {
             ((android.widget.ImageView) icon).setImageTintList(
