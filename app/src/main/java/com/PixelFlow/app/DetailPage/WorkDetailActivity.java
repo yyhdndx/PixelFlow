@@ -1262,11 +1262,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         boolean liked = loadedLike != null && loadedLike.isLiked();
         likeButton.setEnabled(!likeSaving);
         likeButton.setSelected(liked);
+        // 矢量本身带颜色（已赞 #D81E06 / 未赞 #8A8A8E），不要再 setColorFilter 覆盖
         likeButton.clearColorFilter();
         likeButton.setImageResource(liked ? R.drawable.ic_thumb_up : R.drawable.ic_thumb_up_outline);
-        // 颜色由 like_icon_tint 选择器按 state_selected 驱动
-        likeButton.setColorFilter(getResources().getColor(
-                liked ? R.color.like_active : R.color.profile_muted));
     }
 
     private void updateFavoriteButton() {
@@ -1274,8 +1272,15 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         collectButton.setContentDescription(getString(favoriteSaving ? R.string.favorite_state_loading
                 : !favoriteLoaded ? R.string.favorite_state_retry
                 : favorited ? R.string.favorite_action_remove : R.string.favorite_action_add));
-        collectButton.setColorFilter(getResources().getColor(
-                favorited ? R.color.profile_accent : R.color.profile_muted));
+        // 已收藏用黄色实心星（矢量自带填充与描边），未收藏保持灰色描边。
+        // 注意：不能写成 setColorFilter(favorited ? null : color)，三元表达式会拆箱 null 导致 NPE。
+        if (favorited) {
+            collectButton.setImageResource(R.drawable.ic_star_filled);
+            collectButton.clearColorFilter();
+        } else {
+            collectButton.setImageResource(R.drawable.ic_star_outline);
+            collectButton.setColorFilter(getResources().getColor(R.color.profile_muted));
+        }
     }
 
     private void toggleFavoriteStatus() {

@@ -85,4 +85,5 @@
 
     <color name="background_gray">#F5F5F5</color>
 
+    <color name="star_yellow">#FFFFC107</color>
 </resources>
