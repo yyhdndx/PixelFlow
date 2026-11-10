@@ -90,8 +90,8 @@ public class CopilotHistoryActivity extends AppCompatActivity {
                         .setTitle(R.string.copilot_pick_post)
                         .setItems(titles, (dialog, which) -> {
                             PostItem post = posts.get(which);
-                            CopilotSheet.open(CopilotHistoryActivity.this, "detail", post.getPostId(),
-                                    null, 0, null, post.getTitle());
+                            CopilotChatActivity.open(CopilotHistoryActivity.this, "detail", post.getPostId(),
+                                    null, 0, post.getTitle(), null);
                         })
                         .setNegativeButton(android.R.string.cancel, null)
                         .show();
@@ -105,8 +105,8 @@ public class CopilotHistoryActivity extends AppCompatActivity {
 
     private void open(CopilotStore.Session session) {
         ArrayList<String> conversations = new ArrayList<>();
-        CopilotSheet.open(this, session.screen, session.postId, session.draftId,
-                session.draftVersion, conversations, titleOf(session));
+        CopilotChatActivity.open(this, session.screen, session.postId, session.draftId,
+                session.draftVersion, titleOf(session), session.label);
     }
 
     private String titleOf(CopilotStore.Session session) {

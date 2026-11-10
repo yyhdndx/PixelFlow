@@ -34,4 +34,5 @@
     <string name="copilot_suggest_messages_2">先说说他们问了什么</string>    <string name="copilot_new_chat">新建对话</string>
     <string name="copilot_pick_post">选择要对话的作品</string>
     <string name="copilot_no_posts">还没有作品，先去创作一篇再来</string>
-    <string name="copilot_loading_posts">正在加载作品…</string></resources>
+    <string name="copilot_loading_posts">正在加载作品…</string>    <string name="copilot_back_to_history">返回 AI 对话历史</string>
+</resources>
