@@ -49,12 +49,12 @@
             <!-- 点赞：封面右下角，半透明圆底 -->
             <ImageView
                 android:id="@+id/like_icon"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:layout_gravity="bottom|end"
-                android:layout_margin="8dp"
+                android:layout_margin="6dp"
                 android:background="@drawable/bg_like_circle"
-                android:padding="6dp"
+                android:padding="5dp"
                 android:src="@drawable/ic_thumb_up_outline"
                 android:contentDescription="@string/praise" />
         </FrameLayout>
