@@ -1195,11 +1195,25 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
     private void updateFollowButton() {
         if (ownedByMe) {
-            // 作者本人：右上角改为「设置」图标按钮，不显示关注态
+            // 作者本人：右上角改为无边框的设置图标，并贴到最右侧
             followButton.setEnabled(true);
             followButton.setText("");
             followButton.setIconResource(R.drawable.ic_settings_hex);
             followButton.setIconTint(android.content.res.ColorStateList.valueOf(getColor(R.color.profile_ink)));
+            followButton.setIconGravity(com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_START);
+            followButton.setIconPadding(0);
+            followButton.setStrokeWidth(0);
+            followButton.setBackgroundTintList(
+                    android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
+            followButton.setRippleColor(android.content.res.ColorStateList.valueOf(
+                    getColor(R.color.accent_ripple)));
+            followButton.setMinWidth(0);
+            followButton.setMinimumWidth(0);
+            followButton.setPadding(0, 0, 0, 0);
+            android.view.ViewGroup.MarginLayoutParams params =
+                    (android.view.ViewGroup.MarginLayoutParams) followButton.getLayoutParams();
+            params.setMarginEnd(-6);
+            followButton.setLayoutParams(params);
             followButton.setContentDescription(getString(R.string.detail_settings));
             return;
         }
