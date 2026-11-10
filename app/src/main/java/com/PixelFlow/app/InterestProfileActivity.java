@@ -36,7 +36,11 @@ public class InterestProfileActivity extends AppCompatActivity {
                 if (entries.size() == 0) { line(getString(R.string.insights_empty), true); line(getString(R.string.insights_empty_desc), false); }
                 else {
                     line("最近的兴趣", false);
-                    for (JsonElement item : entries) line(item.getAsJsonObject().get("name").getAsString(), true);
+                    com.PixelFlow.app.profile.InterestBubbleView bubbles =
+                            new com.PixelFlow.app.profile.InterestBubbleView(InterestProfileActivity.this, null);
+                    bubbles.setTopics(entries);
+                    topics.addView(bubbles, new LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
                 }
             }
             public void onFailure(String message) {
