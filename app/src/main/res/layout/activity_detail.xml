@@ -30,6 +30,7 @@
             android:id="@+id/nested_scroll_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:paddingTop="72dp"
             android:paddingBottom="80dp">
 
             <LinearLayout
@@ -37,78 +38,6 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!-- 顶部栏：返回按钮 + 作者信息 -->
-                <LinearLayout
-                    android:id="@+id/top_bar"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical"
-                    android:background="@color/white"
-                    android:elevation="4dp">
-
-                    <!-- 返回按钮 -->
-                    <ImageView
-                        android:id="@+id/back_button"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_arrow_back"
-                        android:contentDescription="返回"
-                        android:padding="4dp"
-                        android:background="?attr/selectableItemBackgroundBorderless" />
-
-                    <!-- 作者信息区域 -->
-                    <LinearLayout
-                        android:id="@+id/author_container"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="horizontal"
-                        android:paddingStart="12dp"
-                        android:gravity="center_vertical"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:foreground="?attr/selectableItemBackground">
-
-                        <!-- 作者头像 -->
-                        <ImageView
-                            android:id="@+id/author_avatar"
-                            android:layout_width="36dp"
-                            android:layout_height="36dp"
-                            android:scaleType="centerCrop"
-                            android:background="@drawable/circle_bg"/>
-
-                        <!-- 作者昵称 -->
-                        <TextView
-                            android:id="@+id/author_name"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
-                            android:textSize="14sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/black"
-                            android:maxLines="1"
-                            android:ellipsize="end"/>
-                    </LinearLayout>
-
-                    <!-- 关注按钮 -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/follow_button"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="关 注"
-                        android:textColor="@color/primary_color"
-                        android:textSize="13sp"
-                        android:textStyle="bold"
-                        app:cornerRadius="50dp"
-                        app:rippleColor="@color/primary_color"
-                        app:strokeColor="@color/primary_color"
-                        app:strokeWidth="1.2dp" />
-
-
-                </LinearLayout>
 
                 <!-- 图片横滑容器 -->
                 <FrameLayout
@@ -335,8 +264,7 @@
         android:gravity="center_vertical"
         android:background="@color/white"
         android:padding="16dp"
-        android:elevation="8dp"
-        app:layout_behavior="com.google.android.material.behavior.HideBottomViewOnScrollBehavior">
+        android:elevation="8dp">
 
         <!-- 快捷评论框：多行 + 发送键 -->
         <EditText
@@ -411,5 +339,80 @@
             android:src="@drawable/ic_share"
             app:tint="@color/profile_muted" />
     </LinearLayout>
+
+                <!-- 顶部栏：返回按钮 + 作者信息 -->
+                <LinearLayout
+                    android:id="@+id/top_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="72dp"
+                    android:layout_gravity="top"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="12dp"
+                    android:gravity="center_vertical"
+                    android:background="@color/white"
+                    android:elevation="4dp">
+
+                    <!-- 返回按钮 -->
+                    <ImageView
+                        android:id="@+id/back_button"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_arrow_back"
+                        android:contentDescription="返回"
+                        android:padding="4dp"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+
+                    <!-- 作者信息区域 -->
+                    <LinearLayout
+                        android:id="@+id/author_container"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="horizontal"
+                        android:paddingStart="12dp"
+                        android:gravity="center_vertical"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground">
+
+                        <!-- 作者头像 -->
+                        <ImageView
+                            android:id="@+id/author_avatar"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:scaleType="centerCrop"
+                            android:background="@drawable/circle_bg"/>
+
+                        <!-- 作者昵称 -->
+                        <TextView
+                            android:id="@+id/author_name"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/black"
+                            android:maxLines="1"
+                            android:ellipsize="end"/>
+                    </LinearLayout>
+
+                    <!-- 关注按钮 -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/follow_button"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="关 注"
+                        android:textColor="@color/primary_color"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="50dp"
+                        app:rippleColor="@color/primary_color"
+                        app:strokeColor="@color/primary_color"
+                        app:strokeWidth="1.2dp" />
+
+
+                </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
