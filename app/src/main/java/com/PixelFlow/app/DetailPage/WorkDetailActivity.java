@@ -93,7 +93,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private EditText commentInput;  // 保持
     private TextView commentSend;
     private ImageView likeButton;
-    private ImageView commentButton;  // 保持
     private ImageView collectButton;  // 保持
     private ImageView shareButton;
     private ImageView copilotButton;
@@ -507,7 +506,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         commentInput = findViewById(R.id.comment_input);  // 保持
         commentSend = findViewById(R.id.comment_send);
         likeButton = findViewById(R.id.like_button);
-        commentButton = findViewById(R.id.comment_button);  // 保持
         collectButton = findViewById(R.id.collect_button);  // 保持
         shareButton = findViewById(R.id.share_button);
         copilotButton = findViewById(R.id.copilot_button);
@@ -897,15 +895,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             }
             return false;
         });
-        // 评论图标：定位到评论区并聚焦输入框
-        commentButton.setOnClickListener(v -> {
-            androidx.core.widget.NestedScrollView scroll = findViewById(R.id.nested_scroll_view);
-            if (scroll != null && commentsHeader != null)
-                scroll.smoothScrollTo(0, commentsHeader.getTop());
-            commentInput.requestFocus();
-            InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-            if (imm != null) imm.showSoftInput(commentInput, InputMethodManager.SHOW_IMPLICIT);
-        });
 
         // 发送按钮：输入框是多行，键盘回车只换行不会触发 IME_ACTION_SEND，
         // 所以必须有显式发送入口，否则评论无法提交。
@@ -925,7 +914,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 && ApiClient.getInstance(this).isLoggedIn();
         int icons = inputting ? View.GONE : View.VISIBLE;
         if (likeButton != null) likeButton.setVisibility(icons);
-        if (commentButton != null) commentButton.setVisibility(icons);
         if (collectButton != null) collectButton.setVisibility(icons);
         if (copilotButton != null) copilotButton.setVisibility(icons);
         if (shareButton != null) shareButton.setVisibility(icons);
