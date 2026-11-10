@@ -52,6 +52,8 @@ async function load() {
     if (work.author?.user_id !== session.user?.id) throw new Error('只有作者可以管理回复规则')
     if (!Array.isArray(result.rules)) throw new Error('回复规则格式无效')
     post.value = work
+    const restored = ruleSuggestions.get(ruleKey(work))
+    if (restored) description.value = restored.prompt
     rules.value = result.rules.map(editable)
   } catch (e) { if (current === revision) error.value = e.message }
   finally { if (current === revision) loading.value = false }

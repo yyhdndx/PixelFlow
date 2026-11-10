@@ -100,6 +100,9 @@ async function load() {
     original.value = post
     title.value = post.title || ''
     content.value = post.content || ''
+    const restored = assists.get(draftKey(post.post_id))
+    assistGoal.value = restored?.goal || 'all'
+    assistPrompt.value = restored?.prompt || ''
     if (post.media_ids?.length) {
       images.value = post.media_ids.map(id => ({ id, preview: '', error: '' }))
       for (const image of images.value) preview(image, current)

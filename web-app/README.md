@@ -39,9 +39,11 @@ npm run preview
 
 | 路由 | 内容与接口 | 登录要求 |
 | --- | --- | --- |
-| `/search?q=` | 标题/话题搜索，`GET /api/search/posts` | 游客可用 |
+| `/search?q=` | 标题/话题搜索及按需生成的增量回答，`GET /api/search/posts`、`POST /api/agent/search/stream` | 列表可游客浏览；AI 需登录 |
 | `/me` | 本人资料编辑、头像上传/清除、统计，`/api/users/me`、`/api/users/me/avatar`、`/api/users/me/stats` | 需登录 |
-| `/me/works`、`/me/works/new`、`/me/works/:id/edit` | 作品状态、草稿创建/编辑/提交审核/撤回，`/api/posts`、`/api/media` | 需登录 |
+| `/post/:id` | 作品详情、评论、长文增量提炼（200 字以上且已发布） | 提炼需登录 |
+| `/me/works`、`/me/works/new`、`/me/works/:id/edit` | 作品状态、草稿创建/编辑/提交审核/撤回；已保存草稿文案候选预览与手动采纳 | 需登录 |
+| `/me/works/:id/auto-replies` | 作者查看/维护已有回复规则，勾选并编辑 AI 候选后保存 | 需登录 |
 | `/me/favorites` | 收藏作品，`GET /api/users/me/favorites` | 需登录 |
 | `/me/following`、`/me/followers` | 分页查看关注与粉丝，`/api/users/me/following`、`/api/users/me/followers` | 需登录 |
 | `/me/notifications` | 分类通知、单条已读、屏蔽类型，`/api/users/me/notifications` 与偏好接口 | 需登录 |
@@ -52,7 +54,7 @@ npm run preview
 
 详情关注状态使用作者资料的 `is_following`；通过 `PUT /api/interactions/follows` 成功后更新按钮。游客点击跳登录并回到原详情，本人作品隐藏按钮。受保护路由保留登录回跳，退出或会话改变后清空私有列表，忽略旧响应。
 
-当前创作支持图片草稿、编辑媒体顺序、提交审核和撤回；提交审核后并非直接发布。头像与图片上传按接口限制 JPEG/PNG 和每张 8 MiB。当前尚未提供私信、AI 搜索/总结/文案/回复规则等 Android 入口；这些流程不能视为已对齐。新增写入流程仅使用本地模拟接口验收，未对真实远程账号执行写入验证。
+当前创作支持图片草稿、编辑媒体顺序、提交审核和撤回；提交审核后并非直接发布。头像与图片上传按接口限制 JPEG/PNG 和每张 8 MiB。AI 搜索和长文总结通过 SSE 增量展示；文案与回复规则使用现有完整响应，只有用户手动采纳或确认才写入。AI 结果仅保留在当前运行的标签页内，不支持杀进程后恢复；仍未提供私信等 Android 功能，不能视为整体对齐。新增写入流程仅使用本地模拟接口验收，未对真实远程账号执行写入验证。
 
 截图与实际联调边界见 [浏览闭环验收](../docs/testing/Web用户端浏览闭环验收-20261105.md)。
 
