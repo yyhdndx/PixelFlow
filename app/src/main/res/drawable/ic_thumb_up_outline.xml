@@ -1,18 +1,23 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="1024"
-    android:viewportHeight="1024">
-    <!-- 未点赞：右侧拇指只描边、不填充 -->
-    <path
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="#8A8A8E"
-        android:strokeWidth="60"
-        android:strokeLineJoin="round"
-        android:strokeLineCap="round"
-        android:pathData="M921.003,409.344H649.13C754.347,20.224 576.597,0.341 576.597,0.341c-75.52,0 -59.904,59.648 -65.536,69.547 0,190.293 -202.154,339.456 -202.154,339.456v539.563c0,53.248 72.533,72.533 101.034,72.533h408.576c38.4,0 69.718,-100.864 69.718,-100.864 101.12,-343.723 101.12,-445.952 101.12,-445.952 0,-70.997 -68.352,-65.28 -68.352,-65.28z" />
-    <!-- 左侧方块保持填充 -->
-    <path
-        android:fillColor="#8A8A8E"
-        android:pathData="M197.376,409.514H34.56C0.939,409.515 0.427,442.54 0.427,442.54L34.048,986.71C34.048,1021.356 68.693,1021.356 68.693,1021.356H209.664C239.019,1021.356 238.677,998.486 238.677,998.486V450.731C238.677,408.917 197.376,409.515 197.376,409.514Z" />
+    android:viewportWidth="1104"
+    android:viewportHeight="1104">
+    <!-- 画布四周留 40 的余量，避免 60 宽的描边贴边被裁切 -->
+    <group
+        android:translateX="40"
+        android:translateY="40">
+        <!-- 未点赞：右侧拇指只描边、不填充 -->
+        <path
+            android:fillColor="@android:color/transparent"
+            android:strokeColor="#8A8A8E"
+            android:strokeWidth="60"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round"
+            android:pathData="M921.003,409.344H649.13C754.347,20.224 576.597,0.341 576.597,0.341c-75.52,0 -59.904,59.648 -65.536,69.547 0,190.293 -202.154,339.456 -202.154,339.456v539.563c0,53.248 72.533,72.533 101.034,72.533h408.576c38.4,0 69.718,-100.864 69.718,-100.864 101.12,-343.723 101.12,-445.952 101.12,-445.952 0,-70.997 -68.352,-65.28 -68.352,-65.28z" />
+        <!-- 左侧方块保持填充 -->
+        <path
+            android:fillColor="#8A8A8E"
+            android:pathData="M197.376,409.514H34.56C0.939,409.515 0.427,442.54 0.427,442.54L34.048,986.71C34.048,1021.356 68.693,1021.356 68.693,1021.356H209.664C239.019,1021.356 238.677,998.486 238.677,998.486V450.731C238.677,408.917 197.376,409.515 197.376,409.514Z" />
+    </group>
 </vector>
