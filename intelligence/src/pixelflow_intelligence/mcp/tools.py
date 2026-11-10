@@ -275,3 +275,62 @@ class CreatorTools:
                          {"status": (status or "").upper() or None, "limit": limit,
                           "query": (query or "").strip() or None}, action)
 
+    # -- 7. 读取公开帖子 ---------------------------------------------------
+    def get_post(self, post_id: str) -> dict:
+        """查看一篇公开帖子的标题、正文与媒体列表。"""
+        def action():
+            pid = _require_post_id(post_id)
+            post = self.gateway.get_post(pid)
+            return {
+                "post_id": str(post.get("post_id") or post.get("id") or pid),
+                "title": post.get("title"),
+                "content": post.get("content"),
+                "author": (post.get("author") or {}).get("nickname") if isinstance(post.get("author"), dict) else post.get("author"),
+                "like_count": post.get("like_count"),
+                "media_ids": post.get("media_ids") or [],
+                "create_time": post.get("create_time"),
+            }
+        return self._run("get_post", "post:read", {"post_id": post_id}, action)
+
+    # -- 8. 站内搜索 -------------------------------------------------------
+    def search_posts(self, query: str, limit: int = 10) -> dict:
+        """按关键词搜索站内公开帖子，返回标题与摘要。"""
+        def action():
+            keyword = _require_text(query, "query", 60)
+            if not isinstance(limit, int) or not 1 <= limit <= 20:
+                raise ToolError("INVALID_ARGUMENT", "limit 必须在 1 到 20 之间")
+            body = self.gateway.search_posts(keyword, limit)
+            items = body.get("items") if isinstance(body, dict) else body
+            results = []
+            for row in (items or [])[:limit]:
+                if not isinstance(row, dict):
+                    continue
+                results.append({
+                    "post_id": str(row.get("post_id") or row.get("id") or ""),
+                    "title": row.get("title"),
+                    "excerpt": (row.get("content") or "")[:120],
+                })
+            return {"query": keyword, "items": results, "count": len(results)}
+        return self._run("search_posts", "post:read", {"query": query, "limit": limit}, action)
+
+    # -- 9. 自动回复 -------------------------------------------------------
+    def list_auto_replies(self, post_id: str) -> dict:
+        """查看某篇自己作品的自动回复规则。"""
+        def action():
+            pid = _require_post_id(post_id)
+            body = self.gateway.list_auto_replies(pid)
+            rules = body.get("rules") if isinstance(body, dict) else body
+            return {"post_id": pid, "rules": rules or []}
+        return self._run("list_auto_replies", "post:read", {"post_id": post_id}, action)
+
+    def create_auto_reply(self, post_id: str, question: str, answer: str) -> dict:
+        """为自己的作品新增一条自动回复规则（评论命中问题时自动回复）。"""
+        def action():
+            pid = _require_post_id(post_id)
+            q = _require_text(question, "question", 200)
+            a = _require_text(answer, "answer", 300)
+            body = self.gateway.create_auto_reply(pid, q, a)
+            return {"post_id": pid, "rule_id": body.get("id"), "question": q, "answer": a}
+        return self._run("create_auto_reply", "post:write",
+                         {"post_id": post_id, "question": question, "answer": answer}, action)
+
