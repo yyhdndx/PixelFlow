@@ -131,6 +131,15 @@ public final class CopilotStore {
         prefs(context).edit().putString(KEY, GSON.toJson(array)).apply();
     }
 
+    /** 按 key 批量删除会话。 */
+    public static void delete(Context context, java.util.Collection<String> keys) {
+        if (keys == null || keys.isEmpty()) return;
+        List<Session> all = all(context);
+        all.removeIf(item -> keys.contains(item.key));
+        JsonArray array = new JsonArray();
+        for (Session item : all) array.add(item.toJson());
+        prefs(context).edit().putString(KEY, GSON.toJson(array)).apply();
+    }
     public static void clearAll(Context context) {
         prefs(context).edit().remove(KEY).apply();
     }

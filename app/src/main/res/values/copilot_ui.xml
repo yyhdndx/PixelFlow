@@ -35,4 +35,12 @@
     <string name="copilot_pick_post">选择要对话的作品</string>
     <string name="copilot_no_posts">还没有作品，先去创作一篇再来</string>
     <string name="copilot_loading_posts">正在加载作品…</string>    <string name="copilot_back_to_history">返回 AI 对话历史</string>
-</resources>
+    <string name="copilot_jump_default">前往</string>
+    <string name="copilot_jump_detail">查看帖子</string>
+    <string name="copilot_jump_draft">去编辑草稿</string>
+    <string name="copilot_jump_messages">去消息</string>
+    <string name="copilot_jump_failed">打开失败：%1$s</string>    <string name="copilot_select_mode">多选对话</string>
+    <string name="copilot_cancel">取消</string>
+    <string name="copilot_delete">删除</string>
+    <string name="copilot_delete_selected">删除所选（%1$d）</string>
+    <string name="copilot_deleted">已删除 %1$d 个对话</string></resources>
