@@ -99,6 +99,7 @@ onBeforeUnmount(() => revision++)
         </div>
         <div class="work-actions">
           <RouterLink v-if="post.status === 'PUBLISHED'" :to="`/post/${post.post_id}`">查看作品</RouterLink>
+          <RouterLink :to="`/me/works/${post.post_id}/auto-replies`">回复规则</RouterLink>
           <RouterLink v-if="['DRAFT', 'REJECTED', 'WITHDRAWN'].includes(post.status)" :to="`/me/works/${post.post_id}/edit`">继续编辑</RouterLink>
           <button v-if="['DRAFT', 'REJECTED', 'WITHDRAWN'].includes(post.status)" class="secondary" :disabled="!!busyId" @click="transition(post, 'publish')">提交审核</button>
           <button v-if="post.status === 'PENDING' || post.status === 'PUBLISHED'" class="danger" :disabled="!!busyId" @click="transition(post, 'withdraw')">撤回</button>

@@ -206,6 +206,9 @@ label input { display: block; margin-top: 6px; font-weight: 400; }
 .agent-answer h2 { font-size: 18px; }
 .agent-answer-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
 .agent-sources { display: flex; flex-wrap: wrap; gap: 8px 20px; list-style: none; padding: 0; }
+.reply-rule { display: block !important; width: 100%; max-width: 640px !important; }
+.reply-rule label { display: block; margin: 8px 0; }
+.reply-rule .interest-toggle { display: inline-flex; align-items: center; gap: 8px; }
 .interest-history-row { padding: 16px 4px; border-bottom: 1px solid var(--line); }
 .interest-history-row p { margin: 6px 0 0; }
 .preference-list { list-style: none; padding: 0; }
