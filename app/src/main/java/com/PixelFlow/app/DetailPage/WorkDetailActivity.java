@@ -471,7 +471,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         followButton = findViewById(R.id.follow_button);
         ownedByMe = getIntent().getBooleanExtra("owned", false);
         postStatus = getIntent().getStringExtra("post_status");
-        if (ownedByMe) followButton.setText(R.string.detail_settings);
 
         // 图片区域
         imagePager = findViewById(R.id.image_pager);
@@ -1195,6 +1194,15 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     }
 
     private void updateFollowButton() {
+        if (ownedByMe) {
+            // 作者本人：右上角改为「设置」图标按钮，不显示关注态
+            followButton.setEnabled(true);
+            followButton.setText("");
+            followButton.setIconResource(R.drawable.ic_settings_hex);
+            followButton.setIconTint(android.content.res.ColorStateList.valueOf(getColor(R.color.profile_ink)));
+            followButton.setContentDescription(getString(R.string.detail_settings));
+            return;
+        }
         boolean hasAuthor = workItem.getAuthor() != null && workItem.getAuthor().getUserId() != null
                 && !workItem.getAuthor().getUserId().isEmpty();
         boolean followingNow = followLoaded && following;
