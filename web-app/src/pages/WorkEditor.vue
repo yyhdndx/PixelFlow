@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { request, session } from '../api/client'
+import { assists, draftKey, generateAssist, cancelAssist, discardAssist } from '../api/draftAssist'
 
 const route = useRoute()
 const title = ref('')
@@ -12,6 +13,30 @@ const saving = ref(false)
 const error = ref('')
 const notice = ref('')
 const images = ref([])
+const assistGoal = ref('all')
+const assistPrompt = ref('')
+const assist = computed(() => original.value ? assists.get(draftKey(original.value.post_id)) : null)
+const assistChanged = computed(() => assist.value && (assist.value.snapshot.title !== title.value || assist.value.snapshot.content !== content.value ||
+  assist.value.snapshot.version !== original.value?.content_version ||
+  assist.value.goal !== assistGoal.value || assist.value.prompt !== assistPrompt.value.trim()))
+const assistCandidates = computed(() => assist.value?.status === 'done' && assist.value.result &&
+  ((assist.value.goal === 'suggest_tags' && assist.value.result.tag_suggestions?.length) ||
+   (assist.value.goal !== 'suggest_tags' && (assist.value.result.title_candidates.length || assist.value.result.content_candidates.length))))
+function generate() {
+  if (!original.value || !title.value.trim() && !content.value.trim() && !assistPrompt.value.trim()) {
+    error.value = '请先输入草稿内容或写作要求'
+    return
+  }
+  error.value = ''
+  generateAssist(original.value.post_id, { title: title.value, content: content.value, version: original.value.content_version }, assistGoal.value, assistPrompt.value)
+}
+function adopt() {
+  if (!assistCandidates.value || !assist.value || assistChanged.value || assist.value.status !== 'done') return
+  const result = assist.value.result
+  if (result.title_candidates.length) title.value = result.title_candidates[0]
+  if (result.content_candidates.length) content.value = result.content_candidates[0]
+  notice.value = '候选已填入编辑器，请检查后保存草稿'
+}
 let revision = 0
 
 function dispose(image) {
@@ -156,6 +181,23 @@ onBeforeUnmount(() => { revision++; release() })
         <p v-if="notice" class="success" role="status">{{ notice }}</p>
         <button type="submit" :disabled="saving">{{ saving ? '保存中…' : '保存草稿' }}</button>
       </form>
+      <section class="draft-assist">
+        <h2>文案建议</h2>
+        <label>生成目标<select v-model="assistGoal"><option value="all">综合建议</option><option value="improve_title">优化标题</option><option value="polish_content">润色正文</option><option value="write_content">续写正文</option><option value="suggest_tags">推荐话题</option></select></label>
+        <label>写作要求<input v-model="assistPrompt" maxlength="200" placeholder="可填写需要调整的方向"></label>
+        <div class="work-actions"><button type="button" class="secondary" :disabled="assist?.status === 'waiting'" @click="generate">生成建议</button><button v-if="assist?.status === 'waiting'" class="secondary" @click="cancelAssist(original.post_id)">停止</button><button v-if="assist" class="quiet" @click="discardAssist(original.post_id)">放弃建议</button></div>
+        <template v-if="assist">
+          <p role="status">{{ { waiting: '等待生成', done: '建议已完成', cancelled: '已停止', failed: '建议生成失败' }[assist.status] }}</p>
+          <p v-if="assist.error" class="error" role="alert">{{ assist.error }}</p>
+          <p v-if="assistChanged" class="muted">编辑器内容已变化，此建议对应旧输入。请重新生成后再采纳。</p>
+          <template v-if="assist.status === 'done'">
+            <p v-if="assist.result.title_candidates.length"><strong>标题预览：</strong>{{ assist.result.title_candidates[0] }}</p>
+            <p v-if="assist.result.content_candidates.length" class="agent-answer-text"><strong>正文预览：</strong>{{ assist.result.content_candidates[0] }}</p>
+            <p v-if="assist.result.tag_suggestions?.length"><strong>话题建议：</strong>{{ assist.result.tag_suggestions.join('、') }}</p>
+            <button v-if="assistCandidates && assist.goal !== 'suggest_tags'" class="secondary" :disabled="assistChanged" @click="adopt">采纳到编辑器</button>
+          </template>
+        </template>
+      </section>
     </template>
     <p v-else-if="error" class="error" role="alert">{{ error }} <button class="quiet" @click="load">重试</button></p>
   </section>
