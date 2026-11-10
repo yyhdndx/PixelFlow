@@ -10,6 +10,7 @@ public final class CopilotAction {
     public static final String TYPE_COMMENT = "POST_COMMENT";
     public static final String TYPE_DRAFT = "UPDATE_DRAFT";
     public static final String TYPE_MESSAGES = "SEND_MESSAGES";
+    public static final String TYPE_CREATE_DRAFT = "CREATE_DRAFT";
 
     public static final String PENDING = "pending";
     public static final String APPLIED = "applied";
@@ -86,6 +87,7 @@ public final class CopilotAction {
         if (TYPE_COMMENT.equals(type)) return "发送评论";
         if (TYPE_DRAFT.equals(type)) return "修改草稿";
         if (TYPE_MESSAGES.equals(type)) return "发送 " + messages.size() + " 条私信";
+        if (TYPE_CREATE_DRAFT.equals(type)) return "新建草稿";
         return type;
     }
 
