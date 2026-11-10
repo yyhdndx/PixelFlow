@@ -305,8 +305,8 @@
         <!-- 点赞按钮 -->
         <ImageView
             android:id="@+id/like_button"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
             android:layout_marginHorizontal="8dp"
             android:src="@drawable/ic_thumb_up_outline" />
 
