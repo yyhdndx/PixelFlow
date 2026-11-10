@@ -113,6 +113,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private boolean commentSending;
     /** 键盘是否处于弹出状态，用于判断“退出打字”并回到默认评论态。 */
     private boolean imeWasVisible;
+    private boolean imeKeyboardVisible;
 
     // 数据
     private WorkItem workItem;
@@ -187,10 +188,18 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root_layout), (view, insets) -> {
             int imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
             view.setPadding(view.getPaddingLeft(), view.getPaddingTop(), view.getPaddingRight(), imeBottom);
-            // 键盘收起 = 退出打字：回复态回到默认的「评论这条帖子」
             boolean imeVisible = imeBottom > 0;
+            // 键盘收起 = 退出打字：回复态回到默认的「评论这条帖子」
             if (imeWasVisible && !imeVisible) cancelReplyMode();
-            imeWasVisible = imeVisible;
+            if (imeVisible != imeWasVisible) {
+                imeWasVisible = imeVisible;
+                imeKeyboardVisible = imeVisible;
+                // 用返回键收键盘时输入框通常仍持有焦点，这里必须主动恢复图标
+                updateCommentActions();
+            } else {
+                imeWasVisible = imeVisible;
+                imeKeyboardVisible = imeVisible;
+            }
             return insets;
         });
 
@@ -912,6 +921,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     /** 输入评论时收起右侧点赞/评论/收藏/AI/分享五个图标，只留输入框和发送；不输入时恢复。 */
     private void updateCommentActions() {
         boolean inputting = commentInput != null && commentInput.hasFocus()
+                && imeKeyboardVisible
                 && ApiClient.getInstance(this).isLoggedIn();
         int icons = inputting ? View.GONE : View.VISIBLE;
         if (likeButton != null) likeButton.setVisibility(icons);
@@ -927,7 +937,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         if (commentSend == null || commentInput == null) return;
         CharSequence text = commentInput.getText();
         boolean hasText = text != null && text.toString().trim().length() > 0;
-        boolean inputting = commentInput.hasFocus() && ApiClient.getInstance(this).isLoggedIn();
+        boolean inputting = commentInput.hasFocus() && imeKeyboardVisible
+                && ApiClient.getInstance(this).isLoggedIn();
         commentSend.setVisibility(inputting && hasText ? View.VISIBLE : View.GONE);
     }
 
