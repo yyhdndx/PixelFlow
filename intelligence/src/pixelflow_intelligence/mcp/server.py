@@ -31,11 +31,15 @@ TOOL_DESCRIPTIONS = {
     "submit_post_for_review": "提交作品审核，状态变为 PENDING（不会直接公开）。",
     "withdraw_post": "撤回/下架自己的作品，状态变为 WITHDRAWN，可再次编辑。",
     "list_my_posts": "列出自己的作品（含草稿），可按 status 与标题/正文关键词过滤。",
+    "get_post": "查看一篇公开帖子的标题、正文、作者与媒体数量。",
+    "search_posts": "按关键词搜索站内公开帖子，返回标题与摘要，可用于找素材。",
+    "list_auto_replies": "查看自己某篇作品的自动回复规则。",
+    "create_auto_reply": "为自己的作品新增一条自动回复规则（问题<=200字、回复<=300字）。",
 }
 
 TOOL_NAMES = ("upload_media", "create_post_draft", "update_post_draft",
-              "submit_post_for_review", "withdraw_post", "list_my_posts")
-
+              "submit_post_for_review", "withdraw_post", "list_my_posts",
+              "get_post", "search_posts", "list_auto_replies", "create_auto_reply")
 
 def create_server(settings: McpSettings | None = None,
                   tools: CreatorTools | None = None) -> MCPServer:

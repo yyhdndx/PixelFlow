@@ -68,6 +68,23 @@ class FakeGateway:
     def list_my_posts(self, count=50, cursor=None):
         index = 0 if cursor is None else 1
         return self.pages[index] if index < len(self.pages) else []
+    def get_post(self, post_id):
+        self.calls.append(("get", post_id))
+        return {"post_id": post_id, "title": "示例帖子", "content": "正文内容",
+                "author": {"nickname": "作者"}, "like_count": 3, "media_ids": ["m_1"],
+                "create_time": 1700000000}
+
+    def search_posts(self, query, count=10):
+        self.calls.append(("search", query, count))
+        return {"items": [{"post_id": "9", "title": f"{query} 相关", "content": "摘要"}]}
+
+    def list_auto_replies(self, post_id):
+        self.calls.append(("auto_list", post_id))
+        return {"rules": [{"id": 1, "question": "在哪", "answer": "学校", "enabled": True}]}
+
+    def create_auto_reply(self, post_id, question, answer):
+        self.calls.append(("auto_create", post_id, question, answer))
+        return {"id": 2, "question": question, "answer": answer, "enabled": True}
 
 
 def make_tools(tmp_path, scopes=None):
@@ -177,14 +194,15 @@ def test_upstream_error_is_sanitized(tmp_path):
     assert "trace" not in str(error.value).lower()
 
 
-def test_server_registers_six_named_tools(tmp_path):
+def test_server_registers_all_named_tools(tmp_path):
     tools, _ = make_tools(tmp_path)
     settings = McpSettings(public_url="http://127.0.0.1:8765")
     server = create_server(settings, tools)
     listed = asyncio.run(server.list_tools())
     assert {tool.name for tool in listed} == {
         "upload_media", "create_post_draft", "update_post_draft",
-        "submit_post_for_review", "withdraw_post", "list_my_posts"}
+        "submit_post_for_review", "withdraw_post", "list_my_posts",
+        "get_post", "search_posts", "list_auto_replies", "create_auto_reply"}
     assert all(tool.description for tool in listed)
 
 
@@ -208,3 +226,21 @@ def test_server_requires_a_public_url():
         McpSettings(public_url="")
     with pytest.raises(ValueError):
         McpSettings(public_url="ftp://example.com")
+
+def test_read_and_auto_reply_tools(tmp_path):
+    tools, _ = make_tools(tmp_path)
+    post = tools.get_post("9")
+    assert post["post_id"] == "9" and post["title"] == "示例帖子"
+    found = tools.search_posts("秋天", 5)
+    assert found["count"] == 1 and found["items"][0]["post_id"] == "9"
+    rules = tools.list_auto_replies("9")
+    assert rules["rules"] and rules["rules"][0]["question"] == "在哪"
+    created = tools.create_auto_reply("9", "在哪", "学校")
+    assert created["rule_id"] == 2 and created["answer"] == "学校"
+
+
+def test_auto_reply_rejects_bad_input(tmp_path):
+    tools, _ = make_tools(tmp_path)
+    with pytest.raises(ToolError) as error:
+        tools.create_auto_reply("9", "问" * 201, "答")
+    assert error.value.code == "INVALID_ARGUMENT"
