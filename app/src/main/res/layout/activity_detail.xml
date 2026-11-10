@@ -382,14 +382,6 @@
             android:src="@drawable/ic_thumb_up_outline"
             app:tint="@color/profile_muted" />
 
-        <!-- 评论按钮 -->
-        <ImageView
-            android:id="@+id/comment_button"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginHorizontal="8dp"
-            android:src="@drawable/ic_comment_outline"
-            app:tint="@color/profile_muted" />
 
         <!-- 收藏按钮 -->
         <ImageView
