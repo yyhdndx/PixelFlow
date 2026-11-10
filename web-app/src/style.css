@@ -202,6 +202,10 @@ label input { display: block; margin-top: 6px; font-weight: 400; }
 .my-work-row strong { overflow-wrap: anywhere; }
 .my-work-row a { flex-shrink: 0; }
 .work-actions { display: flex; align-items: center; gap: 12px; }
+.notification-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.notification-settings label { display: inline-flex; align-items: center; gap: 5px; }
+.notification-settings input { margin: 0; }
+.notification-settings p { flex-basis: 100%; margin: 0; }
 .notification-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
 .notification-tabs button[aria-pressed="true"] { background: var(--brand-100); color: var(--brand-700); }
 .work-editor { max-width: 760px; }

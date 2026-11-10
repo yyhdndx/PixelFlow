@@ -11,9 +11,50 @@ const loading = ref(false)
 const error = ref('')
 const markError = ref('')
 const marking = ref('')
+const muted = ref([])
+const preferencesReady = ref(false)
+const preferencesBusy = ref(false)
+const preferencesError = ref('')
+const preferencesNotice = ref('')
 let revision = 0
 
-function reset() {
+async function loadPreferences() {
+  const current = revision
+  preferencesReady.value = false
+  preferencesError.value = ''
+  try {
+    const result = await request('/api/users/me/notification-preferences')
+    if (current !== revision) return
+    if (!Array.isArray(result.muted_types)) throw new Error('通知设置响应不完整')
+    muted.value = result.muted_types
+    preferencesReady.value = true
+  } catch (e) {
+    if (current === revision) preferencesError.value = e.message
+  }
+}
+async function savePreferences() {
+  if (preferencesBusy.value || !preferencesReady.value) return
+  const current = revision
+  const selected = [...muted.value]
+  preferencesBusy.value = true
+  preferencesError.value = ''
+  preferencesNotice.value = ''
+  try {
+    const result = await write('/api/users/me/notification-preferences', 'PUT', { mutedTypes: selected })
+    if (current !== revision) return
+    if (!Array.isArray(result.muted_types)) throw new Error('通知设置响应不完整，请刷新确认')
+    if (selected.join(',') === muted.value.join(',')) preferencesNotice.value = '通知设置已保存'
+    else preferencesNotice.value = '之前的设置已保存，当前仍有未保存的改动'
+    preferencesBusy.value = false
+    resetList()
+    load()
+  } catch (e) {
+    if (current === revision) preferencesError.value = e.message
+  } finally {
+    if (current === revision) preferencesBusy.value = false
+  }
+}
+function resetList() {
   revision++
   items.value = []
   cursor.value = null
@@ -22,6 +63,15 @@ function reset() {
   marking.value = ''
   error.value = ''
   markError.value = ''
+}
+
+function reset() {
+  resetList()
+  muted.value = []
+  preferencesReady.value = false
+  preferencesBusy.value = false
+  preferencesError.value = ''
+  preferencesNotice.value = ''
 }
 async function load() {
   if (loading.value) return
@@ -60,15 +110,25 @@ async function mark(item) {
     if (current === revision) marking.value = ''
   }
 }
-watch(type, () => { reset(); load() })
-watch(() => session.generation, reset)
-onMounted(load)
+watch(type, () => { resetList(); load() })
+watch(() => session.generation, () => { reset(); if (session.user) { load(); loadPreferences() } })
+onMounted(() => { load(); loadPreferences() })
 onBeforeUnmount(reset)
 </script>
 
 <template>
   <section>
     <h1>通知</h1>
+    <form class="notification-settings" @submit.prevent="savePreferences">
+      <strong>通知设置</strong>
+      <p v-if="!preferencesReady && !preferencesError" class="muted">加载设置中…</p>
+      <template v-if="preferencesReady">
+        <label v-for="option in types" :key="option.key"><input v-model="muted" type="checkbox" :value="option.key" :disabled="preferencesBusy">屏蔽{{ option.label }}</label>
+        <button type="submit" class="secondary" :disabled="preferencesBusy">{{ preferencesBusy ? '保存中…' : '保存设置' }}</button>
+      </template>
+      <p v-if="preferencesError" class="error" role="alert">{{ preferencesError }} <button v-if="!preferencesReady" type="button" class="quiet" @click="loadPreferences">重试</button></p>
+      <p v-if="preferencesNotice" class="success" role="status">{{ preferencesNotice }}</p>
+    </form>
     <div class="notification-tabs" role="group" aria-label="通知类型">
       <button v-for="option in types" :key="option.key" class="secondary" :aria-pressed="type === option.key" @click="type = option.key">{{ option.label }}</button>
     </div>
