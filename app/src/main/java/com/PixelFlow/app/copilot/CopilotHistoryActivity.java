@@ -148,8 +148,7 @@ public class CopilotHistoryActivity extends AppCompatActivity {
 
     private void updateDeleteLabel() {
         TextView delete = findViewById(R.id.copilot_history_delete);
-        delete.setText(selected.isEmpty() ? getString(R.string.copilot_delete)
-                : getString(R.string.copilot_delete_selected, selected.size()));
+        delete.setText(R.string.copilot_delete);
         delete.setAlpha(selected.isEmpty() ? 0.5f : 1f);
         delete.setEnabled(!selected.isEmpty());
         TextView selectAll = findViewById(R.id.copilot_history_select_all);
