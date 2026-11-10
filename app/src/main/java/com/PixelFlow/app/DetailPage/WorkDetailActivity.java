@@ -233,7 +233,10 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 summaryKey = restoredSummary;
                 subscribeSummary((TextView) findViewById(R.id.summary_body), restoredTask);
             }
-            if (savedInstanceState.getBoolean("summary.expanded")) toggleSummary();
+            if (savedInstanceState.getBoolean("summary.expanded")) {
+                findViewById(R.id.summary_card).setVisibility(View.VISIBLE);
+                updateSummaryToggleIcon();
+            }
         }
         setupListeners();
         loadInteractionState();
@@ -683,25 +686,38 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         entry.setOnClickListener(v -> toggleSummary());
     }
 
+    /** 卡片展开时显示「收起」箭头，收起时显示「展开」箭头。 */
+    private void updateSummaryToggleIcon() {
+        android.widget.ImageButton toggle = findViewById(R.id.summary_toggle);
+        if (toggle == null) return;
+        boolean expanded = findViewById(R.id.summary_card).getVisibility() == View.VISIBLE;
+        toggle.setImageResource(expanded ? R.drawable.ic_chevron_up : R.drawable.ic_chevron_down);
+        toggle.setContentDescription(getString(expanded ? R.string.summary_collapse : R.string.summary_regenerate));
+    }
     private AiTaskRegistry.Subscription summarySubscription;
 
     private void toggleSummary() {
         TextView body = findViewById(R.id.summary_body);
-        findViewById(R.id.summary_retry).setOnClickListener(view -> {
+        View card = findViewById(R.id.summary_card);
+        findViewById(R.id.summary_regen).setOnClickListener(view -> {
             if (summaryKey != null) AiTaskRegistry.get().remove(summaryKey);
-            body.setVisibility(View.GONE);
+            card.setVisibility(View.GONE);
+            updateSummaryToggleIcon();
             toggleSummary();
         });
         findViewById(R.id.summary_stop).setOnClickListener(view -> {
             if (summaryKey != null) AiTaskRegistry.get().cancel(summaryKey);
         });
-        if (body.getVisibility() == View.VISIBLE) {
-            body.setVisibility(View.GONE);
-            findViewById(R.id.summary_retry).setVisibility(View.GONE);
+        findViewById(R.id.summary_toggle).setOnClickListener(view -> toggleSummary());
+        if (card.getVisibility() == View.VISIBLE) {
+            card.setVisibility(View.GONE);
+            updateSummaryToggleIcon();
+            findViewById(R.id.summary_regen).setVisibility(View.GONE);
             findViewById(R.id.summary_stop).setVisibility(View.GONE);
             return;
         }
-        body.setVisibility(View.VISIBLE);
+        card.setVisibility(View.VISIBLE);
+        updateSummaryToggleIcon();
         body.setText(R.string.summarize_loading);
         String postId = workItem.getId();
         if (summaryReadJob != null) summaryReadJob.cancel();
@@ -715,8 +731,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 runOnUiThread(() -> {
                     if (isDestroyed() || !postId.equals(workItem.getId())) return;
                     body.setText(message);
-                    findViewById(R.id.summary_retry).setVisibility(
-                            body.getVisibility() == View.VISIBLE ? View.VISIBLE : View.GONE);
+                    findViewById(R.id.summary_regen).setVisibility(
+                            card.getVisibility() == View.VISIBLE ? View.VISIBLE : View.GONE);
                     findViewById(R.id.summary_stop).setVisibility(View.GONE);
                 });
             }
@@ -745,9 +761,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         if (summarySubscription != null) summarySubscription.close();
         summarySubscription = AiTaskRegistry.get().subscribe(task, this::runOnUiThread, value -> {
             if (isDestroyed() || summaryTask != value) return;
-            boolean expanded = body.getVisibility() == View.VISIBLE;
+            boolean expanded = findViewById(R.id.summary_card).getVisibility() == View.VISIBLE;
             findViewById(R.id.summary_stop).setVisibility(expanded && value.isRunning() ? View.VISIBLE : View.GONE);
-            findViewById(R.id.summary_retry).setVisibility(expanded && !value.isRunning()
+            findViewById(R.id.summary_regen).setVisibility(expanded && !value.isRunning()
                     && value.state != AiTaskRegistry.State.NEW && value.state != AiTaskRegistry.State.COMPLETED
                     ? View.VISIBLE : View.GONE);
             if (value.result instanceof PostSummary) body.setText(formatSummary((PostSummary) value.result));
@@ -1494,8 +1510,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             if (summarySubscription != null) summarySubscription.close();
             summaryTask = null;
             ((TextView) findViewById(R.id.summary_body)).setText("");
-            findViewById(R.id.summary_body).setVisibility(View.GONE);
-            findViewById(R.id.summary_retry).setVisibility(View.GONE);
+            findViewById(R.id.summary_card).setVisibility(View.GONE);
+            updateSummaryToggleIcon();
+            findViewById(R.id.summary_regen).setVisibility(View.GONE);
             findViewById(R.id.summary_stop).setVisibility(View.GONE);
         }
         if (workItem != null) {
