@@ -36,6 +36,8 @@ public class CopilotHistoryActivity extends AppCompatActivity {
             if (selecting) exitSelection(); else finish();
         });
         findViewById(R.id.copilot_history_select).setOnClickListener(v -> enterSelection());
+        findViewById(R.id.copilot_history_new).setOnClickListener(v ->
+                CopilotChatActivity.open(this, "general", null, null, 0, "通用对话", null));
         findViewById(R.id.copilot_history_cancel).setOnClickListener(v -> exitSelection());
         findViewById(R.id.copilot_history_delete).setOnClickListener(v -> deleteSelected());
         findViewById(R.id.copilot_history_select_all).setOnClickListener(v -> toggleSelectAll());
@@ -100,6 +102,7 @@ public class CopilotHistoryActivity extends AppCompatActivity {
 
     private void applySelectionUi() {
         findViewById(R.id.copilot_history_select).setVisibility(selecting ? View.GONE : View.VISIBLE);
+        findViewById(R.id.copilot_history_new).setVisibility(selecting ? View.GONE : View.VISIBLE);
         findViewById(R.id.copilot_history_cancel).setVisibility(selecting ? View.VISIBLE : View.GONE);
         findViewById(R.id.copilot_history_select_all).setVisibility(selecting ? View.VISIBLE : View.GONE);
         findViewById(R.id.copilot_history_delete).setVisibility(selecting ? View.VISIBLE : View.GONE);
