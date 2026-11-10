@@ -73,6 +73,7 @@ onBeforeUnmount(() => revision++)
           <small>{{ statusLabels[post.status] || '状态未知' }}</small>
         </div>
         <RouterLink v-if="post.status === 'PUBLISHED'" :to="`/post/${post.post_id}`">查看作品</RouterLink>
+        <RouterLink v-else-if="['DRAFT', 'REJECTED', 'WITHDRAWN'].includes(post.status)" :to="`/me/works/${post.post_id}/edit`">继续编辑</RouterLink>
       </li>
     </ul>
     <button v-if="hasMore && posts.length && !error" class="secondary more" :disabled="loading" @click="load">{{ loading ? '加载更多…' : '加载更多' }}</button>
