@@ -137,6 +137,6 @@ watch(() => session.generation, () => {
       <p v-if="notice" class="success" role="status">{{ notice }}</p>
       <button type="submit" :disabled="saving">{{ saving ? '保存中…' : '保存资料' }}</button>
     </form>
-    <nav class="profile-links"><RouterLink to="/me/works">我的作品 →</RouterLink><RouterLink to="/me/favorites">我的收藏 →</RouterLink><RouterLink to="/me/following">我的关注 →</RouterLink></nav>
+    <nav class="profile-links"><RouterLink to="/me/works">我的作品 →</RouterLink><RouterLink to="/me/favorites">我的收藏 →</RouterLink><RouterLink to="/me/following">我的关注 →</RouterLink><RouterLink to="/me/notifications">通知 →</RouterLink></nav>
   </section>
 </template>

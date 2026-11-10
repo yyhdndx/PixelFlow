@@ -9,6 +9,7 @@ import Me from './pages/Me.vue'
 import Favorites from './pages/Favorites.vue'
 import Following from './pages/Following.vue'
 import Followers from './pages/Followers.vue'
+import Notifications from './pages/Notifications.vue'
 import Author from './pages/Author.vue'
 import MyWorks from './pages/MyWorks.vue'
 import WorkEditor from './pages/WorkEditor.vue'
@@ -30,6 +31,7 @@ const router = createRouter({
     { path: '/me/favorites', component: Favorites, meta: { requiresAuth: true } },
     { path: '/me/following', component: Following, meta: { requiresAuth: true } },
     { path: '/me/followers', component: Followers, meta: { requiresAuth: true } },
+    { path: '/me/notifications', component: Notifications, meta: { requiresAuth: true } },
     { path: '/author/:id', component: Author, meta: { requiresAuth: true } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
