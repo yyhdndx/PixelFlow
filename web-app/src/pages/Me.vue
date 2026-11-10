@@ -127,7 +127,7 @@ watch(() => session.generation, () => {
     </div>
     <p v-if="avatarError" class="error" role="alert">{{ avatarError }}</p>
     <p v-if="avatarNotice" class="success" role="status">{{ avatarNotice }}</p>
-    <div v-if="stats" class="profile-stats"><RouterLink to="/me/works">{{ stats.post_count }} 作品</RouterLink><span>{{ stats.follower_count }} 粉丝</span><RouterLink to="/me/following">{{ stats.following_count }} 关注</RouterLink></div>
+    <div v-if="stats" class="profile-stats"><RouterLink to="/me/works">{{ stats.post_count }} 作品</RouterLink><RouterLink to="/me/followers">{{ stats.follower_count }} 粉丝</RouterLink><RouterLink to="/me/following">{{ stats.following_count }} 关注</RouterLink></div>
     <p v-if="statsError" class="error" role="alert">统计加载失败：{{ statsError }} <button class="quiet" @click="loadStats">重试</button></p>
     <form class="profile-edit" @submit.prevent="save">
       <h2>编辑资料</h2>
