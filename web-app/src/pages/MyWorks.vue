@@ -62,7 +62,7 @@ onBeforeUnmount(() => revision++)
 
 <template>
   <section>
-    <div class="feed-toolbar"><h1>我的作品</h1><button class="secondary" :disabled="loading" @click="refresh">刷新</button></div>
+    <div class="feed-toolbar"><h1>我的作品</h1><div class="work-actions"><RouterLink to="/me/works/new">新建草稿</RouterLink><button class="secondary" :disabled="loading" @click="refresh">刷新</button></div></div>
     <p v-if="error" class="error" role="alert">{{ error }} <button class="quiet" @click="load">重试</button></p>
     <div v-if="loading && !posts.length" class="spinner">加载中…</div>
     <div v-else-if="!posts.length && !error" class="empty">还没有作品。</div>

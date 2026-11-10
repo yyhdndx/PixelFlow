@@ -34,7 +34,7 @@ export async function request(path, options = {}, retry = true) {
   const generation = session.generation
   const headers = new Headers(options.headers)
   if (session.tokens.accessToken) headers.set('Authorization', `Bearer ${session.tokens.accessToken}`)
-  if (options.body) headers.set('Content-Type', 'application/json')
+  if (options.body && !(options.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   const response = await fetch(path, { ...options, headers, cache: 'no-store' })
   if (generation !== session.generation) throw new Error('会话已变更，请重新操作')
   if (response.status === 401 && retry && session.tokens.refreshToken) {
