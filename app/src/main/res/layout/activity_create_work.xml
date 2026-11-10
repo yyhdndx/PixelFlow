@@ -229,7 +229,7 @@
                 android:paddingBottom="10dp"
                 android:background="@drawable/bg_status_soft"
                 android:accessibilityLiveRegion="polite"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textColor="@color/profile_accent"
                 android:visibility="gone" />
 
@@ -263,7 +263,7 @@
                     android:text="继续修改"
                     android:textAllCaps="false"
                     android:textColor="@color/profile_accent"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
 
@@ -276,7 +276,7 @@
                     android:text="@string/creation_retry_read"
                     android:textAllCaps="false"
                     android:textColor="@color/profile_accent"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
 
@@ -289,7 +289,7 @@
                     android:text="@string/creation_check_my_works"
                     android:textAllCaps="false"
                     android:textColor="@color/profile_accent"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
 
@@ -302,7 +302,7 @@
                     android:text="停止生成"
                     android:textAllCaps="false"
                     android:textColor="@color/profile_muted"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:visibility="gone" />
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/creation_assist_undo"
@@ -438,8 +438,15 @@
             android:text="取消"
             android:textAllCaps="false"
             android:textColor="@color/profile_muted"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:minWidth="0dp"
+            android:paddingHorizontal="6dp"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="9sp"
+            android:autoSizeMaxTextSize="12sp"
+            android:autoSizeStepGranularity="1sp" />
 
         <Button
             android:id="@+id/btn_save"
@@ -452,8 +459,15 @@
             android:text="保存草稿"
             android:textAllCaps="false"
             android:textColor="@color/profile_ink"
-            android:textSize="14sp"
+            android:textSize="12sp"
             android:textStyle="bold"
+            android:maxLines="1"
+            android:minWidth="0dp"
+            android:paddingHorizontal="6dp"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="9sp"
+            android:autoSizeMaxTextSize="12sp"
+            android:autoSizeStepGranularity="1sp"
             android:enabled="false" />
 
         <Button
@@ -467,8 +481,15 @@
             android:text="提交审核"
             android:textAllCaps="false"
             android:textColor="@android:color/white"
-            android:textSize="14sp"
+            android:textSize="12sp"
             android:textStyle="bold"
+            android:maxLines="1"
+            android:minWidth="0dp"
+            android:paddingHorizontal="6dp"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="9sp"
+            android:autoSizeMaxTextSize="12sp"
+            android:autoSizeStepGranularity="1sp"
             android:enabled="false" />
     </LinearLayout>
 </LinearLayout>
