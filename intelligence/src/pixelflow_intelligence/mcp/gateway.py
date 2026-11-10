@@ -70,6 +70,18 @@ class JavaGateway:
         except ValueError:
             raise GatewayError("INVALID_UPSTREAM_RESPONSE", "业务服务返回了无法解析的响应") from None
 
+    # -- interactions & comments -------------------------------------------
+    def create_comment(self, post_id: str, content: str) -> dict:
+        return self._request("POST", f"/api/posts/{post_id}/comments",
+                             json_body={"content": content})
+
+    def set_interaction(self, kind: str, target_id: str, active: bool) -> dict:
+        return self._request("PUT", f"/api/interactions/{kind}",
+                             json_body={"targetId": target_id, "active": active})
+
+    def send_messages(self, items: list[dict]) -> dict:
+        return self._request("POST", "/api/conversations/messages/batch",
+                             json_body={"items": items})
     # -- read --------------------------------------------------------------
     def get_post(self, post_id: str) -> dict:
         body = self._request("GET", f"/api/posts/{post_id}")

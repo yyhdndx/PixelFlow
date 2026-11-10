@@ -82,6 +82,18 @@ class FakeGateway:
         self.calls.append(("auto_list", post_id))
         return {"rules": [{"id": 1, "question": "在哪", "answer": "学校", "enabled": True}]}
 
+    def create_comment(self, post_id, content):
+        self.calls.append(("comment", post_id, content))
+        return {"commentId": "c_1", "content": content}
+
+    def set_interaction(self, kind, target_id, active):
+        self.calls.append(("interaction", kind, target_id, active))
+        return {"targetId": target_id, "active": active}
+
+    def send_messages(self, items):
+        self.calls.append(("messages", items))
+        return {"sent": len(items)}
+
     def create_auto_reply(self, post_id, question, answer):
         self.calls.append(("auto_create", post_id, question, answer))
         return {"id": 2, "question": question, "answer": answer, "enabled": True}
@@ -202,7 +214,8 @@ def test_server_registers_all_named_tools(tmp_path):
     assert {tool.name for tool in listed} == {
         "upload_media", "create_post_draft", "update_post_draft",
         "submit_post_for_review", "withdraw_post", "list_my_posts",
-        "get_post", "search_posts", "list_auto_replies", "create_auto_reply"}
+        "get_post", "search_posts", "list_auto_replies", "create_auto_reply",
+        "create_comment", "toggle_like", "toggle_favorite", "send_message"}
     assert all(tool.description for tool in listed)
 
 
@@ -243,4 +256,21 @@ def test_auto_reply_rejects_bad_input(tmp_path):
     tools, _ = make_tools(tmp_path)
     with pytest.raises(ToolError) as error:
         tools.create_auto_reply("9", "问" * 201, "答")
+    assert error.value.code == "INVALID_ARGUMENT"
+
+
+def test_comment_like_and_message_tools(tmp_path):
+    tools, _ = make_tools(tmp_path)
+    comment = tools.create_comment("9", "拍得真好")
+    assert comment["comment_id"] == "c_1"
+    assert tools.toggle_like("9", True)["active"] is True
+    assert tools.toggle_favorite("9", False)["active"] is False
+    sent = tools.send_message("12", "在的")
+    assert sent["conversation_id"] == "12" and sent["result"]["sent"] == 1
+
+
+def test_comment_rejects_empty_text(tmp_path):
+    tools, _ = make_tools(tmp_path)
+    with pytest.raises(ToolError) as error:
+        tools.create_comment("9", "   ")
     assert error.value.code == "INVALID_ARGUMENT"

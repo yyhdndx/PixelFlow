@@ -35,11 +35,16 @@ TOOL_DESCRIPTIONS = {
     "search_posts": "按关键词搜索站内公开帖子，返回标题与摘要，可用于找素材。",
     "list_auto_replies": "查看自己某篇作品的自动回复规则。",
     "create_auto_reply": "为自己的作品新增一条自动回复规则（问题<=200字、回复<=300字）。",
+    "create_comment": "在公开帖子下发表一条评论（<=500字）。",
+    "toggle_like": "点赞或取消点赞一篇公开帖子。",
+    "toggle_favorite": "收藏或取消收藏一篇公开帖子。",
+    "send_message": "在指定会话里发一条私信（<=1000字）。",
 }
 
 TOOL_NAMES = ("upload_media", "create_post_draft", "update_post_draft",
               "submit_post_for_review", "withdraw_post", "list_my_posts",
-              "get_post", "search_posts", "list_auto_replies", "create_auto_reply")
+              "get_post", "search_posts", "list_auto_replies", "create_auto_reply",
+              "create_comment", "toggle_like", "toggle_favorite", "send_message")
 
 def create_server(settings: McpSettings | None = None,
                   tools: CreatorTools | None = None) -> MCPServer:

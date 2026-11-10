@@ -334,3 +334,44 @@ class CreatorTools:
         return self._run("create_auto_reply", "post:write",
                          {"post_id": post_id, "question": question, "answer": answer}, action)
 
+    # -- 10. 评论 / 点赞收藏 / 私信 ---------------------------------------
+    def create_comment(self, post_id: str, content: str) -> dict:
+        """在公开帖子下发表一条评论（<=500 字）。"""
+        def action():
+            pid = _require_post_id(post_id)
+            text = _require_text(content, "content", 500)
+            body = self.gateway.create_comment(pid, text)
+            return {"post_id": pid, "comment_id": body.get("commentId") or body.get("comment_id"),
+                    "content": text}
+        return self._run("create_comment", "post:write", {"post_id": post_id}, action)
+
+    def toggle_like(self, post_id: str, active: bool = True) -> dict:
+        """点赞或取消点赞一篇公开帖子。"""
+        def action():
+            pid = _require_post_id(post_id)
+            if not isinstance(active, bool):
+                raise ToolError("INVALID_ARGUMENT", "active 必须是布尔值")
+            body = self.gateway.set_interaction("likes", pid, active)
+            return {"post_id": pid, "active": bool(body.get("active", active))}
+        return self._run("toggle_like", "post:write", {"post_id": post_id, "active": active}, action)
+
+    def toggle_favorite(self, post_id: str, active: bool = True) -> dict:
+        """收藏或取消收藏一篇公开帖子。"""
+        def action():
+            pid = _require_post_id(post_id)
+            if not isinstance(active, bool):
+                raise ToolError("INVALID_ARGUMENT", "active 必须是布尔值")
+            body = self.gateway.set_interaction("favorites", pid, active)
+            return {"post_id": pid, "active": bool(body.get("active", active))}
+        return self._run("toggle_favorite", "post:write", {"post_id": post_id, "active": active}, action)
+
+    def send_message(self, conversation_id: str, content: str) -> dict:
+        """在指定会话里发一条私信（<=1000 字）。"""
+        def action():
+            cid = _require_text(conversation_id, "conversation_id", 36)
+            text = _require_text(content, "content", 1000)
+            body = self.gateway.send_messages([{"conversation_id": cid, "content": text}])
+            return {"conversation_id": cid, "content": text, "result": body}
+        return self._run("send_message", "post:write",
+                         {"conversation_id": conversation_id}, action)
+
