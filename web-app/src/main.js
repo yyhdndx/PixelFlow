@@ -9,6 +9,7 @@ import Me from './pages/Me.vue'
 import Favorites from './pages/Favorites.vue'
 import Following from './pages/Following.vue'
 import Author from './pages/Author.vue'
+import MyWorks from './pages/MyWorks.vue'
 import { identify, session } from './api/client'
 import './style.css'
 
@@ -20,6 +21,7 @@ const router = createRouter({
     { path: '/login', component: Login },
     { path: '/search', component: Search },
     { path: '/me', component: Me, meta: { requiresAuth: true } },
+    { path: '/me/works', component: MyWorks, meta: { requiresAuth: true } },
     { path: '/me/favorites', component: Favorites, meta: { requiresAuth: true } },
     { path: '/me/following', component: Following, meta: { requiresAuth: true } },
     { path: '/author/:id', component: Author, meta: { requiresAuth: true } },
