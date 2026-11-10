@@ -251,11 +251,18 @@ public class CopilotSheet extends BottomSheetDialogFragment {
         bg.setColor(user ? Color.parseColor("#EFEDFF") : Color.WHITE);
         bg.setCornerRadius(dp(14));
         bubble.setBackground(bg);
-        bubble.setPadding(dp(12), dp(10), dp(12), dp(10));
-
+        bubble.setPadding(dp(14), dp(10), dp(14), dp(10));
+        // 自己的消息靠右、AI 靠左，两侧留出空白
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         params.topMargin = dp(8);
+        if (user) {
+            params.gravity = android.view.Gravity.END;
+            params.leftMargin = dp(56);
+        } else {
+            params.gravity = android.view.Gravity.START;
+            params.rightMargin = dp(56);
+        }
         bubble.setLayoutParams(params);
         return bubble;
     }
