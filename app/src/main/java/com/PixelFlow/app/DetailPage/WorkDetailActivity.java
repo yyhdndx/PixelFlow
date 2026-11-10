@@ -161,19 +161,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         setTheme(R.style.Theme_Detail);
 
         Window window = getWindow();
-        window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
-        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        window.setStatusBarColor(Color.TRANSPARENT);
-
-        // 让内容延伸到状态栏下面
-        window.getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-        );
 
         // 启用窗口内容转场动画
         getWindow().setEnterTransition(null);
@@ -186,7 +173,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         // 沉浸式标志下窗口不会随键盘重排，手动用 IME insets 顶起底部栏与内容
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root_layout), (view, insets) -> {
             int imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
-            view.setPadding(view.getPaddingLeft(), view.getPaddingTop(), view.getPaddingRight(), imeBottom);
+            view.setPadding(view.getPaddingLeft(), insets.getInsets(WindowInsetsCompat.Type.statusBars()).top, view.getPaddingRight(), imeBottom);
             boolean imeVisible = imeBottom > 0;
             // 键盘收起 = 退出打字：回复态回到默认的「评论这条帖子」
             if (imeWasVisible && !imeVisible) cancelReplyMode();
