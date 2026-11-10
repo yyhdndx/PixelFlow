@@ -9,7 +9,58 @@ const statsError = ref('')
 const error = ref('')
 const notice = ref('')
 const saving = ref(false)
+const avatarBusy = ref(false)
+const avatarError = ref('')
+const avatarNotice = ref('')
 let revision = 0
+
+async function selectAvatar(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file || avatarBusy.value) return
+  avatarError.value = ''
+  avatarNotice.value = ''
+  if (!['image/jpeg', 'image/png'].includes(file.type) || file.size > 8 * 1024 * 1024) {
+    avatarError.value = '仅支持不超过 8 MB 的 JPEG 或 PNG 图片'
+    return
+  }
+  const current = revision
+  avatarBusy.value = true
+  try {
+    const form = new FormData()
+    form.append('file', file)
+    const media = await request('/api/media', { method: 'POST', body: form })
+    if (current !== revision) return
+    if (!media.mediaId) throw new Error('图片上传响应不完整')
+    const avatar = await write('/api/users/me/avatar', 'PUT', { mediaId: media.mediaId })
+    if (current !== revision) return
+    if (avatar.user_id !== session.user?.id || !avatar.avatar) throw new Error('头像更新响应不完整，请刷新后确认')
+    session.user = { ...session.user, avatar: avatar.avatar }
+    avatarNotice.value = '头像已更新'
+  } catch (e) {
+    if (current === revision) avatarError.value = e.message
+  } finally {
+    if (current === revision) avatarBusy.value = false
+  }
+}
+async function clearAvatar() {
+  if (avatarBusy.value || !session.user?.avatar) return
+  const current = revision
+  avatarBusy.value = true
+  avatarError.value = ''
+  avatarNotice.value = ''
+  try {
+    const avatar = await request('/api/users/me/avatar', { method: 'DELETE' })
+    if (current !== revision) return
+    if (avatar.user_id !== session.user?.id || avatar.avatar !== '') throw new Error('头像清除响应不完整，请刷新后确认')
+    session.user = { ...session.user, avatar: '' }
+    avatarNotice.value = '头像已清除'
+  } catch (e) {
+    if (current === revision) avatarError.value = e.message
+  } finally {
+    if (current === revision) avatarBusy.value = false
+  }
+}
 
 async function loadStats() {
   const current = revision
@@ -54,6 +105,9 @@ watch(() => session.generation, () => {
   notice.value = ''
   error.value = ''
   saving.value = false
+  avatarBusy.value = false
+  avatarError.value = ''
+  avatarNotice.value = ''
   sync()
   if (session.user) loadStats()
 })
@@ -66,6 +120,13 @@ watch(() => session.generation, () => {
       <span class="profile-avatar"><img v-if="session.user?.avatar" :src="session.user.avatar" alt="头像"><template v-else>{{ (session.user?.nickname || 'U').charAt(0) }}</template></span>
       <div><h2>{{ session.user?.nickname }}</h2><p v-if="session.user?.bio" class="profile-bio">{{ session.user.bio }}</p></div>
     </div>
+    <div class="avatar-actions">
+      <label>更换头像<input type="file" accept="image/jpeg,image/png" :disabled="avatarBusy" @change="selectAvatar"></label>
+      <button v-if="session.user?.avatar" class="secondary" :disabled="avatarBusy" @click="clearAvatar">清除头像</button>
+      <span v-if="avatarBusy" role="status">正在处理头像…</span>
+    </div>
+    <p v-if="avatarError" class="error" role="alert">{{ avatarError }}</p>
+    <p v-if="avatarNotice" class="success" role="status">{{ avatarNotice }}</p>
     <div v-if="stats" class="profile-stats"><RouterLink to="/me/works">{{ stats.post_count }} 作品</RouterLink><span>{{ stats.follower_count }} 粉丝</span><RouterLink to="/me/following">{{ stats.following_count }} 关注</RouterLink></div>
     <p v-if="statsError" class="error" role="alert">统计加载失败：{{ statsError }} <button class="quiet" @click="loadStats">重试</button></p>
     <form class="profile-edit" @submit.prevent="save">
