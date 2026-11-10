@@ -67,7 +67,7 @@ onBeforeUnmount(reset)
       <p v-if="!preferences && !preferencesError" class="spinner">加载偏好中…</p>
       <label v-if="preferences" class="interest-toggle"><input type="checkbox" :checked="preferences.personalized" :disabled="updating" @change="togglePersonalized"> 使用个性化推荐</label>
     </div>
-    <h2>我的兴趣</h2>
+    <div class="feed-toolbar"><h2>我的兴趣</h2><RouterLink to="/me/interests/history">查看过往兴趣</RouterLink></div>
     <p v-if="profileError" class="error" role="alert">画像暂不可用：{{ profileError }} <button class="quiet" @click="loadProfile">重试</button></p>
     <p v-if="!profile && !profileError" class="spinner">加载兴趣中…</p>
     <p v-if="profile && !profile.topics?.length" class="empty">暂无兴趣画像。</p>

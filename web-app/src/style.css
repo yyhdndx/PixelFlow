@@ -202,6 +202,8 @@ label input { display: block; margin-top: 6px; font-weight: 400; }
 .my-work-row strong { overflow-wrap: anywhere; }
 .my-work-row a { flex-shrink: 0; }
 .work-actions { display: flex; align-items: center; gap: 12px; }
+.interest-history-row { padding: 16px 4px; border-bottom: 1px solid var(--line); }
+.interest-history-row p { margin: 6px 0 0; }
 .interest-settings { margin: 16px 0 24px; }
 .interest-toggle { display: inline-flex; align-items: center; gap: 8px; }
 .interest-topics { display: flex; flex-wrap: wrap; gap: 10px; padding: 0; list-style: none; }
