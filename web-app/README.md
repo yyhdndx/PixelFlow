@@ -1,6 +1,6 @@
 # Web 用户端
 
-US-09 的最小 Vue 用户端：游客可浏览公开作品流与详情，登录后点赞、收藏、评论与回复。与 `admin-web` 同栈（Vue 3 + Vite + Vue Router），复用其鉴权与令牌刷新封装。
+Vue 用户端：游客可浏览公开作品流与详情；登录后可进行互动、创作、查看和编辑个人资料。与 `admin-web` 同栈（Vue 3 + Vite + Vue Router）。
 
 ## 本地启动
 
@@ -40,14 +40,19 @@ npm run preview
 | 路由 | 内容与接口 | 登录要求 |
 | --- | --- | --- |
 | `/search?q=` | 标题/话题搜索，`GET /api/search/posts` | 游客可用 |
-| `/me` | 当前账号昵称、头像，`GET /api/users/me` | 需登录 |
+| `/me` | 本人资料编辑、头像上传/清除、统计，`/api/users/me`、`/api/users/me/avatar`、`/api/users/me/stats` | 需登录 |
+| `/me/works`、`/me/works/new`、`/me/works/:id/edit` | 作品状态、草稿创建/编辑/提交审核/撤回，`/api/posts`、`/api/media` | 需登录 |
 | `/me/favorites` | 收藏作品，`GET /api/users/me/favorites` | 需登录 |
-| `/me/following` | 只读关注名单，`GET /api/users/me/following` | 需登录 |
+| `/me/following`、`/me/followers` | 分页查看关注与粉丝，`/api/users/me/following`、`/api/users/me/followers` | 需登录 |
+| `/me/notifications` | 分类通知、单条已读、屏蔽类型，`/api/users/me/notifications` 与偏好接口 | 需登录 |
+| `/me/interests`、`/me/interests/history` | 兴趣画像/历史、个性化开关、恢复屏蔽主题/作者 | 需登录 |
 | `/author/:id` | 作者公开资料与作品，`GET /api/users/{id}/profile`、`GET /api/users/{id}/posts` | 既有接口要求登录 |
 
 搜索、收藏、作者作品复用卡片及游标分页，关注名单支持分页；首屏/续页失败均可重试，续页失败保留已加载内容。空白搜索不请求。首页卡片及详情作者名可进入作者页。
 
-详情关注状态使用作者资料的 `is_following`，不遍历关注名单；通过 `PUT /api/interactions/follows` 成功后更新按钮。游客点击跳登录并回到原详情，本人作品隐藏按钮。受保护路由保留登录回跳，退出或会话改变后清空新页面的私有列表，忽略旧响应。不提供资料编辑、发布、通知或推荐偏好功能。
+详情关注状态使用作者资料的 `is_following`；通过 `PUT /api/interactions/follows` 成功后更新按钮。游客点击跳登录并回到原详情，本人作品隐藏按钮。受保护路由保留登录回跳，退出或会话改变后清空私有列表，忽略旧响应。
+
+当前创作支持图片草稿、编辑媒体顺序、提交审核和撤回；提交审核后并非直接发布。头像与图片上传按接口限制 JPEG/PNG 和每张 8 MiB。当前尚未提供私信、AI 搜索/总结/文案/回复规则等 Android 入口；这些流程不能视为已对齐。新增写入流程仅使用本地模拟接口验收，未对真实远程账号执行写入验证。
 
 截图与实际联调边界见 [浏览闭环验收](../docs/testing/Web用户端浏览闭环验收-20261105.md)。
 
