@@ -41,12 +41,17 @@
 
     </LinearLayout>
 
-    <ScrollView
-        android:id="@+id/chat_scroll"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_weight="1">
+
+        <ScrollView
+        android:id="@+id/chat_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:fillViewport="true">
+
 
         <LinearLayout
             android:id="@+id/chat_messages"
@@ -57,7 +62,49 @@
             android:paddingEnd="16dp"
             android:paddingTop="12dp"
             android:paddingBottom="12dp" />
-    </ScrollView>
+    </ScrollView>        <!-- 悬浮跳转：上一条 / 下一条 / 回到底部（仅图标） -->
+        <LinearLayout
+            android:id="@+id/chat_jump_group"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end|bottom"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="12dp"
+            android:orientation="vertical">
+
+            <ImageButton
+                android:id="@+id/chat_jump_prev"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/bg_jump_circle"
+                android:contentDescription="@string/copilot_jump_prev"
+                android:elevation="3dp"
+                android:padding="9dp"
+                android:src="@drawable/ic_jump_prev" />
+
+            <ImageButton
+                android:id="@+id/chat_jump_next"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_jump_circle"
+                android:contentDescription="@string/copilot_jump_next"
+                android:elevation="3dp"
+                android:padding="9dp"
+                android:src="@drawable/ic_jump_next" />
+
+            <ImageButton
+                android:id="@+id/chat_jump_bottom"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_jump_circle"
+                android:contentDescription="@string/copilot_jump_bottom"
+                android:elevation="3dp"
+                android:padding="9dp"
+                android:src="@drawable/ic_jump_bottom" />
+        </LinearLayout>
+    </FrameLayout>
 
     <TextView
         android:id="@+id/chat_status"

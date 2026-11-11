@@ -11,6 +11,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -93,6 +94,7 @@ public class CopilotChatActivity extends AppCompatActivity {
         input = findViewById(R.id.chat_input);
         send = findViewById(R.id.chat_send);
         status = findViewById(R.id.chat_status);
+        setupQuickJump();
 
         findViewById(R.id.chat_back).setOnClickListener(v -> finish());
         if (label == null || label.isEmpty()) {
@@ -187,9 +189,49 @@ public class CopilotChatActivity extends AppCompatActivity {
         render();
     }
 
+    private final java.util.List<View> userViews = new java.util.ArrayList<>();
+    private int jumpIndex = -1;
+    private ImageButton jumpPrev, jumpNext, jumpBottom;
+    /** 悬浮跳转：在我的发言之间上下移动，或回到底部。 */
+    private void setupQuickJump() {
+        jumpPrev = findViewById(R.id.chat_jump_prev);
+        jumpNext = findViewById(R.id.chat_jump_next);
+        jumpBottom = findViewById(R.id.chat_jump_bottom);
+        jumpPrev.setOnClickListener(v -> jumpToUserMessage(-1));
+        jumpNext.setOnClickListener(v -> jumpToUserMessage(1));
+        jumpBottom.setOnClickListener(v -> {
+            jumpIndex = -1;
+            scroll.smoothScrollTo(0, messages.getHeight());
+        });
+        scroll.setOnScrollChangeListener((v, x, y, oldX, oldY) -> updateJumpButtons());
+        updateJumpButtons();
+    }
+
+    private void jumpToUserMessage(int step) {
+        if (userViews.isEmpty()) return;
+        if (jumpIndex < 0) jumpIndex = step > 0 ? 0 : userViews.size() - 1;
+        else jumpIndex = Math.max(0, Math.min(userViews.size() - 1, jumpIndex + step));
+        View target = userViews.get(jumpIndex);
+        int offset = Math.max(0, target.getTop() - dp(8));
+        scroll.smoothScrollTo(0, offset);
+        target.animate().alpha(0.45f).setDuration(120).withEndAction(
+                () -> target.animate().alpha(1f).setDuration(220).start()).start();
+    }
+
+    private void updateJumpButtons() {
+        boolean hasUser = !userViews.isEmpty();
+        if (jumpPrev != null) jumpPrev.setVisibility(hasUser ? View.VISIBLE : View.GONE);
+        if (jumpNext != null) jumpNext.setVisibility(hasUser ? View.VISIBLE : View.GONE);
+        if (jumpBottom != null) {
+            boolean atBottom = scroll.getChildAt(0) != null
+                    && scroll.getScrollY() + scroll.getHeight() >= scroll.getChildAt(0).getHeight() - dp(8);
+            jumpBottom.setVisibility(atBottom ? View.GONE : View.VISIBLE);
+        }
+    }
     private void render() {
         if (messages == null || session == null) return;
         messages.removeAllViews();
+        userViews.clear();
         if (session.entries.isEmpty()) {
             TextView intro = new TextView(this);
             intro.setText(getString("general".equals(screen) ? R.string.copilot_intro_general : R.string.copilot_intro));
@@ -199,10 +241,15 @@ public class CopilotChatActivity extends AppCompatActivity {
             messages.addView(intro);
         }
         for (CopilotStore.Entry entry : session.entries) {
-            messages.addView(bubble(entry));
+            View bubbleView = bubble(entry);
+            messages.addView(bubbleView);
+            if ("user".equals(entry.role)) userViews.add(bubbleView);
             for (CopilotAction action : entry.actions) messages.addView(actionCard(action));
         }
-        scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
+        scroll.post(() -> {
+            scroll.fullScroll(View.FOCUS_DOWN);
+            scroll.postDelayed(this::updateJumpButtons, 120);
+        });
     }
 
     private View bubble(CopilotStore.Entry entry) {
