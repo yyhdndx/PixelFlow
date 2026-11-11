@@ -296,3 +296,19 @@ high=含违禁、欺诈、违法等内容应驳回。recommended_action 与 risk
             raise SkillError("MODEL_UNAVAILABLE", "deepseek_moderation") from None
         finally:
             _SLOTS.release()
+def chat_messages(settings, *, messages, tools=None, max_tokens=1200, timeout=30.0, transport=None):
+    """带工具调用的非流式请求：返回 assistant message（可能含 tool_calls）。"""
+    payload = {"model": settings.deepseek_model, "stream": False,
+               "thinking": {"type": "disabled"}, "max_tokens": max_tokens,
+               "messages": messages}
+    if tools:
+        payload["tools"] = tools
+        payload["tool_choice"] = "auto"
+    with httpx.Client(timeout=httpx.Timeout(timeout, connect=5),
+                      follow_redirects=False, transport=transport) as client:
+        response = client.post(_API_URL, headers=_auth_header(settings), json=payload)
+        response.raise_for_status()
+        if len(response.content) > _MAX_RESPONSE_BYTES:
+            raise ValueError("Oversized response")
+        body = response.json()
+    return body["choices"][0]["message"]

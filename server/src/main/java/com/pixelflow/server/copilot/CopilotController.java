@@ -90,29 +90,10 @@ public class CopilotController {
         return response;
     }
 
-    /** 通用对话：允许引用站内公开帖子的摘要，作为模型写草稿的素材。 */
+    /** 通用对话：检索交给模型通过 search_site 工具决定，这里只给空参考。 */
     private Map<String,Object> generalContext(String message) {
-        String keyword = message == null ? "" : message.trim();
-        if (keyword.length() > 24) keyword = keyword.substring(0, 24);
-        String like = "%" + keyword + "%";
-        List<Map<String,Object>> rows = db.queryForList(
-                "SELECT id,title,SUBSTRING(content,1,200) AS excerpt FROM posts " +
-                "WHERE status='PUBLISHED' AND (title LIKE ? OR content LIKE ?) ORDER BY id DESC LIMIT 5", like, like);
-        if (rows.isEmpty()) {
-            rows = db.queryForList(
-                    "SELECT id,title,SUBSTRING(content,1,200) AS excerpt FROM posts " +
-                    "WHERE status='PUBLISHED' ORDER BY id DESC LIMIT 5");
-        }
-        List<Map<String,Object>> references = new ArrayList<>();
-        for (Map<String,Object> row : rows) {
-            Map<String,Object> item = new LinkedHashMap<>();
-            item.put("id", String.valueOf(row.get("id")));
-            item.put("title", row.get("title"));
-            item.put("excerpt", row.get("excerpt"));
-            references.add(item);
-        }
         Map<String,Object> context = new LinkedHashMap<>();
-        context.put("references", references);
+        context.put("references", List.of());
         return context;
     }
     /** 二次校验：即使模型或 Python 端出错，也不让越界动作离开网关。 */
