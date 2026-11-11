@@ -37,7 +37,9 @@ public class CopilotHistoryActivity extends AppCompatActivity {
         });
         findViewById(R.id.copilot_history_select).setOnClickListener(v -> enterSelection());
         findViewById(R.id.copilot_history_new).setOnClickListener(v ->
-                CopilotChatActivity.open(this, "general", null, null, 0, "通用对话", null));
+                CopilotChatActivity.open(this, "general",
+                    "general:" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8),
+                    null, null, 0, "通用对话", null));
         findViewById(R.id.copilot_history_cancel).setOnClickListener(v -> exitSelection());
         findViewById(R.id.copilot_history_delete).setOnClickListener(v -> deleteSelected());
         findViewById(R.id.copilot_history_select_all).setOnClickListener(v -> toggleSelectAll());
@@ -65,7 +67,7 @@ public class CopilotHistoryActivity extends AppCompatActivity {
 
     private void open(CopilotStore.Session session) {
         ArrayList<String> conversations = new ArrayList<>();
-        CopilotChatActivity.open(this, session.screen, session.postId, session.draftId,
+        CopilotChatActivity.open(this, session.screen, session.key, session.postId, session.draftId,
                 session.draftVersion, titleOf(session), session.label);
     }
 
