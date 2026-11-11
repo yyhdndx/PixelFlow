@@ -29,7 +29,6 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.Holder> 
     }
     @Override public void onBindViewHolder(@NonNull Holder holder, int position) {
         ProfileHistoryPage.Item item = items.get(position);
-        holder.version.setText("画像 v" + item.getVersion());
         holder.time.setText(formatTime(item.getGeneratedAt()));
         holder.window.setText("近 " + item.getWindowDays() + " 天" + (item.isColdStart() ? " · 冷启动" : ""));
         holder.topics.setText(topicsText(item.getTopics()));
@@ -40,7 +39,7 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.Holder> 
 
     private String formatTime(long seconds) {
         if (seconds <= 0) return "";
-        return new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date(seconds * 1000));
+        return new SimpleDateFormat("yyyy年M月d日 HH:mm", Locale.getDefault()).format(new Date(seconds * 1000));
     }
     private String topicsText(List<ProfileHistoryPage.Weight> topics) {
         if (topics == null || topics.isEmpty()) return "暂无兴趣标签";
@@ -56,10 +55,9 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.Holder> 
     @Override public int getItemCount() { return items.size(); }
 
     static class Holder extends RecyclerView.ViewHolder {
-        TextView version, time, window, topics, explanation;
+        TextView time, window, topics, explanation;
         Holder(@NonNull View itemView) {
             super(itemView);
-            version = itemView.findViewById(R.id.history_version);
             time = itemView.findViewById(R.id.history_time);
             window = itemView.findViewById(R.id.history_window);
             topics = itemView.findViewById(R.id.history_topics);
