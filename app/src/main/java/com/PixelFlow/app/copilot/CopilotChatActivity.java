@@ -46,6 +46,7 @@ public class CopilotChatActivity extends AppCompatActivity {
     private static final String EXTRA_VERSION = "draft_version";
     private static final String EXTRA_TITLE = "title";
     private static final String EXTRA_LABEL = "label";
+    private static final String EXTRA_KEY = "session_key";
 
     private String screen = "detail";
     @Nullable private String postId;
@@ -65,7 +66,15 @@ public class CopilotChatActivity extends AppCompatActivity {
 
     public static void open(Context context, String screen, @Nullable String postId, @Nullable String draftId,
                             int draftVersion, @Nullable String title, @Nullable String label) {
+        open(context, screen, null, postId, draftId, draftVersion, title, label);
+    }
+
+    /** 通用对话每次「新建」用独立会话 key，避免复用同一条会话。 */
+    public static void open(Context context, String screen, @Nullable String sessionKey,
+                            @Nullable String postId, @Nullable String draftId,
+                            int draftVersion, @Nullable String title, @Nullable String label) {
         Intent intent = new Intent(context, CopilotChatActivity.class);
+        if (sessionKey != null && !sessionKey.isEmpty()) intent.putExtra(EXTRA_KEY, sessionKey);
         intent.putExtra(EXTRA_SCREEN, screen);
         intent.putExtra(EXTRA_POST, postId);
         intent.putExtra(EXTRA_DRAFT, draftId);
@@ -105,7 +114,8 @@ public class CopilotChatActivity extends AppCompatActivity {
         String targetId = "detail".equals(screen) ? postId
                 : "create".equals(screen) ? draftId
                 : "general".equals(screen) ? "" : "messages";
-        String key = CopilotStore.sessionKey(screen, targetId);
+        String savedKey = getIntent().getStringExtra(EXTRA_KEY);
+        String key = savedKey != null && !savedKey.isEmpty() ? savedKey : CopilotStore.sessionKey(screen, targetId);
         session = CopilotStore.load(this, key);
         if (session == null) {
             session = new CopilotStore.Session();
