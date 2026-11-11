@@ -12,7 +12,7 @@ const back = computed(() => {
 </script>
 
 <template>
-  <section class="feature-shell">
+  <section class="feature-shell content-page">
     <div class="feed-toolbar"><h1>创作助手</h1><RouterLink :to="back">返回</RouterLink></div>
     <div class="empty" role="status">创作助手暂未开放，当前无法生成回答或执行建议。</div>
   </section>

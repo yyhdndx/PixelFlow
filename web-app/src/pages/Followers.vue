@@ -7,7 +7,7 @@ onMounted(() => page.load())
 </script>
 
 <template>
-  <section><h1>我的粉丝</h1>
+  <section class="content-page"><h1>我的粉丝</h1>
     <p v-if="page.error" class="error" role="alert">{{ page.error }} <button class="quiet" @click="page.load()">重试</button></p>
     <p v-if="page.loading && !page.items.length" class="spinner">加载中…</p>
     <p v-else-if="!page.items.length && !page.error" class="empty">还没有粉丝。</p>

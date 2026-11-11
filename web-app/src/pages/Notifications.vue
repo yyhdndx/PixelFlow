@@ -162,7 +162,7 @@ onBeforeUnmount(reset)
 </script>
 
 <template>
-  <section>
+  <section class="content-page">
     <div class="feed-toolbar"><h1>消息通知</h1><div class="work-actions"><button class="secondary" @click="openSettings">通知设置</button><button class="secondary" :disabled="!!marking || markingAll || loading" @click="markAll">{{ markingAll ? '处理中…' : '全部已读' }}</button></div></div>
     <p v-if="preferencesNotice" class="success" role="status">{{ preferencesNotice }}</p>
     <dialog ref="settingsDialog" class="notification-dialog" aria-labelledby="notification-dialog-title" @cancel="cancelSettings">

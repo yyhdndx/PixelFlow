@@ -266,8 +266,7 @@ label input { display: block; margin-top: 6px; font-weight: 400; }
 .notification-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 .notification-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
 .notification-tabs button[aria-pressed="true"] { background: var(--brand-100); color: var(--brand-700); }
-.work-editor { max-width: 760px; }
-.new-work-page { width: min(100%, 760px); margin-inline: auto; }
+.content-page, .work-editor { width: min(100%, 760px); margin-inline: auto; }
 .image-picker-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 16px 0 8px; font-size: 13.5px; font-weight: 600; color: var(--ink-700); }
 .image-picker { position: relative; display: inline-flex; align-items: center; justify-content: center; margin: 0; padding: 8px 14px; border: 1px solid var(--brand-100); border-radius: 8px; background: var(--surface); color: var(--brand-600); font-size: 13px; font-weight: 600; cursor: pointer; overflow: hidden; }
 .image-picker:hover { background: var(--brand-50); }

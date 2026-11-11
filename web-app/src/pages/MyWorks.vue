@@ -85,7 +85,7 @@ onBeforeUnmount(() => revision++)
 </script>
 
 <template>
-  <section>
+  <section class="content-page">
     <div class="feed-toolbar"><h1>我的作品</h1><div class="work-actions"><RouterLink to="/me/works/new">新建草稿</RouterLink><button class="secondary" :disabled="loading" @click="refresh">刷新</button></div></div>
     <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
     <p v-if="error" class="error" role="alert">{{ error }} <button class="quiet" @click="load">重试</button></p>

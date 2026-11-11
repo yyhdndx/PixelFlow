@@ -44,7 +44,7 @@ onBeforeUnmount(reset)
 </script>
 
 <template>
-  <section>
+  <section class="content-page">
     <div class="feed-toolbar"><h1>过往兴趣</h1><RouterLink to="/me/interests">返回兴趣偏好</RouterLink></div>
     <p v-if="error" class="error" role="alert">{{ error }} <button class="quiet" @click="load">重试</button></p>
     <p v-if="loading && !items.length" class="spinner">加载中…</p>

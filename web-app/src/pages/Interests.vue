@@ -93,7 +93,7 @@ onBeforeUnmount(reset)
 </script>
 
 <template>
-  <section>
+  <section class="content-page">
     <h1>兴趣偏好</h1>
     <div class="interest-settings">
       <p v-if="preferencesError" class="error" role="alert">偏好加载失败：{{ preferencesError }} <button v-if="!preferences" class="quiet" @click="loadPreferences">重试</button></p>
