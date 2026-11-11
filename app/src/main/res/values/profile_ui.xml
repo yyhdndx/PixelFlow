@@ -130,4 +130,6 @@
     <string name="insights_empty">你的兴趣画像还在积累中</string>
     <string name="insights_empty_desc">多看看喜欢的内容，之后再来看看。</string>
     <string name="insights_note">基于历史行为的规则分析，非实时更新。</string>
-</resources>
+    <string name="sort_latest">最新发布</string>
+    <string name="sort_likes">最多点赞</string>
+    <string name="sort_favorites">最多收藏</string></resources>
