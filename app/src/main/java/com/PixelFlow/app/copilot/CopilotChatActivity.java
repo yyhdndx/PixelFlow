@@ -348,25 +348,17 @@ public class CopilotChatActivity extends AppCompatActivity {
      * 长文折叠容器：超过 {@link #COLLAPSE_MAX_LINES} 行默认收起，
      * 末尾提供「展开全文 / 收起」切换，避免超长 AI 回复撑满或截断。
      */
-    private View collapsible(TextView text) {
-        int max = COLLAPSE_MAX_LINES;
+    private View collapsible(final TextView text) {
+        final int max = COLLAPSE_MAX_LINES;
         text.setMaxLines(max);
         text.setEllipsize(TextUtils.TruncateAt.END);
-        // 测量行数决定是否提供展开；先按展开布局一次以拿到真实行数
-        text.measure(
-                View.MeasureSpec.makeMeasureSpec(getResources().getDisplayMetrics().widthPixels - dp(140), View.MeasureSpec.AT_MOST),
-                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
-        final boolean expandable = text.getLineCount() > max;
-        if (!expandable) {
-            text.setMaxLines(Integer.MAX_VALUE);
-            text.setEllipsize(null);
-            return text;
-        }
-        TextView toggle = new TextView(this);
+
+        final TextView toggle = new TextView(this);
         toggle.setTextSize(13);
         toggle.setTextColor(Color.parseColor("#6155CE"));
         toggle.setPadding(0, dp(6), 0, 0);
         toggle.setText("展开全文");
+        toggle.setVisibility(View.GONE);
         final boolean[] expanded = {false};
         toggle.setOnClickListener(v -> {
             expanded[0] = !expanded[0];
@@ -374,6 +366,13 @@ public class CopilotChatActivity extends AppCompatActivity {
             text.setEllipsize(expanded[0] ? null : TextUtils.TruncateAt.END);
             toggle.setText(expanded[0] ? "收起" : "展开全文");
         });
+
+        // 布局完成后再读真实行数，超过阈值才显示展开入口；
+        // 之前用 measure 预判在宽度未定时不可靠，导致 toggle 不出现只剩省略号。
+        text.post(() -> {
+            if (text.getLineCount() > max) toggle.setVisibility(View.VISIBLE);
+        });
+
         LinearLayout wrap = new LinearLayout(this);
         wrap.setOrientation(LinearLayout.VERTICAL);
         wrap.addView(text);
