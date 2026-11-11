@@ -161,7 +161,7 @@ class SearchPostsApiTest {
         var feed=json.readTree(mvc.perform(get("/feed/").param("accept_video_clip","true").header("Authorization",bob))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
         assertEquals(feed.get("post_list").get(0),card);
-        assertEquals(Set.of("post_id","title","content","create_time","submit_time","review_time","publish_time","status","author","clips","media_ids","hashtag","music","like_count","comment_count","is_liked","is_favorited"),keys(card));
+        assertEquals(Set.of("post_id","title","content","create_time","submit_time","review_time","publish_time","status","author","clips","media_ids","hashtag","music","like_count","favorite_count","comment_count","is_liked","is_favorited"),keys(card));
     }
 
     Set<String> keys(JsonNode value) { var keys=new HashSet<String>(); value.fieldNames().forEachRemaining(keys::add); return keys; }
