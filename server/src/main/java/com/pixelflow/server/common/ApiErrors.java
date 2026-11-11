@@ -1,6 +1,9 @@
 package com.pixelflow.server.common;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -11,6 +14,7 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class ApiErrors {
+    private static final Logger LOG = LoggerFactory.getLogger(ApiErrors.class);
     public static Map<String,Object> body(int status, String code, String message, Object requestId) {
         return Map.of("status_code", status, "code", code, "message", message,
                 "requestId", requestId == null ? "unknown" : requestId);
@@ -33,9 +37,19 @@ public class ApiErrors {
         return ResponseEntity.status(413).body(body(413,"MEDIA_TOO_LARGE","单文件最多 8 MiB，请求最多 9 MiB",request.getAttribute("requestId")));
     }
     @ExceptionHandler(Exception.class)
-    ResponseEntity<?> unexpected(Exception error,HttpServletRequest request) {
-        int status = error instanceof org.springframework.web.ErrorResponse response ? response.getStatusCode().value() : 500;
-        if (status>=500) org.slf4j.LoggerFactory.getLogger(ApiErrors.class).error("Request failed: requestId={}",request.getAttribute("requestId"));
+    ResponseEntity<?> unexpected(Exception error,HttpServletRequest request,HttpServletResponse response) {
+        int status = error instanceof org.springframework.web.ErrorResponse problem ? problem.getStatusCode().value() : 500;
+        if (status >= 500) {
+            LOG.error("Request failed: {} {} requestId={} error={}",
+                    request.getMethod(), request.getRequestURI(), request.getAttribute("requestId"),
+                    error.getClass().getName(), error);
+        }
+        // 图片等接口可能已经预设 Content-Type（image/png），若不重置会写不出 JSON 错误体
+        if (response.isCommitted()) {
+            LOG.warn("Response committed, skip error body: requestId={}", request.getAttribute("requestId"));
+            return null;
+        }
+        response.setContentType("application/json;charset=UTF-8");
         return ResponseEntity.status(status).body(body(status,status>=500 ? "INTERNAL_ERROR" : "HTTP_ERROR",
                 status>=500 ? "服务暂时不可用" : "请求无法处理",request.getAttribute("requestId")));
     }
