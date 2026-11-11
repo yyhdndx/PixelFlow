@@ -81,7 +81,7 @@ input, textarea {
   padding: 10px 12px; background: var(--surface); color: var(--ink-900);
 }
 input:focus, textarea:focus { border-color: var(--brand-500); box-shadow: 0 0 0 3px #4f5dd51f; outline: none; }
-textarea { resize: vertical; }
+textarea { resize: none; }
 label { display: block; margin: 16px 0; font-size: 13.5px; font-weight: 600; color: var(--ink-700); }
 label input { display: block; margin-top: 6px; font-weight: 400; }
 
