@@ -126,7 +126,7 @@ public class FullScreenMediaDialog extends Dialog {
     private void showSaveImageDialog() {
         // 创建一个简单的对话框询问用户是否保存图片
         com.google.android.material.dialog.MaterialAlertDialogBuilder builder =
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(context);
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(context, R.style.PixelFlowMaterialDialog);
         builder.setTitle("保存图片");
         builder.setMessage("是否保存此图片到相册？");
 

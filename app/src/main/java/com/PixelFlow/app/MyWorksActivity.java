@@ -24,6 +24,7 @@ public class MyWorksActivity extends AccountDataActivity {
     private View loading, empty, retry;
     private TextView status;
     private MyWorksAdapter adapter;
+    private int sortMode = 0; // 0 最新 1 点赞 2 收藏
     private String nextCursor;
     private boolean hasMore = true;
     private boolean inFlight;
@@ -38,6 +39,7 @@ public class MyWorksActivity extends AccountDataActivity {
         empty = findViewById(R.id.my_works_empty);
         status = findViewById(R.id.my_works_status);
         retry = findViewById(R.id.my_works_retry);
+        setupSortBar();
         refresh.setColorSchemeResources(R.color.profile_accent);
         refresh.setOnRefreshListener(() -> load(true));
         retry.setOnClickListener(v -> load(true));
@@ -61,6 +63,43 @@ public class MyWorksActivity extends AccountDataActivity {
     }
 
     @Override protected boolean refreshAfterReturn() { return true; }
+    /** 前端排序：最新 / 点赞 / 收藏，只在已加载的数据里排。 */
+    private void setupSortBar() {
+        findViewById(R.id.sort_latest).setOnClickListener(v -> switchSort(0));
+        findViewById(R.id.sort_likes).setOnClickListener(v -> switchSort(1));
+        findViewById(R.id.sort_favorites).setOnClickListener(v -> switchSort(2));
+    }
+
+    private void switchSort(int mode) {
+        sortMode = mode;
+        int active = getColor(R.color.profile_accent);
+        int muted = getColor(R.color.profile_muted);
+        android.widget.TextView latest = findViewById(R.id.sort_latest);
+        android.widget.TextView likes = findViewById(R.id.sort_likes);
+        android.widget.TextView favorites = findViewById(R.id.sort_favorites);
+        latest.setTextColor(mode == 0 ? active : muted);
+        likes.setTextColor(mode == 1 ? active : muted);
+        favorites.setTextColor(mode == 2 ? active : muted);
+        latest.setTypeface(null, mode == 0 ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        likes.setTypeface(null, mode == 1 ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        favorites.setTypeface(null, mode == 2 ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        applySort();
+    }
+
+    private void applySort() {
+        if (adapter == null) return;
+        java.util.List<com.PixelFlow.app.API.PostItem> data =
+                new java.util.ArrayList<>(adapter.getData());
+        if (sortMode == 1) {
+            data.sort((a, b) -> Integer.compare(b.getLikeCount(), a.getLikeCount()));
+        } else if (sortMode == 2) {
+            data.sort((a, b) -> Integer.compare(b.getFavoriteCount(), a.getFavoriteCount()));
+        } else {
+            data.sort((a, b) -> Long.compare(b.getCreateTime(), a.getCreateTime()));
+        }
+        adapter.setData(data);
+    }
+
     @Override protected void reloadPage() { load(true); }
 
     @Override protected void clearPage() {
@@ -149,6 +188,9 @@ public class MyWorksActivity extends AccountDataActivity {
     private void view(PostItem post) {
         Intent intent = new Intent(this, WorkDetailActivity.class);
         intent.putExtra("work_item", new WorkItem(post));
+        // 从「我的作品」进入，作者本人可在这里撤回
+        intent.putExtra("owned", true);
+        intent.putExtra("post_status", post.getStatus());
         startActivity(intent);
         overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
     }

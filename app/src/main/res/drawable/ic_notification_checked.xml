@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp" android:height="32dp"
+    android:viewportWidth="32" android:viewportHeight="32">
+    <path android:fillColor="@color/profile_accent"
+        android:pathData="M8,6 L24,6 Q26,6 26,8 L26,24 Q26,26 24,26 L8,26 Q6,26 6,24 L6,8 Q6,6 8,6 Z" />
+    <path android:fillColor="@color/white"
+        android:pathData="M10,16 L11.5,14.5 L14.5,17.5 L21,11 L22.5,12.5 L14.5,20.5 Z" />
+</vector>

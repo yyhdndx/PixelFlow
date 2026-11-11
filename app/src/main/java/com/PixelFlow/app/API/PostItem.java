@@ -10,9 +10,11 @@ public class PostItem {
     private String title;
     private String content;
     @SerializedName("like_count") private int likeCount;
+    @SerializedName("favorite_count") private int favoriteCount;
     @SerializedName("is_liked") private boolean liked;
     @SerializedName("is_favorited") private boolean favorited;
     public int getLikeCount() { return Math.max(0, likeCount); }
+    public int getFavoriteCount() { return Math.max(0, favoriteCount); }
     public boolean isLiked() { return liked; }
     public boolean isFavorited() { return favorited; }
     public void setFavorited(boolean favorited) { this.favorited = favorited; }

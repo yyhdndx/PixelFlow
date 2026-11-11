@@ -266,7 +266,7 @@ public class ProfileFragment extends Fragment {
         avatarModel.clear();
     }
     private void confirmLogout() {
-        new MaterialAlertDialogBuilder(requireContext())
+        new MaterialAlertDialogBuilder(requireContext(), R.style.PixelFlowMaterialDialog)
                 .setTitle(R.string.profile_logout)
                 .setMessage(R.string.profile_logout_desc)
                 .setNegativeButton(R.string.profile_cancel, null)

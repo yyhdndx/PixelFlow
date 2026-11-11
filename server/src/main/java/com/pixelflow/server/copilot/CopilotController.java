@@ -24,7 +24,7 @@ public class CopilotController {
 
     public record HistoryItem(@Pattern(regexp="user|assistant") String role,
                               @NotBlank @Size(max=500) String content) {}
-    public record Request(@NotBlank @Pattern(regexp="detail|create|messages") String screen,
+    public record Request(@NotBlank @Pattern(regexp="detail|create|messages|general") String screen,
                           @Pattern(regexp="[1-9][0-9]{0,18}") String postId,
                           @Pattern(regexp="[1-9][0-9]{0,18}") String draftId,
                           @Size(max=MAX_CONVERSATIONS) List<@Pattern(regexp="[1-9][0-9]{0,18}") String> conversationIds,
@@ -63,6 +63,8 @@ public class CopilotController {
         } else if ("create".equals(screen)) {
             if (input.draftId() == null) throw new ApiException(400,"INVALID_ARGUMENT","create 需要 draftId");
             context = draftContext(actor, input.draftId());
+        } else if ("general".equals(screen)) {
+            context = generalContext(input.message());
         } else {
             var ids = input.conversationIds() == null ? List.<String>of() : input.conversationIds();
             if (ids.isEmpty()) throw new ApiException(400,"INVALID_ARGUMENT","messages 需要 conversationIds");
@@ -88,6 +90,12 @@ public class CopilotController {
         return response;
     }
 
+    /** 通用对话：检索交给模型通过 search_site 工具决定，这里只给空参考。 */
+    private Map<String,Object> generalContext(String message) {
+        Map<String,Object> context = new LinkedHashMap<>();
+        context.put("references", List.of());
+        return context;
+    }
     /** 二次校验：即使模型或 Python 端出错，也不让越界动作离开网关。 */
     private List<Map<String,Object>> validate(String screen, List<Map<String,Object>> actions,
                                               Map<String,Object> context, Set<String> allowedConversations) {
@@ -100,6 +108,16 @@ public class CopilotController {
                 if (text.isEmpty() || text.length() > MAX_COMMENT) continue;
                 Map<String,Object> item = new LinkedHashMap<>();
                 item.put("type","POST_COMMENT"); item.put("text",text); item.put("rationale",rationale);
+                kept.add(item);
+            } else if ("general".equals(screen) && "CREATE_DRAFT".equals(type)) {
+                String content = string(action.get("content"));
+                String title = string(action.get("title"));
+                if (content.isEmpty() && title.isEmpty()) continue;
+                if (content.length() > 5000 || title.length() > 120) continue;
+                Map<String,Object> item = new LinkedHashMap<>();
+                item.put("type","CREATE_DRAFT"); item.put("content",content);
+                if (!title.isEmpty()) item.put("title",title);
+                item.put("rationale",rationale);
                 kept.add(item);
             } else if ("create".equals(screen) && "UPDATE_DRAFT".equals(type)) {
                 String content = string(action.get("content"));

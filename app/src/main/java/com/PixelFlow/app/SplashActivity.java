@@ -25,7 +25,6 @@ public class SplashActivity extends AppCompatActivity {
 
     private FrameLayout logoContainer;  // 保持为FrameLayout
     private ImageView logoImageView;
-    private TextView appNameTextView;
     private FrameLayout rootLayout;     // 改为FrameLayout
 
     // 动画配置
@@ -41,6 +40,10 @@ public class SplashActivity extends AppCompatActivity {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        // 海报铺满全屏：让内容也布局到状态栏区域，避免顶部露出黑边
+        getWindow().getDecorView().setSystemUiVisibility(
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
         setContentView(R.layout.activity_splash);
 
         // 隐藏状态栏和导航栏
@@ -66,7 +69,6 @@ public class SplashActivity extends AppCompatActivity {
         // 获取布局中的各个View - 使用正确的类型
         logoContainer = findViewById(R.id.logo_container);
         logoImageView = findViewById(R.id.iv_logo);
-        appNameTextView = findViewById(R.id.tv_app_name);
         rootLayout = findViewById(R.id.root_layout);
 
         // 初始状态：海报稍微缩小并透明
@@ -75,8 +77,6 @@ public class SplashActivity extends AppCompatActivity {
         logoContainer.setAlpha(0f);
 
         // App名称初始隐藏
-        appNameTextView.setAlpha(0f);
-        appNameTextView.setTranslationY(40f);
     }
 
     private void startSplashAnimation() {
@@ -97,14 +97,8 @@ public class SplashActivity extends AppCompatActivity {
         scaleUpY.setInterpolator(new OvershootInterpolator(0.5f));
 
         // App名称动画（在淡入后期开始）
-        ObjectAnimator appNameFadeIn = ObjectAnimator.ofFloat(appNameTextView, "alpha", 0f, 1f);
-        ObjectAnimator appNameSlideUp = ObjectAnimator.ofFloat(appNameTextView, "translationY", 40f, 0f);
-        appNameFadeIn.setDuration(600);
-        appNameSlideUp.setDuration(600);
-        appNameFadeIn.setStartDelay(FADE_IN_DURATION - 400);
-        appNameSlideUp.setStartDelay(FADE_IN_DURATION - 400);
 
-        enterAnimator.playTogether(fadeIn, scaleUpX, scaleUpY, appNameFadeIn, appNameSlideUp);
+        enterAnimator.playTogether(fadeIn, scaleUpX, scaleUpY);
 
         enterAnimator.addListener(new AnimatorListenerAdapter() {
             @Override
@@ -140,10 +134,8 @@ public class SplashActivity extends AppCompatActivity {
         fadeOut.setInterpolator(new AccelerateInterpolator());
 
         // App名称也淡出
-        ObjectAnimator appNameFadeOut = ObjectAnimator.ofFloat(appNameTextView, "alpha", 1f, 0f);
-        appNameFadeOut.setDuration(FADE_OUT_DURATION - 200);
 
-        exitAnimator.playTogether(fadeOut, appNameFadeOut);
+        exitAnimator.play(fadeOut);
 
         exitAnimator.addListener(new AnimatorListenerAdapter() {
             @Override

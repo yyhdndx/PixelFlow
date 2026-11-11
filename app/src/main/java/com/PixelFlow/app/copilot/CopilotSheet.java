@@ -241,7 +241,9 @@ public class CopilotSheet extends BottomSheetDialogFragment {
     private View bubble(CopilotStore.Entry entry) {
         boolean user = "user".equals(entry.role);
         TextView bubble = new TextView(requireContext());
-        bubble.setText(entry.text);
+        // 先开启可选，再以 SPANNABLE 缓冲写入文本，长按才会出现选择/复制
+        bubble.setTextIsSelectable(true);
+        bubble.setText(entry.text, TextView.BufferType.SPANNABLE);
         bubble.setTextSize(14);
         bubble.setTextColor(Color.parseColor(user ? "#1A1A1A" : "#1A1A1A"));
         bubble.setLineSpacing(dp(2), 1f);
@@ -249,10 +251,18 @@ public class CopilotSheet extends BottomSheetDialogFragment {
         bg.setColor(user ? Color.parseColor("#EFEDFF") : Color.WHITE);
         bg.setCornerRadius(dp(14));
         bubble.setBackground(bg);
-        bubble.setPadding(dp(12), dp(10), dp(12), dp(10));
+        bubble.setPadding(dp(14), dp(10), dp(14), dp(10));
+        // 自己的消息靠右、AI 靠左，两侧留出空白
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         params.topMargin = dp(8);
+        if (user) {
+            params.gravity = android.view.Gravity.END;
+            params.leftMargin = dp(56);
+        } else {
+            params.gravity = android.view.Gravity.START;
+            params.rightMargin = dp(56);
+        }
         bubble.setLayoutParams(params);
         return bubble;
     }
@@ -260,7 +270,9 @@ public class CopilotSheet extends BottomSheetDialogFragment {
     private View actionCard(CopilotAction action, CopilotStore.Entry owner) {
         View card = LayoutInflater.from(requireContext()).inflate(R.layout.item_copilot_action, messages, false);
         ((TextView) card.findViewById(R.id.action_title)).setText(action.summaryTitle());
-        ((TextView) card.findViewById(R.id.action_body)).setText(bodyOf(action));
+        TextView actionBody = card.findViewById(R.id.action_body);
+        actionBody.setText(bodyOf(action));
+        actionBody.setTextIsSelectable(true);
         TextView rationale = card.findViewById(R.id.action_rationale);
         rationale.setText(action.rationale);
         rationale.setVisibility(action.rationale.isEmpty() ? View.GONE : View.VISIBLE);
@@ -273,9 +285,24 @@ public class CopilotSheet extends BottomSheetDialogFragment {
         apply.setVisibility(pending ? View.VISIBLE : View.GONE);
         ignore.setVisibility(pending ? View.VISIBLE : View.GONE);
         regenerate.setVisibility(CopilotAction.STALE.equals(action.status) ? View.VISIBLE : View.GONE);
-        if (!pending && !CopilotAction.STALE.equals(action.status))
-            rationale.setText(CopilotAction.APPLIED.equals(action.status)
-                    ? getString(R.string.copilot_applied) : getString(R.string.copilot_ignored));
+        TextView statusChip = card.findViewById(R.id.action_status);
+        if (CopilotAction.APPLIED.equals(action.status)) {
+            statusChip.setText("✓ " + getString(R.string.copilot_applied));
+            statusChip.setTextColor(requireContext().getColor(R.color.profile_accent));
+            statusChip.setBackgroundResource(R.drawable.bg_action_status);
+            statusChip.setVisibility(View.VISIBLE);
+            rationale.setVisibility(View.GONE);
+            card.findViewById(R.id.action_body).setAlpha(0.75f);
+        } else if (CopilotAction.IGNORED.equals(action.status)) {
+            statusChip.setText(getString(R.string.copilot_ignored));
+            statusChip.setTextColor(requireContext().getColor(R.color.profile_muted));
+            statusChip.setBackgroundResource(R.drawable.bg_action_status);
+            statusChip.setVisibility(View.VISIBLE);
+            rationale.setVisibility(View.GONE);
+            card.findViewById(R.id.action_body).setAlpha(0.6f);
+        } else {
+            statusChip.setVisibility(View.GONE);
+        }
 
         apply.setOnClickListener(v -> applyAction(action));
         ignore.setOnClickListener(v -> {

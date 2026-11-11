@@ -117,7 +117,7 @@ public class AutoReplyActivity extends AppCompatActivity {
 
     private void confirmDelete(AutoReplyRule rule) {
         if (writing || loadingRules) return;
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.PixelFlowAppCompatDialog)
                 .setMessage("删除这条自动回复规则？")
                 .setNegativeButton(R.string.auto_reply_cancel, null)
                 .setPositiveButton(R.string.auto_reply_delete, (d, w) -> {

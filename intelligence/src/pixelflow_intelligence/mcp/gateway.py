@@ -70,6 +70,36 @@ class JavaGateway:
         except ValueError:
             raise GatewayError("INVALID_UPSTREAM_RESPONSE", "业务服务返回了无法解析的响应") from None
 
+    # -- interactions & comments -------------------------------------------
+    def create_comment(self, post_id: str, content: str) -> dict:
+        return self._request("POST", f"/api/posts/{post_id}/comments",
+                             json_body={"content": content})
+
+    def set_interaction(self, kind: str, target_id: str, active: bool) -> dict:
+        return self._request("PUT", f"/api/interactions/{kind}",
+                             json_body={"targetId": target_id, "active": active})
+
+    def send_messages(self, items: list[dict]) -> dict:
+        return self._request("POST", "/api/conversations/messages/batch",
+                             json_body={"items": items})
+    # -- read --------------------------------------------------------------
+    def get_post(self, post_id: str) -> dict:
+        body = self._request("GET", f"/api/posts/{post_id}")
+        if not isinstance(body, dict):
+            raise GatewayError("INVALID_UPSTREAM_RESPONSE", "业务服务返回了非预期的作品详情")
+        return body
+
+    def search_posts(self, query: str, count: int = 10) -> dict:
+        return self._request("GET", "/api/search/posts",
+                             params={"q": query, "count": count})
+
+    # -- auto reply --------------------------------------------------------
+    def list_auto_replies(self, post_id: str) -> dict:
+        return self._request("GET", f"/api/posts/{post_id}/auto-replies")
+
+    def create_auto_reply(self, post_id: str, question: str, answer: str) -> dict:
+        return self._request("POST", f"/api/posts/{post_id}/auto-replies",
+                             json_body={"question": question, "answer": answer})
     # -- media -------------------------------------------------------------
     def upload_media(self, filename: str, content: bytes, content_type: str) -> dict:
         return self._request("POST", "/api/media",

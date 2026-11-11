@@ -265,11 +265,11 @@ public class MessagesFragment extends Fragment {
         reply.setChecked(muted.contains("REPLY"));
         like.setChecked(muted.contains("LIKE"));
 
-        new android.app.AlertDialog.Builder(getContext())
+        new android.app.AlertDialog.Builder(getContext(), R.style.PixelFlowPlatformDialog)
                 .setTitle(R.string.messages_settings)
                 .setView(content)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.confirm, (dialog, which) -> {
                     Set<String> next = new LinkedHashSet<>();
                     if (mention.isChecked()) next.add("MENTION");
                     if (reply.isChecked()) next.add("REPLY");
