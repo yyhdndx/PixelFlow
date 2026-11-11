@@ -15,13 +15,33 @@ public class AgentInternalController {
     private static final String UUID_RE = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 
     private final JdbcTemplate db;
+    private final String serviceToken;
 
-    public AgentInternalController(JdbcTemplate db) { this.db = db; }
+    public AgentInternalController(JdbcTemplate db,
+            @Value("${PIXELFLOW_INTELLIGENCE_TOKEN:}") String serviceToken) {
+        this.db = db;
+        this.serviceToken = serviceToken;
+    }
 
+    /** 只允许本机回环 + 服务令牌调用；随后按 actor 限定数据范围。 */
+    private void authorize(jakarta.servlet.http.HttpServletRequest request, String rawActor) {
+        String remote = request.getRemoteAddr();
+        boolean loopback = "127.0.0.1".equals(remote) || "::1".equals(remote)
+                || "0:0:0:0:0:0:0:1".equals(remote);
+        String header = request.getHeader("X-Service-Token");
+        boolean tokenOk = serviceToken.length() >= 32 && header != null
+                && java.security.MessageDigest.isEqual(
+                    serviceToken.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                    header.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        if (!loopback || !tokenOk) throw new ApiException(401, "UNAUTHORIZED", "内部接口访问被拒绝");
+        actor(rawActor);
+    }
     /** 我最近的会话：对方昵称、最后一条消息、未读数。 */
     @GetMapping("/internal/agent/conversations")
     public Map<String,Object> conversations(@RequestHeader("X-Actor-Id") String rawActor,
-                                            @RequestParam(defaultValue = "8") int limit) {
+                                            @RequestParam(defaultValue = "8") int limit,
+                                            jakarta.servlet.http.HttpServletRequest request) {
+        authorize(request, rawActor);
         String actor = actor(rawActor);
         int size = Math.max(1, Math.min(20, limit));
         var rows = db.query("""
@@ -59,7 +79,9 @@ public class AgentInternalController {
     public Map<String,Object> messages(@RequestHeader("X-Actor-Id") String rawActor,
                                        @PathVariable String peerId,
                                        @RequestParam(defaultValue = "0") long beforeId,
-                                       @RequestParam(defaultValue = "20") int limit) {
+                                       @RequestParam(defaultValue = "20") int limit,
+                                       jakarta.servlet.http.HttpServletRequest request) {
+        authorize(request, rawActor);
         String actor = actor(rawActor);
         String peer = actor(peerId);
         if (actor.equals(peer)) throw new ApiException(400,"INVALID_ARGUMENT","peerId 不能是自己");
