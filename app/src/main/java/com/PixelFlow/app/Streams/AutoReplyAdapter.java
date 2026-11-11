@@ -23,6 +23,8 @@ public class AutoReplyAdapter extends RecyclerView.Adapter<AutoReplyAdapter.Hold
 
     private final List<AutoReplyRule> items = new ArrayList<>();
     private Listener listener;
+    private boolean busy;
+    public void setBusy(boolean value) { busy = value; notifyDataSetChanged(); }
 
     public void setListener(Listener listener) { this.listener = listener; }
 
@@ -43,6 +45,9 @@ public class AutoReplyAdapter extends RecyclerView.Adapter<AutoReplyAdapter.Hold
     @Override
     public void onBindViewHolder(@NonNull Holder holder, int position) {
         AutoReplyRule rule = items.get(position);
+        holder.toggle.setEnabled(!busy);
+        holder.delete.setEnabled(!busy);
+        holder.itemView.setEnabled(!busy);
         holder.question.setText(rule.question);
         holder.answer.setText(rule.answer);
         holder.toggle.setOnCheckedChangeListener(null);

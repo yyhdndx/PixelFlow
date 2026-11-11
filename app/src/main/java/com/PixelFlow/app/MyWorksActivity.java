@@ -62,6 +62,7 @@ public class MyWorksActivity extends AccountDataActivity {
         });
     }
 
+    @Override protected boolean refreshAfterReturn() { return true; }
     /** 前端排序：最新 / 点赞 / 收藏，只在已加载的数据里排。 */
     private void setupSortBar() {
         findViewById(R.id.sort_latest).setOnClickListener(v -> switchSort(0));
@@ -158,8 +159,14 @@ public class MyWorksActivity extends AccountDataActivity {
     }
 
     private void withdraw(String id) {
-        if (!beginWrite()) return;
-        api.withdrawPost(id, writeResult("已撤回"));
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("撤回作品？")
+                .setMessage("撤回后作品将不再出现在公共信息流中。")
+                .setNegativeButton("取消", null)
+                .setPositiveButton("撤回", (dialog, which) -> {
+                    if (!beginWrite()) return;
+                    api.withdrawPost(id, writeResult("已撤回"));
+                }).show();
     }
 
     private void edit(PostItem post) {

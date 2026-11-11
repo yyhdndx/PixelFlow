@@ -14,6 +14,9 @@ public class InterestProfileActivity extends AppCompatActivity {
     private LinearLayout topics;
     private TextView status;
     private View loading, retry;
+    private boolean loaded;
+    private long session = -1;
+    private int generation;
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state); setContentView(R.layout.activity_interest_profile);
         api = ApiClient.getInstance(this); topics = findViewById(R.id.insights_topics); status = findViewById(R.id.insights_status);
@@ -22,15 +25,19 @@ public class InterestProfileActivity extends AppCompatActivity {
         findViewById(R.id.insights_history).setOnClickListener(v -> startActivity(new Intent(this, HistoryProfileActivity.class)));
         findViewById(R.id.insights_preferences).setOnClickListener(v -> startActivity(new Intent(this, PreferencesActivity.class)));
     }
-    @Override protected void onResume() { super.onResume(); load(); }
+    @Override protected void onResume() { super.onResume(); if (!loaded || session != api.sessionVersion()) load(); }
     private void load() {
+        final int request = ++generation;
+        session = api.sessionVersion();
+        loaded = false;
         if (job != null) job.cancel();
         topics.removeAllViews(); topics.setVisibility(View.GONE); status.setVisibility(View.GONE); retry.setVisibility(View.GONE);
         if (!api.isLoggedIn()) { status.setText("请登录后查看兴趣画像"); status.setVisibility(View.VISIBLE); loading.setVisibility(View.GONE); return; }
         loading.setVisibility(View.VISIBLE);
         job = api.getProfile(new CommunityClient.Callback<JsonObject>() {
             public void onSuccess(JsonObject value) {
-                if (isFinishing() || isDestroyed()) return;
+                if (isFinishing() || isDestroyed() || request != generation || session != api.sessionVersion()) return;
+                loaded = true;
                 loading.setVisibility(View.GONE); topics.setVisibility(View.VISIBLE);
                 JsonArray entries = value.getAsJsonArray("topics");
                 if (entries.size() == 0) { line(getString(R.string.insights_empty), true); line(getString(R.string.insights_empty_desc), false); }
@@ -44,7 +51,7 @@ public class InterestProfileActivity extends AppCompatActivity {
                 }
             }
             public void onFailure(String message) {
-                if (isFinishing() || isDestroyed()) return;
+                if (isFinishing() || isDestroyed() || request != generation || session != api.sessionVersion()) return;
                 loading.setVisibility(View.GONE); status.setText(message); status.setVisibility(View.VISIBLE); retry.setVisibility(View.VISIBLE);
             }
         });
@@ -55,5 +62,5 @@ public class InterestProfileActivity extends AppCompatActivity {
         int padding = (int)(12 * getResources().getDisplayMetrics().density); view.setPadding(0, padding, 0, padding);
         topics.addView(view);
     }
-    @Override protected void onStop() { if (job != null) job.cancel(); super.onStop(); }
+    @Override protected void onStop() { generation++; if (job != null) job.cancel(); super.onStop(); }
 }

@@ -25,6 +25,7 @@ public class SearchStreamingFlowTest {
                 + "event: delta\ndata: {\"request_id\":\"r\",\"seq\":3,\"text\":\"先出现的正文\"}\n\n";
         String done = "event: done\ndata: {\"request_id\":\"r\",\"seq\":4,\"answer\":\"先出现的正文\",\"session_id\":\"s\",\"trace_id\":\"t\",\"sources\":[],\"validated\":true,\"degraded\":0}\n\n";
         AtomicInteger calls = new AtomicInteger();
+        AtomicInteger listCalls = new AtomicInteger();
         try (MockWebServer server = new MockWebServer()) {
             server.setDispatcher(new Dispatcher() {
                 public MockResponse dispatch(RecordedRequest request) {
@@ -33,6 +34,7 @@ public class SearchStreamingFlowTest {
                         return new MockResponse().setHeader("Content-Type", "text/event-stream")
                                 .setBody(prefix + done).throttleBody(prefix.getBytes(java.nio.charset.StandardCharsets.UTF_8).length, 5, TimeUnit.SECONDS);
                     }
+                    listCalls.incrementAndGet();
                     return new MockResponse().setBody("{\"status_code\":0,\"has_more\":0,\"post_list\":[]}");
                 }
             });
@@ -53,8 +55,10 @@ public class SearchStreamingFlowTest {
                 awaitAnswer(screen);
                 screen.onActivity(activity -> assertEquals(InstrumentationRegistry.getInstrumentation().getTargetContext().getString(R.string.ai_stream_generating),
                         ((TextView) activity.findViewById(R.id.ai_degraded)).getText().toString()));
+                int beforeRotation = listCalls.get();
                 screen.recreate();
                 awaitAnswer(screen);
+                assertEquals(beforeRotation, listCalls.get());
                 assertEquals(1, calls.get());
                 Thread.sleep(5500);
                 screen.onActivity(activity -> assertEquals("先出现的正文", ((TextView) activity.findViewById(R.id.ai_answer)).getText().toString()));
@@ -171,6 +175,7 @@ public class SearchStreamingFlowTest {
 
     @Test public void expiredSearchRequiresExplicitSubmissionAndFullRegistryShowsReason() throws Exception {
         AtomicInteger calls = new AtomicInteger();
+        AtomicInteger listCalls = new AtomicInteger();
         AtomicInteger lists = new AtomicInteger();
         try (MockWebServer server = new MockWebServer()) {
             server.setDispatcher(new Dispatcher() {

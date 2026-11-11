@@ -151,6 +151,61 @@
                 android:layout_marginTop="4dp"
                 android:layout_marginBottom="18dp" />
 
+            <!-- Completed AI edits: confirm, undo, or refine in place. -->
+            <LinearLayout
+                android:id="@+id/creation_assist_actions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/creation_assist_accept"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="3dp"
+                    android:minHeight="48dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="8dp"
+                    android:text="接受"
+                    android:textSize="14sp"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    app:backgroundTint="#23834B"
+                    app:cornerRadius="10dp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/creation_assist_undo"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="3dp"
+                    android:minHeight="48dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="8dp"
+                    android:text="撤销"
+                    android:textSize="14sp"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    app:backgroundTint="#C63F43"
+                    app:cornerRadius="10dp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/creation_assist_refine"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="3dp"
+                    android:minHeight="48dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="8dp"
+                    android:text="继续修改"
+                    android:textSize="14sp"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    app:backgroundTint="#626974"
+                    app:cornerRadius="10dp" />
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/creation_status"
                 android:layout_width="match_parent"
@@ -256,19 +311,6 @@
                 android:orientation="horizontal">
 
                 <Button
-                    android:id="@+id/creation_assist_refine"
-                    android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:layout_weight="1"
-                    android:background="@android:color/transparent"
-                    android:text="继续修改"
-                    android:textAllCaps="false"
-                    android:textColor="@color/profile_accent"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
-
-                <Button
                     android:id="@+id/creation_retry"
                     android:layout_width="0dp"
                     android:layout_height="40dp"
@@ -305,11 +347,6 @@
                     android:textColor="@color/profile_muted"
                     android:textSize="12sp"
                     android:visibility="gone" />
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/creation_assist_undo"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="@string/ai_creation_undo" android:visibility="gone" />
             </LinearLayout>
 
             <!-- 话题标签 -->
