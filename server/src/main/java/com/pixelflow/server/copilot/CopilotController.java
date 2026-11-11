@@ -64,7 +64,7 @@ public class CopilotController {
             if (input.draftId() == null) throw new ApiException(400,"INVALID_ARGUMENT","create 需要 draftId");
             context = draftContext(actor, input.draftId());
         } else if ("general".equals(screen)) {
-            context = generalContext(input.message());
+            context = generalContext(actor, input.message());
         } else {
             var ids = input.conversationIds() == null ? List.<String>of() : input.conversationIds();
             if (ids.isEmpty()) throw new ApiException(400,"INVALID_ARGUMENT","messages 需要 conversationIds");
@@ -92,12 +92,44 @@ public class CopilotController {
     }
 
     /** 通用对话：检索交给模型通过 search_site 工具决定，这里只给空参考。 */
-    private Map<String,Object> generalContext(String message) {
+    private Map<String,Object> generalContext(com.pixelflow.server.auth.AuthService.Actor actor, String message) {
         Map<String,Object> context = new LinkedHashMap<>();
         context.put("references", List.of());
+        // 只把调用者自己的 id 交给模型侧工具，用于读取其私信；越权在 /internal/agent 再校验一次
+        if (actor != null && actor.id() != null) context.put("actorId", actor.id());
         return context;
     }
     /** 二次校验：即使模型或 Python 端出错，也不让越界动作离开网关。 */
+    /** 允许模型给会话 id 或对方 user id：都解析成属于当前用户的会话。 */
+    private Long resolveConversation(Map<String,Object> context, String raw) {
+        String actorId = String.valueOf(context.getOrDefault("actorId", ""));
+        if (actorId.isEmpty()) return null;
+        if (raw != null && raw.matches("[1-9][0-9]{0,18}")) {
+            Long count = db.queryForObject(
+                    "SELECT COUNT(*) FROM conversations WHERE id=? AND (user_low=? OR user_high=?)",
+                    Long.class, Long.parseLong(raw), actorId, actorId);
+            return count != null && count > 0 ? Long.parseLong(raw) : null;
+        }
+        if (raw != null && raw.matches("[0-9a-fA-F-]{36}")) {
+            String peer = raw.toLowerCase(java.util.Locale.ROOT);
+            if (peer.equals(actorId)) return null;
+            String low = actorId.compareTo(peer) < 0 ? actorId : peer;
+            String high = actorId.compareTo(peer) < 0 ? peer : actorId;
+            var rows = db.queryForList("SELECT id FROM conversations WHERE user_low=? AND user_high=?", low, high);
+            return rows.isEmpty() ? null : ((Number) rows.get(0).get("id")).longValue();
+        }
+        return null;
+    }
+    /** 校验会话确实属于当前用户（通用对话代回私信时使用）。 */
+    private boolean ownsConversation(Map<String,Object> context, String conversationId) {
+        Object actorId = context.get("actorId");
+        if (actorId == null) return false;
+        Long count = db.queryForObject(
+                "SELECT COUNT(*) FROM conversations WHERE id=? AND (user_low=? OR user_high=?)",
+                Long.class, Long.parseLong(conversationId), String.valueOf(actorId), String.valueOf(actorId));
+        return count != null && count > 0;
+    }
+
     private List<Map<String,Object>> validate(String screen, List<Map<String,Object>> actions,
                                               Map<String,Object> context, Set<String> allowedConversations) {
         List<Map<String,Object>> kept = new ArrayList<>();
@@ -130,6 +162,32 @@ public class CopilotController {
                 if (!title.isEmpty()) item.put("title",title);
                 item.put("rationale",rationale);
                 kept.add(item);
+            } else if ("general".equals(screen) && "SEND_MESSAGES".equals(type)) {
+                // 通用对话里代回私信：会话必须属于调用者本人
+                List<Map<String,Object>> items = new ArrayList<>();
+                Set<String> seenConversations = new HashSet<>();
+                Object rawGeneral = action.get("items");
+                if (rawGeneral instanceof List<?> list) {
+                    for (Object entry : list) {
+                        if (!(entry instanceof Map<?,?> map)) continue;
+                        String conversation = string(map.get("conversation_id"));
+                        String text = string(map.get("text"));
+                        if (!conversation.matches("[1-9][0-9]{0,18}") || !seenConversations.add(conversation)) continue;
+                        if (text.isEmpty() || text.length() > MAX_MESSAGE) continue;
+                        if (!ownsConversation(context, conversation)) continue;
+                        Map<String,Object> message = new LinkedHashMap<>();
+                        message.put("conversation_id", conversation);
+                        message.put("text", text);
+                        items.add(message);
+                        if (items.size() >= MAX_CONVERSATIONS) break;
+                    }
+                }
+                if (!items.isEmpty()) {
+                    Map<String,Object> item = new LinkedHashMap<>();
+                    item.put("type","SEND_MESSAGES"); item.put("items",items);
+                    item.put("rationale",rationale);
+                    kept.add(item);
+                }
             } else if ("messages".equals(screen) && "SEND_MESSAGES".equals(type)) {
                 List<Map<String,Object>> items = new ArrayList<>();
                 Set<String> seen = new HashSet<>();
