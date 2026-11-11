@@ -340,6 +340,18 @@ public class CommunityClient implements AutoCloseable {
             return result;
         }, callback);
     }
+    /** 首页个性化推荐（首屏）；失败时服务端会自行降级为普通 Feed。 */
+    public Job getRecommendedFeed(int count, Callback<ApiResponse> callback) {
+        return submit((job, expected) -> {
+            if (count < 1 || count > 20) throw new ApiError(400, "推荐条数无效");
+            ApiResponse result = gson.fromJson(authenticated(job,
+                    "/api/recommendations/me/feed?count=" + count, "GET", null, expected, false),
+                    ApiResponse.class);
+            if (result == null || result.getStatusCode() != 0 || result.getPostList() == null)
+                throw new ApiError(0, "推荐列表响应不完整");
+            return result;
+        }, callback);
+    }
     /** 关键词搜索公开作品；契约见 contracts/http/java-api.yaml 的 /api/search/posts。游客可用。 */
     public Job searchPosts(String query, int count, String cursor, Callback<ApiResponse> callback) {
         return submit((job, expected) -> {
