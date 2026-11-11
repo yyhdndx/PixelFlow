@@ -95,9 +95,9 @@
         <EditText
             android:id="@+id/chat_input"
             android:layout_width="0dp"
-            android:layout_height="44dp"
+            android:layout_height="40dp"
             android:layout_weight="1"
-            android:background="@drawable/bg_form_card"
+            android:background="@drawable/bg_input_field"
             android:hint="@string/copilot_hint"
             android:importantForAutofill="no"
             android:inputType="textMultiLine"
