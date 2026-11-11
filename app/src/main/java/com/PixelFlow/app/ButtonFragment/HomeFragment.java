@@ -386,7 +386,7 @@ public class HomeFragment extends Fragment {
                     }
                     List<WorkItem> unique = FeedItems.unique(incoming,
                             isRefresh ? Collections.emptyList() : adapter.getData());
-                    if (isRefresh && source != FOLLOWING_TAB) Collections.shuffle(unique);
+                    // 首屏若走个性化推荐，顺序即推荐顺序，不能再随机打乱；普通 Feed 也保持稳定顺序
                     feeds[source].initialized = true;
                     feedError = null;
                     finishFeedRequest();
@@ -433,7 +433,9 @@ public class HomeFragment extends Fragment {
             }
         };
         ApiClient api = ApiClient.getInstance(requireContext());
+        boolean recommendFirstScreen = isRefresh && source != FOLLOWING_TAB;
         activeFeedCall = source == FOLLOWING_TAB ? api.getFollowingFeed(50, requestedCursor, callback)
+                : recommendFirstScreen ? api.getRecommendedFeed(20, callback)
                 : api.getFeed(50, requestedCursor, callback);
     }
 

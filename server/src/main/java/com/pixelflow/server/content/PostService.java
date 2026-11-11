@@ -154,6 +154,13 @@ public class PostService {
         return result;
     }
 
+    /** 推荐交付用：按 id 取已发布卡片；不存在或不可见返回 null。 */
+    public Map<String,Object> recommendedCard(String postId, Actor actor) {
+        if (postId == null || !postId.matches("[1-9][0-9]{0,17}")) return null;
+        var rows = db.queryForList("SELECT p.*,u.nickname,u.avatar FROM posts p JOIN users u ON p.author_id=u.id "
+                + "WHERE p.id=? AND p.status='PUBLISHED' AND u.enabled=TRUE", Long.parseLong(postId));
+        return rows.isEmpty() ? null : withViewerState(view(rows.get(0)), actor);
+    }
     public List<Map<String,Object>> mine(Actor actor,int count,Long cursor) {
         checkPage(count,cursor);
         return db.queryForList("SELECT p.*,u.nickname,u.avatar FROM posts p JOIN users u ON p.author_id=u.id WHERE p.author_id=? AND p.id<? ORDER BY p.id DESC LIMIT ?",
