@@ -135,12 +135,12 @@ public class MediaService {
     }
     private boolean visible(String id,Actor actor) {
         // 条件与原查询一致：不能通过猜测 UUID 访问私有媒体。
-        Integer one=db.queryForObject("SELECT 1 FROM media m WHERE m.id=? AND "
+        var rows=db.query("SELECT 1 FROM media m WHERE m.id=? AND "
                 + "(m.owner_id=? OR ?=TRUE OR EXISTS (SELECT 1 FROM post_media pm JOIN posts p ON pm.post_id=p.id "
                 + "JOIN users u ON p.author_id=u.id WHERE pm.media_id=m.id AND p.status='PUBLISHED' AND u.enabled=TRUE)"
                 + " OR EXISTS (SELECT 1 FROM users au WHERE au.avatar_media_id=m.id AND au.enabled=TRUE))",
-                Integer.class,id,actor==null ? "" : actor.id(),actor!=null && actor.role().equals("ADMIN"));
-        return one!=null;
+                (rs,n)->1,id,actor==null ? "" : actor.id(),actor!=null && actor.role().equals("ADMIN"));
+        return !rows.isEmpty();
     }
     public String url(String id) { return base+"/api/media/"+id+"/content"; }
     private static ApiException invalid(String message) { return new ApiException(400,"INVALID_MEDIA",message); }
