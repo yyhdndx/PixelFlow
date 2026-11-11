@@ -19,7 +19,8 @@ public class MediaService {
     public static final int MAX_BYTES=8*1024*1024;
     private final JdbcTemplate db;
     private final String base;
-    public MediaService(JdbcTemplate db,@Value("${pixelflow.public-base-url}") String base) {
+    private final MediaContentCache mediaCache;
+    public MediaService(JdbcTemplate db,@Value("${pixelflow.public-base-url}") String base,MediaContentCache mediaCache) {
         this.db=db;
         URI uri=URI.create(base);
         if (!Set.of("http","https").contains(uri.getScheme()) || uri.getHost()==null
@@ -27,6 +28,7 @@ public class MediaService {
                 || !(uri.getPath().isEmpty() || uri.getPath().equals("/")))
             throw new IllegalArgumentException("Public base URL must be an HTTP(S) origin");
         this.base=base.replaceAll("/+$","");
+        this.mediaCache=mediaCache;
     }
     @Transactional
     public Map<String,Object> upload(Actor actor,MultipartFile file) {
@@ -116,20 +118,29 @@ public class MediaService {
                 || db.queryForObject("SELECT COUNT(*) FROM users WHERE avatar_media_id=?",Integer.class,id)>0)
             throw new ApiException(409,"MEDIA_IN_USE","图片仍被作品、草稿或头像引用，请先移除引用");
         db.update("DELETE FROM media WHERE id=? AND owner_id=?",id,actor.id());
+        mediaCache.invalidate(id);
     }
     public void attach(long postId,List<String> ids) {
         db.update("DELETE FROM post_media WHERE post_id=?",postId);
         for (int i=0;i<ids.size();i++) db.update("INSERT INTO post_media(post_id,media_id,position) VALUES(?,?,?)",postId,ids.get(i),i);
     }
     public byte[] content(String id,Actor actor) {
-        // 条件与读取合为一条查询，不能通过猜测 UUID 访问私有媒体。
-        var rows=db.query("SELECT m.content_bytes FROM media m WHERE m.id=? AND "
+        // 可见性与字节读取拆开：可见性每次校验，字节走缓存，避免每次都读 BLOB。
+        if (!visible(id,actor)) throw new ApiException(404,"MEDIA_NOT_FOUND","媒体不存在或不可见");
+        return mediaCache.get(id,() -> {
+            var rows=db.query("SELECT content_bytes FROM media WHERE id=?",(rs,n)->rs.getBytes(1),id);
+            if (rows.isEmpty()) throw new ApiException(404,"MEDIA_NOT_FOUND","媒体不存在或不可见");
+            return rows.get(0);
+        });
+    }
+    private boolean visible(String id,Actor actor) {
+        // 条件与原查询一致：不能通过猜测 UUID 访问私有媒体。
+        var rows=db.query("SELECT 1 FROM media m WHERE m.id=? AND "
                 + "(m.owner_id=? OR ?=TRUE OR EXISTS (SELECT 1 FROM post_media pm JOIN posts p ON pm.post_id=p.id "
                 + "JOIN users u ON p.author_id=u.id WHERE pm.media_id=m.id AND p.status='PUBLISHED' AND u.enabled=TRUE)"
                 + " OR EXISTS (SELECT 1 FROM users au WHERE au.avatar_media_id=m.id AND au.enabled=TRUE))",
-                (rs,n)->rs.getBytes(1),id,actor==null ? "" : actor.id(),actor!=null && actor.role().equals("ADMIN"));
-        if (rows.isEmpty()) throw new ApiException(404,"MEDIA_NOT_FOUND","媒体不存在或不可见");
-        return rows.get(0);
+                (rs,n)->1,id,actor==null ? "" : actor.id(),actor!=null && actor.role().equals("ADMIN"));
+        return !rows.isEmpty();
     }
     public String url(String id) { return base+"/api/media/"+id+"/content"; }
     private static ApiException invalid(String message) { return new ApiException(400,"INVALID_MEDIA",message); }
