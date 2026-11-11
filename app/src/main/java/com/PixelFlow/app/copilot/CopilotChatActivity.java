@@ -367,10 +367,18 @@ public class CopilotChatActivity extends AppCompatActivity {
             toggle.setText(expanded[0] ? "收起" : "展开全文");
         });
 
-        // 布局完成后再读真实行数，超过阈值才显示展开入口；
-        // 之前用 measure 预判在宽度未定时不可靠，导致 toggle 不出现只剩省略号。
+        // 布局完成后读真实行数，超过阈值才显示展开入口。
+        // 注意 getLineCount() 会被 maxLines 截断，需临时放开再测。
         text.post(() -> {
-            if (text.getLineCount() > max) toggle.setVisibility(View.VISIBLE);
+            text.setMaxLines(Integer.MAX_VALUE);
+            text.setEllipsize(null);
+            text.measure(
+                    View.MeasureSpec.makeMeasureSpec(text.getWidth(), View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+            int realLines = text.getLineCount();
+            text.setMaxLines(max);
+            text.setEllipsize(TextUtils.TruncateAt.END);
+            if (realLines > max) toggle.setVisibility(View.VISIBLE);
         });
 
         LinearLayout wrap = new LinearLayout(this);
@@ -526,6 +534,11 @@ public class CopilotChatActivity extends AppCompatActivity {
         TextView actionBody = card.findViewById(R.id.action_body);
         actionBody.setText(bodyOf(action));
         actionBody.setTextIsSelectable(true);
+        // 长正文折叠：用 collapsible 容器替换裸 TextView，避免超长被截断
+        ViewGroup actionBodyParent = (ViewGroup) actionBody.getParent();
+        int bodyIndex = actionBodyParent.indexOfChild(actionBody);
+        actionBodyParent.removeView(actionBody);
+        actionBodyParent.addView(collapsible(actionBody), bodyIndex);
         TextView rationale = card.findViewById(R.id.action_rationale);
         rationale.setText(action.rationale);
         rationale.setVisibility(action.rationale.isEmpty() ? View.GONE : View.VISIBLE);
@@ -574,13 +587,10 @@ public class CopilotChatActivity extends AppCompatActivity {
         if (CopilotAction.TYPE_CREATE_DRAFT.equals(action.type)) {
             String title = action.title == null ? "" : action.title;
             String content = action.content == null ? "" : action.content;
-            if (content.length() > 300) content = content.substring(0, 300) + "…";
             return title.isEmpty() ? content : title + "\n" + content;
         }
         if (CopilotAction.TYPE_DRAFT.equals(action.type)) {
-            String text = action.content;
-            if (text.length() > 300) text = text.substring(0, 300) + "…";
-            return text;
+            return action.content;
         }
         if (CopilotAction.TYPE_MESSAGES.equals(action.type)) {
             StringBuilder sb = new StringBuilder();
