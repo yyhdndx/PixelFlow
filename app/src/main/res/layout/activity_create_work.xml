@@ -38,16 +38,28 @@
             android:textColor="@color/profile_ink"
             android:gravity="center" />
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/copilot_entry"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
             android:layout_marginEnd="4dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/copilot_title"
-            android:padding="10dp"
-            android:src="@drawable/ic_sparkle"
-            android:tint="@color/profile_accent" />
+            android:gravity="center"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:text="AI 修改"
+            android:textAllCaps="false"
+            android:textColor="@color/profile_accent"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            app:icon="@drawable/ic_sparkle"
+            app:iconGravity="textStart"
+            app:iconPadding="4dp"
+            app:iconTint="@color/profile_accent"
+            app:rippleColor="@color/accent_ripple" />
         <!-- 占位，保持对称 -->
         <View
             android:layout_width="44dp"
