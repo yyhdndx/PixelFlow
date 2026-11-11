@@ -13,40 +13,61 @@ const markError = ref('')
 const marking = ref('')
 const markingAll = ref(false)
 const muted = ref([])
+const draftMuted = ref([])
+const settingsDialog = ref(null)
 const preferencesReady = ref(false)
 const preferencesBusy = ref(false)
 const preferencesError = ref('')
 const preferencesNotice = ref('')
 let revision = 0
+let settingsRevision = 0
 
 async function loadPreferences() {
   const current = revision
+  const settingsRequest = ++settingsRevision
   preferencesReady.value = false
   preferencesError.value = ''
   try {
     const result = await request('/api/users/me/notification-preferences')
-    if (current !== revision) return
+    if (current !== revision || settingsRequest !== settingsRevision || !settingsDialog.value?.open) return
     if (!Array.isArray(result.muted_types)) throw new Error('通知设置响应不完整')
     muted.value = result.muted_types
+    draftMuted.value = [...muted.value]
     preferencesReady.value = true
   } catch (e) {
-    if (current === revision) preferencesError.value = e.message
+    if (current === revision && settingsRequest === settingsRevision && settingsDialog.value?.open) preferencesError.value = e.message
   }
+}
+function openSettings() {
+  settingsDialog.value.showModal()
+  draftMuted.value = [...muted.value]
+  preferencesNotice.value = ''
+  loadPreferences()
+}
+function closeSettings() {
+  if (preferencesBusy.value) return
+  settingsRevision++
+  settingsDialog.value?.close()
+  draftMuted.value = [...muted.value]
+}
+function cancelSettings(event) {
+  if (preferencesBusy.value) event.preventDefault()
+  else { settingsRevision++; draftMuted.value = [...muted.value] }
 }
 async function savePreferences() {
   if (preferencesBusy.value || !preferencesReady.value) return
   const current = revision
-  const selected = [...muted.value]
+  const selected = [...draftMuted.value]
   preferencesBusy.value = true
   preferencesError.value = ''
-  preferencesNotice.value = ''
   try {
     const result = await write('/api/users/me/notification-preferences', 'PUT', { mutedTypes: selected })
-    if (current !== revision) return
+    if (current !== revision || !settingsDialog.value?.open) return
     if (!Array.isArray(result.muted_types)) throw new Error('通知设置响应不完整，请刷新确认')
-    if (selected.join(',') === muted.value.join(',')) preferencesNotice.value = '通知设置已保存'
-    else preferencesNotice.value = '之前的设置已保存，当前仍有未保存的改动'
+    muted.value = result.muted_types
     preferencesBusy.value = false
+    closeSettings()
+    preferencesNotice.value = '通知设置已保存'
     window.dispatchEvent(new Event('pixelflow:notifications-changed'))
     resetList()
     load()
@@ -69,8 +90,11 @@ function resetList() {
 }
 
 function reset() {
+  settingsRevision++
+  settingsDialog.value?.close()
   resetList()
   muted.value = []
+  draftMuted.value = []
   preferencesReady.value = false
   preferencesBusy.value = false
   preferencesError.value = ''
@@ -132,24 +156,26 @@ async function markAll() {
   }
 }
 watch(type, () => { resetList(); load() })
-watch(() => session.generation, () => { reset(); if (session.user) { load(); loadPreferences() } })
-onMounted(() => { load(); loadPreferences() })
+watch(() => session.generation, () => { reset(); if (session.user) load() })
+onMounted(load)
 onBeforeUnmount(reset)
 </script>
 
 <template>
   <section>
-    <div class="feed-toolbar"><h1>消息通知</h1><button class="secondary" :disabled="!!marking || markingAll || loading" @click="markAll">{{ markingAll ? '处理中…' : '全部已读' }}</button></div>
-    <form class="notification-settings" @submit.prevent="savePreferences">
-      <strong>通知设置</strong>
-      <p v-if="!preferencesReady && !preferencesError" class="muted">加载设置中…</p>
-      <template v-if="preferencesReady">
-        <label v-for="option in types" :key="option.key"><input v-model="muted" type="checkbox" :value="option.key" :disabled="preferencesBusy">屏蔽{{ option.label }}</label>
-        <button type="submit" class="secondary" :disabled="preferencesBusy">{{ preferencesBusy ? '保存中…' : '保存设置' }}</button>
-      </template>
-      <p v-if="preferencesError" class="error" role="alert">{{ preferencesError }} <button v-if="!preferencesReady" type="button" class="quiet" @click="loadPreferences">重试</button></p>
-      <p v-if="preferencesNotice" class="success" role="status">{{ preferencesNotice }}</p>
-    </form>
+    <div class="feed-toolbar"><h1>消息通知</h1><div class="work-actions"><button class="secondary" @click="openSettings">通知设置</button><button class="secondary" :disabled="!!marking || markingAll || loading" @click="markAll">{{ markingAll ? '处理中…' : '全部已读' }}</button></div></div>
+    <p v-if="preferencesNotice" class="success" role="status">{{ preferencesNotice }}</p>
+    <dialog ref="settingsDialog" class="notification-dialog" aria-labelledby="notification-dialog-title" @cancel="cancelSettings">
+      <form class="notification-settings" @submit.prevent="savePreferences">
+        <h2 id="notification-dialog-title">通知设置</h2>
+        <p v-if="!preferencesReady && !preferencesError" class="muted">加载设置中…</p>
+        <template v-if="preferencesReady">
+          <label v-for="option in types" :key="option.key"><input v-model="draftMuted" type="checkbox" :value="option.key" :disabled="preferencesBusy">屏蔽{{ option.label }}</label>
+        </template>
+        <p v-if="preferencesError" class="error" role="alert">{{ preferencesError }} <button v-if="!preferencesReady" type="button" class="quiet" @click="loadPreferences">重试</button></p>
+        <div class="notification-dialog-actions"><button type="button" class="secondary" :disabled="preferencesBusy" @click="closeSettings">取消</button><button type="submit" :disabled="!preferencesReady || preferencesBusy">{{ preferencesBusy ? '保存中…' : '保存设置' }}</button></div>
+      </form>
+    </dialog>
     <div class="notification-tabs" role="group" aria-label="通知类型">
       <button v-for="option in types" :key="option.key" class="secondary" :aria-pressed="type === option.key" @click="type = option.key">{{ option.label }}</button>
     </div>
