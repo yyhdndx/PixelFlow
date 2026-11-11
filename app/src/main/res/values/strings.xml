@@ -64,4 +64,7 @@
     <string name="ai_rules_input_changed">描述已变化，请重新生成后再应用</string>
     <string name="ai_rule_edit">编辑候选规则</string>
     <string name="ai_expired">结果已过期，请重新生成</string>
-</resources>
+    <string name="detail_settings">设置</string>
+    <string name="detail_withdraw">撤回投稿</string>
+    <string name="detail_withdrawn">已撤回，可在「我的作品」里点开继续编辑</string>
+    <string name="detail_withdraw_unavailable">当前状态无需撤回</string></resources>

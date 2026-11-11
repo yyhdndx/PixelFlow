@@ -105,20 +105,6 @@ public class HomeFragment extends Fragment {
         super.onCreate(savedInstanceState);
         if (savedInstanceState != null) selectedTab = savedInstanceState.getInt(SAVED_TAB, FOLLOWING_TAB) == 1 ? 1 : FOLLOWING_TAB;
 
-        Window window = ((Activity)getContext()).getWindow();
-        window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
-        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        window.setStatusBarColor(Color.TRANSPARENT);
-
-        // 让内容延伸到状态栏下面
-        window.getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-        );
 
         // 获取 Activity 的滚动监听接口
         if (getActivity() instanceof OnScrollListener) {
@@ -799,6 +785,10 @@ public class HomeFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        requireActivity().getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         if (adapter != null && (!accountKey().equals(displayedAccount)
                 || (!requestInFlight && !feeds[selectedTab].initialized))) loadData(true);
     }

@@ -22,9 +22,11 @@ public final class AccountMedia {
     public static void load(ImageView view, String url) {
         clear(view);
         ApiClient api = ApiClient.getInstance(view.getContext());
+        // 统一用 application context：返回/销毁时 Glide.with(view) 可能因 Activity 已销毁而抛异常
         if (!api.isPrivateMediaUrl(url)) {
             // Third-party/public images receive no account headers and no account cache.
-            Glide.with(view).load(url).diskCacheStrategy(DiskCacheStrategy.NONE).skipMemoryCache(true)
+            Glide.with(view.getContext().getApplicationContext())
+                    .load(url).diskCacheStrategy(DiskCacheStrategy.NONE).skipMemoryCache(true)
                     .placeholder(R.drawable.ic_image_placeholder).error(R.drawable.ic_image_error)
                     .centerCrop().into(view);
             return;
@@ -38,7 +40,8 @@ public final class AccountMedia {
             }
             public void onSuccess(byte[] bytes) {
                 if (!current()) return;
-                Glide.with(view).load(bytes).diskCacheStrategy(DiskCacheStrategy.NONE).skipMemoryCache(true)
+                Glide.with(view.getContext().getApplicationContext())
+                        .load(bytes).diskCacheStrategy(DiskCacheStrategy.NONE).skipMemoryCache(true)
                         .error(R.drawable.ic_image_error).centerCrop().into(view);
             }
             public void onFailure(String ignored) {

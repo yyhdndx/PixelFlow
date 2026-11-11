@@ -33,7 +33,12 @@
         <Switch
             android:id="@+id/r_toggle"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:thumb="@drawable/auto_reply_switch_thumb"
+            android:track="@drawable/auto_reply_switch_track"
+            android:thumbTint="@null"
+            android:trackTint="@null"
+            android:splitTrack="false" />
     </LinearLayout>
 
     <TextView

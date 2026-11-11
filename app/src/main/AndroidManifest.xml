@@ -83,6 +83,12 @@
         <activity android:name=".MyWorksActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" />
         <activity android:name=".AutoReplyActivity" android:exported="false" android:theme="@style/Theme.PixelFlow.Profile" android:windowSoftInputMode="adjustResize" />
         <activity
+            android:name=".copilot.CopilotChatActivity"
+            android:exported="false"
+            android:theme="@style/Theme.PixelFlow.Profile"
+            android:parentActivityName=".copilot.CopilotHistoryActivity"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name=".copilot.CopilotHistoryActivity"
             android:exported="false"
             android:theme="@style/Theme.PixelFlow.Profile"

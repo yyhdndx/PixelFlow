@@ -77,6 +77,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private ImageView authorAvatar;
     private TextView authorName;
     private MaterialButton followButton;
+    private boolean ownedByMe;
+    private String postStatus;
 
     // 图片区域
     private ViewPager2 imagePager;
@@ -93,7 +95,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private EditText commentInput;  // 保持
     private TextView commentSend;
     private ImageView likeButton;
-    private ImageView commentButton;  // 保持
     private ImageView collectButton;  // 保持
     private ImageView shareButton;
     private ImageView copilotButton;
@@ -113,6 +114,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private boolean commentSending;
     /** 键盘是否处于弹出状态，用于判断“退出打字”并回到默认评论态。 */
     private boolean imeWasVisible;
+    private boolean imeKeyboardVisible;
 
     // 数据
     private WorkItem workItem;
@@ -161,19 +163,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         setTheme(R.style.Theme_Detail);
 
         Window window = getWindow();
-        window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
-        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        window.setStatusBarColor(Color.TRANSPARENT);
-
-        // 让内容延伸到状态栏下面
-        window.getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-        );
 
         // 启用窗口内容转场动画
         getWindow().setEnterTransition(null);
@@ -186,11 +175,19 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         // 沉浸式标志下窗口不会随键盘重排，手动用 IME insets 顶起底部栏与内容
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root_layout), (view, insets) -> {
             int imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
-            view.setPadding(view.getPaddingLeft(), view.getPaddingTop(), view.getPaddingRight(), imeBottom);
-            // 键盘收起 = 退出打字：回复态回到默认的「评论这条帖子」
+            view.setPadding(view.getPaddingLeft(), insets.getInsets(WindowInsetsCompat.Type.statusBars()).top, view.getPaddingRight(), imeBottom);
             boolean imeVisible = imeBottom > 0;
+            // 键盘收起 = 退出打字：回复态回到默认的「评论这条帖子」
             if (imeWasVisible && !imeVisible) cancelReplyMode();
-            imeWasVisible = imeVisible;
+            if (imeVisible != imeWasVisible) {
+                imeWasVisible = imeVisible;
+                imeKeyboardVisible = imeVisible;
+                // 用返回键收键盘时输入框通常仍持有焦点，这里必须主动恢复图标
+                updateCommentActions();
+            } else {
+                imeWasVisible = imeVisible;
+                imeKeyboardVisible = imeVisible;
+            }
             return insets;
         });
 
@@ -225,7 +222,10 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 summaryKey = restoredSummary;
                 subscribeSummary((TextView) findViewById(R.id.summary_body), restoredTask);
             }
-            if (savedInstanceState.getBoolean("summary.expanded")) toggleSummary();
+            if (savedInstanceState.getBoolean("summary.expanded")) {
+                findViewById(R.id.summary_card).setVisibility(View.VISIBLE);
+                updateSummaryToggleIcon();
+            }
         }
         setupListeners();
         loadInteractionState();
@@ -469,6 +469,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         authorAvatar = findViewById(R.id.author_avatar);
         authorName = findViewById(R.id.author_name);
         followButton = findViewById(R.id.follow_button);
+        ownedByMe = getIntent().getBooleanExtra("owned", false);
+        postStatus = getIntent().getStringExtra("post_status");
 
         // 图片区域
         imagePager = findViewById(R.id.image_pager);
@@ -498,7 +500,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         commentInput = findViewById(R.id.comment_input);  // 保持
         commentSend = findViewById(R.id.comment_send);
         likeButton = findViewById(R.id.like_button);
-        commentButton = findViewById(R.id.comment_button);  // 保持
         collectButton = findViewById(R.id.collect_button);  // 保持
         shareButton = findViewById(R.id.share_button);
         copilotButton = findViewById(R.id.copilot_button);
@@ -676,25 +677,38 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         entry.setOnClickListener(v -> toggleSummary());
     }
 
+    /** 卡片展开时显示「收起」箭头，收起时显示「展开」箭头。 */
+    private void updateSummaryToggleIcon() {
+        android.widget.ImageButton toggle = findViewById(R.id.summary_toggle);
+        if (toggle == null) return;
+        boolean expanded = findViewById(R.id.summary_card).getVisibility() == View.VISIBLE;
+        toggle.setImageResource(expanded ? R.drawable.ic_chevron_up : R.drawable.ic_chevron_down);
+        toggle.setContentDescription(getString(expanded ? R.string.summary_collapse : R.string.summary_regenerate));
+    }
     private AiTaskRegistry.Subscription summarySubscription;
 
     private void toggleSummary() {
         TextView body = findViewById(R.id.summary_body);
-        findViewById(R.id.summary_retry).setOnClickListener(view -> {
+        View card = findViewById(R.id.summary_card);
+        findViewById(R.id.summary_regen).setOnClickListener(view -> {
             if (summaryKey != null) AiTaskRegistry.get().remove(summaryKey);
-            body.setVisibility(View.GONE);
+            card.setVisibility(View.GONE);
+            updateSummaryToggleIcon();
             toggleSummary();
         });
         findViewById(R.id.summary_stop).setOnClickListener(view -> {
             if (summaryKey != null) AiTaskRegistry.get().cancel(summaryKey);
         });
-        if (body.getVisibility() == View.VISIBLE) {
-            body.setVisibility(View.GONE);
-            findViewById(R.id.summary_retry).setVisibility(View.GONE);
+        findViewById(R.id.summary_toggle).setOnClickListener(view -> toggleSummary());
+        if (card.getVisibility() == View.VISIBLE) {
+            card.setVisibility(View.GONE);
+            updateSummaryToggleIcon();
+            findViewById(R.id.summary_regen).setVisibility(View.GONE);
             findViewById(R.id.summary_stop).setVisibility(View.GONE);
             return;
         }
-        body.setVisibility(View.VISIBLE);
+        card.setVisibility(View.VISIBLE);
+        updateSummaryToggleIcon();
         body.setText(R.string.summarize_loading);
         String postId = workItem.getId();
         if (summaryReadJob != null) summaryReadJob.cancel();
@@ -708,8 +722,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                 runOnUiThread(() -> {
                     if (isDestroyed() || !postId.equals(workItem.getId())) return;
                     body.setText(message);
-                    findViewById(R.id.summary_retry).setVisibility(
-                            body.getVisibility() == View.VISIBLE ? View.VISIBLE : View.GONE);
+                    findViewById(R.id.summary_regen).setVisibility(
+                            card.getVisibility() == View.VISIBLE ? View.VISIBLE : View.GONE);
                     findViewById(R.id.summary_stop).setVisibility(View.GONE);
                 });
             }
@@ -738,9 +752,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         if (summarySubscription != null) summarySubscription.close();
         summarySubscription = AiTaskRegistry.get().subscribe(task, this::runOnUiThread, value -> {
             if (isDestroyed() || summaryTask != value) return;
-            boolean expanded = body.getVisibility() == View.VISIBLE;
+            boolean expanded = findViewById(R.id.summary_card).getVisibility() == View.VISIBLE;
             findViewById(R.id.summary_stop).setVisibility(expanded && value.isRunning() ? View.VISIBLE : View.GONE);
-            findViewById(R.id.summary_retry).setVisibility(expanded && !value.isRunning()
+            findViewById(R.id.summary_regen).setVisibility(expanded && !value.isRunning()
                     && value.state != AiTaskRegistry.State.NEW && value.state != AiTaskRegistry.State.COMPLETED
                     ? View.VISIBLE : View.GONE);
             if (value.result instanceof PostSummary) body.setText(formatSummary((PostSummary) value.result));
@@ -846,7 +860,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
 
     private void setupListeners() {
         // 关注按钮
-        followButton.setOnClickListener(v -> toggleFollowStatus());
+        followButton.setOnClickListener(v -> {
+            if (ownedByMe) showOwnerSettings(); else toggleFollowStatus();
+        });
 
         // 点赞按钮
         likeButton.setOnClickListener(v -> toggleLikeStatus());
@@ -888,15 +904,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             }
             return false;
         });
-        // 评论图标：定位到评论区并聚焦输入框
-        commentButton.setOnClickListener(v -> {
-            androidx.core.widget.NestedScrollView scroll = findViewById(R.id.nested_scroll_view);
-            if (scroll != null && commentsHeader != null)
-                scroll.smoothScrollTo(0, commentsHeader.getTop());
-            commentInput.requestFocus();
-            InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-            if (imm != null) imm.showSoftInput(commentInput, InputMethodManager.SHOW_IMPLICIT);
-        });
 
         // 发送按钮：输入框是多行，键盘回车只换行不会触发 IME_ACTION_SEND，
         // 所以必须有显式发送入口，否则评论无法提交。
@@ -912,10 +919,10 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     /** 输入评论时收起右侧点赞/评论/收藏/AI/分享五个图标，只留输入框和发送；不输入时恢复。 */
     private void updateCommentActions() {
         boolean inputting = commentInput != null && commentInput.hasFocus()
+                && imeKeyboardVisible
                 && ApiClient.getInstance(this).isLoggedIn();
         int icons = inputting ? View.GONE : View.VISIBLE;
         if (likeButton != null) likeButton.setVisibility(icons);
-        if (commentButton != null) commentButton.setVisibility(icons);
         if (collectButton != null) collectButton.setVisibility(icons);
         if (copilotButton != null) copilotButton.setVisibility(icons);
         if (shareButton != null) shareButton.setVisibility(icons);
@@ -927,7 +934,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         if (commentSend == null || commentInput == null) return;
         CharSequence text = commentInput.getText();
         boolean hasText = text != null && text.toString().trim().length() > 0;
-        boolean inputting = commentInput.hasFocus() && ApiClient.getInstance(this).isLoggedIn();
+        boolean inputting = commentInput.hasFocus() && imeKeyboardVisible
+                && ApiClient.getInstance(this).isLoggedIn();
         commentSend.setVisibility(inputting && hasText ? View.VISIBLE : View.GONE);
     }
 
@@ -975,11 +983,30 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                                            int oldScrollX, int oldScrollY) {
                     View child = v.getChildAt(0);
                     if (child != null && scrollY + v.getHeight() >= child.getHeight() - 200) loadMoreComments();
+                    // 悬浮顶部栏：下滑收起、上滑立刻滑回；回到顶部一定显示
+                    if (topBar == null) return;
+                    if (scrollY <= 0) { showTopBar(); showBottomBar(); }
+                    else if (scrollY > oldScrollY + 8) { hideTopBar(); hideBottomBar(); }
+                    else if (scrollY < oldScrollY - 8) { showTopBar(); showBottomBar(); }
                 }
             });
         }
     }
 
+    /** 悬浮顶部栏：下滑收起、上滑滑回。 */
+    private boolean topBarHidden;
+
+    private void hideTopBar() {
+        if (topBar == null || topBarHidden) return;
+        topBarHidden = true;
+        topBar.animate().translationY(-topBar.getHeight()).setDuration(180).start();
+    }
+
+    private void showTopBar() {
+        if (topBar == null || !topBarHidden) return;
+        topBarHidden = false;
+        topBar.animate().translationY(0f).setDuration(180).start();
+    }
     /** Copilot 应用评论后，回到前台时刷新评论区。 */
     public void refreshCommentsAfterCopilot() { reloadComments(); }
 
@@ -1070,18 +1097,19 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    /** 下滑时底部栏会被 HideBottomViewOnScrollBehavior 收起，回复前要先滑出来。 */
+    /** 底部栏与顶部栏一起受滚动方向控制：下滑收起、上滑滑回。 */
+    private boolean bottomBarHidden;
+
     private void showBottomBar() {
-        if (bottomBar == null) return;
-        ViewGroup.LayoutParams params = bottomBar.getLayoutParams();
-        if (!(params instanceof CoordinatorLayout.LayoutParams)) return;
-        CoordinatorLayout.Behavior<?> behavior = ((CoordinatorLayout.LayoutParams) params).getBehavior();
-        if (behavior instanceof com.google.android.material.behavior.HideBottomViewOnScrollBehavior) {
-            @SuppressWarnings("unchecked")
-            com.google.android.material.behavior.HideBottomViewOnScrollBehavior<View> hide =
-                    (com.google.android.material.behavior.HideBottomViewOnScrollBehavior<View>) behavior;
-            hide.slideUp(bottomBar);
-        }
+        if (bottomBar == null || !bottomBarHidden) return;
+        bottomBarHidden = false;
+        bottomBar.animate().translationY(0f).setDuration(180).start();
+    }
+
+    private void hideBottomBar() {
+        if (bottomBar == null || bottomBarHidden || bottomBar.getHeight() == 0) return;
+        bottomBarHidden = true;
+        bottomBar.animate().translationY(bottomBar.getHeight()).setDuration(180).start();
     }
 
     /** 退出打字后回到默认：输入框重新表示“评论这条帖子”，而不是回复某个人。 */
@@ -1097,7 +1125,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         String[] options = own
                 ? new String[]{getString(R.string.comments_dialog_copy), getString(R.string.comments_dialog_delete)}
                 : new String[]{getString(R.string.comments_dialog_copy)};
-        new android.app.AlertDialog.Builder(this)
+        new android.app.AlertDialog.Builder(this, R.style.PixelFlowPlatformDialog)
                 .setItems(options, (dialog, which) -> {
                     if (getString(R.string.comments_dialog_copy).equals(options[which])) {
                         ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
@@ -1106,7 +1134,12 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                             android.widget.Toast.makeText(this, R.string.comments_copied, android.widget.Toast.LENGTH_SHORT).show();
                         }
                     } else {
-                        deleteComment(item);
+                        new android.app.AlertDialog.Builder(this)
+                                .setTitle("删除评论？")
+                                .setMessage("删除后无法恢复；如果是一级评论，其下的回复也会被删除。")
+                                .setNegativeButton("取消", null)
+                                .setPositiveButton("删除", (confirmation, action) -> deleteComment(item))
+                                .show();
                     }
                 })
                 .show();
@@ -1166,6 +1199,29 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     }
 
     private void updateFollowButton() {
+        if (ownedByMe) {
+            // 作者本人：右上角改为无边框的设置图标，并贴到最右侧
+            followButton.setEnabled(true);
+            followButton.setText("");
+            followButton.setIconResource(R.drawable.ic_settings_hex);
+            followButton.setIconTint(android.content.res.ColorStateList.valueOf(getColor(R.color.profile_ink)));
+            followButton.setIconGravity(com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_START);
+            followButton.setIconPadding(0);
+            followButton.setStrokeWidth(0);
+            followButton.setBackgroundTintList(
+                    android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
+            followButton.setRippleColor(android.content.res.ColorStateList.valueOf(
+                    getColor(R.color.accent_ripple)));
+            followButton.setMinWidth(0);
+            followButton.setMinimumWidth(0);
+            followButton.setPadding(0, 0, 0, 0);
+            android.view.ViewGroup.MarginLayoutParams params =
+                    (android.view.ViewGroup.MarginLayoutParams) followButton.getLayoutParams();
+            params.setMarginEnd(-6);
+            followButton.setLayoutParams(params);
+            followButton.setContentDescription(getString(R.string.detail_settings));
+            return;
+        }
         boolean hasAuthor = workItem.getAuthor() != null && workItem.getAuthor().getUserId() != null
                 && !workItem.getAuthor().getUserId().isEmpty();
         boolean followingNow = followLoaded && following;
@@ -1239,15 +1295,39 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         });
     }
 
+    /** 作者本人的作品：右上角「设置」里提供撤回。 */
+    private void showOwnerSettings() {
+        if (!"PUBLISHED".equals(postStatus) && !"PENDING".equals(postStatus)) {
+            Toast.makeText(this, R.string.detail_withdraw_unavailable, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.PixelFlowMaterialDialog)
+                .setTitle(R.string.detail_settings)
+                .setItems(new CharSequence[]{getString(R.string.detail_withdraw)}, (dialog, which) -> withdrawOwnWork())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void withdrawOwnWork() {
+        ApiClient.getInstance(this).withdrawPost(workItem.getId(), new CommunityClient.Callback<com.PixelFlow.app.API.PostStatus>() {
+            @Override public void onSuccess(com.PixelFlow.app.API.PostStatus value) {
+                Toast.makeText(WorkDetailActivity.this, R.string.detail_withdrawn, Toast.LENGTH_SHORT).show();
+                finish();
+            }
+            @Override public void onFailure(String message) {
+                Toast.makeText(WorkDetailActivity.this,
+                        message == null ? getString(R.string.copilot_failed) : message, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
     private void updateLikeButton() {
         boolean liked = loadedLike != null && loadedLike.isLiked();
         likeButton.setEnabled(!likeSaving);
         likeButton.setSelected(liked);
+        // 矢量本身带颜色（已赞 #D81E06 / 未赞 #8A8A8E），不要再 setColorFilter 覆盖
         likeButton.clearColorFilter();
         likeButton.setImageResource(liked ? R.drawable.ic_thumb_up : R.drawable.ic_thumb_up_outline);
-        // 颜色由 like_icon_tint 选择器按 state_selected 驱动
-        likeButton.setColorFilter(getResources().getColor(
-                liked ? R.color.like_active : R.color.profile_muted));
     }
 
     private void updateFavoriteButton() {
@@ -1255,8 +1335,15 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         collectButton.setContentDescription(getString(favoriteSaving ? R.string.favorite_state_loading
                 : !favoriteLoaded ? R.string.favorite_state_retry
                 : favorited ? R.string.favorite_action_remove : R.string.favorite_action_add));
-        collectButton.setColorFilter(getResources().getColor(
-                favorited ? R.color.profile_accent : R.color.profile_muted));
+        // 已收藏用黄色实心星（矢量自带填充与描边），未收藏保持灰色描边。
+        // 注意：不能写成 setColorFilter(favorited ? null : color)，三元表达式会拆箱 null 导致 NPE。
+        if (favorited) {
+            collectButton.setImageResource(R.drawable.ic_star_filled);
+            collectButton.clearColorFilter();
+        } else {
+            collectButton.setImageResource(R.drawable.ic_star_outline);
+            collectButton.setColorFilter(getResources().getColor(R.color.profile_muted));
+        }
     }
 
     private void toggleFavoriteStatus() {
@@ -1470,8 +1557,9 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             if (summarySubscription != null) summarySubscription.close();
             summaryTask = null;
             ((TextView) findViewById(R.id.summary_body)).setText("");
-            findViewById(R.id.summary_body).setVisibility(View.GONE);
-            findViewById(R.id.summary_retry).setVisibility(View.GONE);
+            findViewById(R.id.summary_card).setVisibility(View.GONE);
+            updateSummaryToggleIcon();
+            findViewById(R.id.summary_regen).setVisibility(View.GONE);
             findViewById(R.id.summary_stop).setVisibility(View.GONE);
         }
         if (workItem != null) {

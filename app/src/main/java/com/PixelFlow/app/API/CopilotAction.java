@@ -10,6 +10,7 @@ public final class CopilotAction {
     public static final String TYPE_COMMENT = "POST_COMMENT";
     public static final String TYPE_DRAFT = "UPDATE_DRAFT";
     public static final String TYPE_MESSAGES = "SEND_MESSAGES";
+    public static final String TYPE_CREATE_DRAFT = "CREATE_DRAFT";
 
     public static final String PENDING = "pending";
     public static final String APPLIED = "applied";
@@ -23,6 +24,8 @@ public final class CopilotAction {
     public final String rationale;
     public final List<Message> messages;
     public String status = PENDING;
+    /** CREATE_DRAFT 应用后写入的新草稿 id，用于消息内跳转。 */
+    public String postId = "";
 
     public static final class Message {
         public final String conversationId;
@@ -49,6 +52,7 @@ public final class CopilotAction {
             }
         }
         messages = parsed;
+        postId = string(value, "post_id");
     }
 
     public static CopilotAction parse(JsonObject value) { return new CopilotAction(value); }
@@ -78,6 +82,7 @@ public final class CopilotAction {
             }
             out.add("items", array);
         }
+        if (!postId.isEmpty()) out.addProperty("post_id", postId);
         out.addProperty("status", status);
         return out;
     }
@@ -86,6 +91,7 @@ public final class CopilotAction {
         if (TYPE_COMMENT.equals(type)) return "发送评论";
         if (TYPE_DRAFT.equals(type)) return "修改草稿";
         if (TYPE_MESSAGES.equals(type)) return "发送 " + messages.size() + " 条私信";
+        if (TYPE_CREATE_DRAFT.equals(type)) return "新建草稿";
         return type;
     }
 

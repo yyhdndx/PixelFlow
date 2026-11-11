@@ -50,6 +50,14 @@ MCP    ──302 redirect_uri?code=...&state=...─────▶ 客户端
 | `submit_post_for_review` | `post:write` | `post_id` | `post_id, status=PENDING` | 是（状态机） |
 | `withdraw_post` | `post:write` | `post_id` | `post_id, status=WITHDRAWN` | 是 |
 | `list_my_posts` | `post:read` | `status`（DRAFT/PENDING/PUBLISHED/REJECTED/WITHDRAWN）、`query`（标题/正文关键词，≤60 字）、`limit`(1–20) | `total_scanned, items[{post_id,title,status,create_time,media_count}], has_more` | 否 |
+| `get_post` | `post:read` | `post_id` | `post_id, title, content, author, like_count, media_ids, create_time` | 否 |
+| `search_posts` | `post:read` | `query`（≤60 字）、`limit`(1–20) | `query, items[{post_id,title,excerpt}], count` | 否 |
+| `list_auto_replies` | `post:read` | `post_id` | `post_id, rules[{id,question,answer,enabled}]` | 否 |
+| `create_auto_reply` | `post:write` | `post_id`（自己的作品）、`question`(≤200)、`answer`(≤300) | `post_id, rule_id, question, answer` | 是（自动回复规则） |
+| `create_comment` | `post:write` | `post_id`、`content`(≤500) | `post_id, comment_id, content` | 是（评论） |
+| `toggle_like` | `post:write` | `post_id`、`active`(bool) | `post_id, active` | 是（互动） |
+| `toggle_favorite` | `post:write` | `post_id`、`active`(bool) | `post_id, active` | 是（互动） |
+| `send_message` | `post:write` | `conversation_id`、`content`(≤1000) | `conversation_id, content, result` | 是（私信） |
 
 ### 状态机与人工审核
 

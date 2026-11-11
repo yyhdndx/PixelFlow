@@ -45,4 +45,5 @@
     <string name="summarize_loading">AI 正在读这篇作品…</string>
     <string name="summarize_title">AI 提炼</string>
     <string name="summarize_note">只依据本文正文，保留原文关键条件；AI 归纳，仅供参考。</string>
-    <string name="summarize_close">收起</string></resources>
+    <string name="summarize_close">收起</string>    <string name="summary_regenerate">重新生成要点</string>
+    <string name="summary_collapse">收起或展开要点</string></resources>

@@ -3,6 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:orientation="vertical"
     android:background="@color/profile_bg">
 
@@ -150,6 +151,61 @@
                 android:layout_marginTop="4dp"
                 android:layout_marginBottom="18dp" />
 
+            <!-- Completed AI edits: confirm, undo, or refine in place. -->
+            <LinearLayout
+                android:id="@+id/creation_assist_actions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/creation_assist_accept"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="3dp"
+                    android:minHeight="48dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="8dp"
+                    android:text="接受"
+                    android:textSize="14sp"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    app:backgroundTint="#23834B"
+                    app:cornerRadius="10dp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/creation_assist_undo"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="3dp"
+                    android:minHeight="48dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="8dp"
+                    android:text="撤销"
+                    android:textSize="14sp"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    app:backgroundTint="#C63F43"
+                    app:cornerRadius="10dp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/creation_assist_refine"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="3dp"
+                    android:minHeight="48dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="8dp"
+                    android:text="继续修改"
+                    android:textSize="14sp"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    app:backgroundTint="#626974"
+                    app:cornerRadius="10dp" />
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/creation_status"
                 android:layout_width="match_parent"
@@ -229,7 +285,7 @@
                 android:paddingBottom="10dp"
                 android:background="@drawable/bg_status_soft"
                 android:accessibilityLiveRegion="polite"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textColor="@color/profile_accent"
                 android:visibility="gone" />
 
@@ -255,19 +311,6 @@
                 android:orientation="horizontal">
 
                 <Button
-                    android:id="@+id/creation_assist_refine"
-                    android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:layout_weight="1"
-                    android:background="@android:color/transparent"
-                    android:text="继续修改"
-                    android:textAllCaps="false"
-                    android:textColor="@color/profile_accent"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
-
-                <Button
                     android:id="@+id/creation_retry"
                     android:layout_width="0dp"
                     android:layout_height="40dp"
@@ -276,7 +319,7 @@
                     android:text="@string/creation_retry_read"
                     android:textAllCaps="false"
                     android:textColor="@color/profile_accent"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
 
@@ -289,7 +332,7 @@
                     android:text="@string/creation_check_my_works"
                     android:textAllCaps="false"
                     android:textColor="@color/profile_accent"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
 
@@ -302,13 +345,8 @@
                     android:text="停止生成"
                     android:textAllCaps="false"
                     android:textColor="@color/profile_muted"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:visibility="gone" />
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/creation_assist_undo"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="@string/ai_creation_undo" android:visibility="gone" />
             </LinearLayout>
 
             <!-- 话题标签 -->
@@ -419,6 +457,7 @@
 
     <!-- 底部操作栏 -->
     <LinearLayout
+        android:id="@+id/bottom_actions"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -426,49 +465,71 @@
         android:background="@color/profile_surface"
         android:elevation="6dp"
         android:paddingHorizontal="16dp"
-        android:paddingVertical="12dp">
+        android:paddingTop="12dp"
+        android:paddingBottom="20dp">
 
         <Button
             android:id="@+id/btn_cancel"
             android:layout_width="0dp"
-            android:layout_height="48dp"
+            android:layout_height="44dp"
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
             android:background="@android:color/transparent"
             android:text="取消"
             android:textAllCaps="false"
-            android:textColor="@color/profile_muted"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            android:textColor="@color/btn_ghost_text"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:minWidth="0dp"
+            android:paddingHorizontal="6dp"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="9sp"
+            android:autoSizeMaxTextSize="12sp"
+            android:autoSizeStepGranularity="1sp" />
 
         <Button
             android:id="@+id/btn_save"
             android:layout_width="0dp"
-            android:layout_height="48dp"
+            android:layout_height="44dp"
             android:layout_weight="1.2"
             android:layout_marginHorizontal="4dp"
             android:background="@drawable/bg_button_secondary"
             app:backgroundTint="@null"
             android:text="保存草稿"
             android:textAllCaps="false"
-            android:textColor="@color/profile_ink"
-            android:textSize="14sp"
+            android:textColor="@color/btn_secondary_text"
+            android:textSize="12sp"
             android:textStyle="bold"
+            android:maxLines="1"
+            android:minWidth="0dp"
+            android:paddingHorizontal="6dp"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="9sp"
+            android:autoSizeMaxTextSize="12sp"
+            android:autoSizeStepGranularity="1sp"
             android:enabled="false" />
 
         <Button
             android:id="@+id/btn_publish"
             android:layout_width="0dp"
-            android:layout_height="48dp"
+            android:layout_height="44dp"
             android:layout_weight="1.2"
             android:layout_marginStart="8dp"
             android:background="@drawable/bg_button_primary"
             app:backgroundTint="@null"
             android:text="提交审核"
             android:textAllCaps="false"
-            android:textColor="@android:color/white"
-            android:textSize="14sp"
+            android:textColor="@color/btn_primary_text"
+            android:textSize="12sp"
             android:textStyle="bold"
+            android:maxLines="1"
+            android:minWidth="0dp"
+            android:paddingHorizontal="6dp"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="9sp"
+            android:autoSizeMaxTextSize="12sp"
+            android:autoSizeStepGranularity="1sp"
             android:enabled="false" />
     </LinearLayout>
 </LinearLayout>

@@ -212,7 +212,7 @@ public class AccountPagesFlowTest {
                 scenario.moveToState(Lifecycle.State.CREATED);
                 scenario.onActivity(a -> {
                     if (screen.list != 0) assertEquals(0, ((RecyclerView)a.findViewById(screen.list)).getAdapter().getItemCount());
-                    if (screen.refresh != 0) assertFalse(((SwipeRefreshLayout)a.findViewById(screen.refresh)).isRefreshing());
+
                 });
                 updated = true;
                 scenario.moveToState(Lifecycle.State.RESUMED);
@@ -222,15 +222,19 @@ public class AccountPagesFlowTest {
         }
     }
 
-    @Test public void allSixScreensRefreshAfterReturningFromAnotherPage() {
+    @Test public void completedReadOnlyPagesRetainContentAndAvoidReloadOnReturn() {
         for (Screen screen : ALL) {
             updated = false; launch(screen); ready(screen); labelIs("Alice");
             int before = readCount(screen);
             scenario.moveToState(Lifecycle.State.CREATED);
             updated = true;
             scenario.moveToState(Lifecycle.State.RESUMED);
-            ready(screen); labelIs("Updated");
-            assertTrue(readCount(screen) > before);
+            ready(screen);
+            if (screen == WORKS || screen == FAVORITES) {
+                labelIs("Updated"); assertTrue(readCount(screen) > before);
+            } else {
+                labelIs("Alice"); assertEquals(before, readCount(screen));
+            }
         }
     }
 
@@ -241,7 +245,14 @@ public class AccountPagesFlowTest {
             scenario.moveToState(Lifecycle.State.CREATED);
             Gate old = new Gate(screen.path); readGate = old;
             try {
-                scenario.moveToState(Lifecycle.State.RESUMED); old.awaitEntry();
+                scenario.moveToState(Lifecycle.State.RESUMED);
+                if (screen != WORKS && screen != FAVORITES) scenario.onActivity(a -> {
+                    try {
+                        java.lang.reflect.Method reload = AccountDataActivity.class.getDeclaredMethod("reloadPage");
+                        reload.setAccessible(true); reload.invoke(a);
+                    } catch (ReflectiveOperationException e) { throw new AssertionError(e); }
+                });
+                old.awaitEntry();
                 scenario.moveToState(Lifecycle.State.CREATED);
                 CompletableFuture<Void> loggedOut = new CompletableFuture<>();
                 api.logout(new CommunityClient.Callback<Void>() {

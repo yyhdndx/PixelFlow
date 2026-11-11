@@ -103,7 +103,7 @@ class CopilotHistoryItem(BaseModel):
 
 class CopilotRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    screen: str = Field(pattern=r"^(detail|create|messages)$")
+    screen: str = Field(pattern=r"^(detail|create|messages|general)$")
     message: str = Field(min_length=1, max_length=2000)
     history: list[CopilotHistoryItem] = Field(default_factory=list, max_length=20)
     context: dict = Field(default_factory=dict)

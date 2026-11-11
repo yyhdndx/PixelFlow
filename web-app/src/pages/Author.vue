@@ -30,7 +30,7 @@ onBeforeUnmount(() => revision++)
     <p v-if="error" class="error" role="alert">{{ error }} <button class="quiet" @click="load">重试</button></p>
     <p v-else-if="loading" class="spinner">加载中…</p>
     <template v-else-if="profile">
-      <div class="profile-head"><span class="profile-avatar"><img v-if="profile.avatar" :src="profile.avatar" alt="头像"><template v-else>{{ (profile.nickname || 'U').charAt(0) }}</template></span><div><h1>{{ profile.nickname }}</h1><p class="profile-bio">{{ profile.bio || '这位作者还没有填写简介。' }}</p></div></div>
+      <div class="profile-head"><span class="profile-avatar"><img v-if="profile.avatar" :src="profile.avatar" alt="头像"><template v-else>{{ (profile.nickname || 'U').charAt(0) }}</template></span><div><h1>{{ profile.nickname }}</h1><p class="profile-bio">{{ profile.bio || '这位作者还没有填写简介。' }}</p><RouterLink to="/me/messages">私信（暂未开放）</RouterLink></div></div>
       <h2>公开作品</h2><PostList :page="page" empty="这位作者暂时没有公开作品。" />
     </template>
   </section>

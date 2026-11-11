@@ -72,14 +72,6 @@ public class CreateWorkActivity extends AppCompatActivity {
         api = ApiClient.getInstance(this);
         model = new ViewModelProvider(this).get(DraftEditorModel.class);
 
-        getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-        );
 
         initView();
         setupListeners();
@@ -106,12 +98,16 @@ public class CreateWorkActivity extends AppCompatActivity {
         btnPublish = findViewById(R.id.btn_publish);
         btnCancel = findViewById(R.id.btn_cancel);
         findViewById(R.id.creation_assist).setOnClickListener(v -> showAssistRequest());
+        findViewById(R.id.creation_assist_accept).setOnClickListener(v -> {
+            captureText();
+            model.confirmAssist();
+        });
         findViewById(R.id.creation_assist_refine).setOnClickListener(v -> showRefineDialog());
         findViewById(R.id.creation_assist_cancel).setOnClickListener(v -> model.cancelAssist());
         findViewById(R.id.creation_assist_undo).setOnClickListener(v -> {
             captureText();
             if (model.state.assistUndo.needsConfirmation(model.state.title, model.state.content)) {
-                new androidx.appcompat.app.AlertDialog.Builder(this)
+                new androidx.appcompat.app.AlertDialog.Builder(this, R.style.PixelFlowAppCompatDialog)
                         .setMessage(R.string.ai_creation_undo_confirm)
                         .setNegativeButton(R.string.ai_creation_cancel, null)
                         .setPositiveButton(R.string.ai_creation_undo, (dialog, which) -> undoAssist(true)).show();
@@ -205,6 +201,12 @@ public class CreateWorkActivity extends AppCompatActivity {
             com.PixelFlow.app.copilot.CopilotSheet.open(this, "create", null, model.state.postId, 0, null,
                     tvTitle.getText().toString());
         });
+        // Bind model changes atomically: watchers must not copy the old second field back.
+        binding = true;
+        try {
+            if (!etTitle.getText().toString().equals(model.state.title)) etTitle.setText(model.state.title);
+            if (!etDescription.getText().toString().equals(model.state.content)) etDescription.setText(model.state.content);
+        } finally { binding = false; }
         tvTitle.setText(model.state.postId == null ? "创作作品" : "编辑作品");
         findViewById(R.id.creation_assist).setEnabled(model.editable() && !model.assistBusy);
         TextView assistStatus = findViewById(R.id.creation_assist_status);
@@ -213,9 +215,12 @@ public class CreateWorkActivity extends AppCompatActivity {
         TextView assistStream = findViewById(R.id.creation_assist_stream);
         assistStream.setText(model.streamText);
         assistStream.setVisibility(model.assistBusy && !model.streamText.isEmpty() ? View.VISIBLE : View.GONE);
-        findViewById(R.id.creation_assist_refine).setVisibility(model.suggestion == null ? View.GONE : View.VISIBLE);
+        findViewById(R.id.creation_assist_actions).setVisibility(
+                model.state.assistPendingAcceptance ? View.VISIBLE : View.GONE);
+        findViewById(R.id.creation_assist_accept).setEnabled(model.editable() && !model.assistBusy);
+        findViewById(R.id.creation_assist_refine).setEnabled(
+                model.editable() && !model.assistBusy && model.suggestion != null && !model.suggestionStale());
         findViewById(R.id.creation_assist_cancel).setVisibility(model.assistBusy ? View.VISIBLE : View.GONE);
-        findViewById(R.id.creation_assist_undo).setVisibility(model.state.assistUndo.available ? View.VISIBLE : View.GONE);
         findViewById(R.id.creation_assist_undo).setEnabled(model.editable() && !model.assistBusy);
         refreshAssistPreview();
         operationStatus.setText(model.state.message);
@@ -333,11 +338,14 @@ public class CreateWorkActivity extends AppCompatActivity {
         captureText();
         if (model.suggestion == null || !model.editable()) return;
         EditText input = new EditText(this);
+        input.setTextColor(getColor(R.color.profile_ink));
+        input.setHintTextColor(getColor(R.color.profile_muted));
+        input.setBackgroundTintList(androidx.core.content.ContextCompat.getColorStateList(this, R.color.dialog_input_tint));
         input.setHint(R.string.ai_creation_revision_hint);
         input.setSingleLine(true);
         input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)});
         input.setText(model.state.assistPrompt == null ? "" : model.state.assistPrompt);
-        new androidx.appcompat.app.AlertDialog.Builder(this)
+        new androidx.appcompat.app.AlertDialog.Builder(this, R.style.PixelFlowAppCompatDialog)
                 .setTitle(R.string.ai_creation_refine)
                 .setView(input)
                 .setNegativeButton(R.string.ai_creation_cancel, null)
@@ -729,7 +737,7 @@ public class CreateWorkActivity extends AppCompatActivity {
         String title = etTitle.getText().toString().trim();
         String description = etDescription.getText().toString().trim();
         if (!title.isEmpty() || !description.isEmpty() || !media.isEmpty()) {
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.PixelFlowMaterialDialog)
                     .setTitle("放弃编辑")
                     .setMessage("您有未保存的内容，确定要退出吗？")
                     .setPositiveButton("确定", (dialog, which) -> { model.discard(); finish(); })

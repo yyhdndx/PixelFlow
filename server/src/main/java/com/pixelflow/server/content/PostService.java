@@ -197,6 +197,7 @@ public class PostService {
         result.put("clips",content.clips());
         result.put("hashtag",List.of()); result.put("music",null);
         result.put("like_count",db.queryForObject("SELECT COUNT(*) FROM interactions WHERE kind='likes' AND target_id=?",Long.class,id));
+        result.put("favorite_count",db.queryForObject("SELECT COUNT(*) FROM interactions WHERE kind='favorites' AND target_id=?",Long.class,id));
         result.put("comment_count",row.get("comment_count")==null ? 0 : ((Number)row.get("comment_count")).intValue());
         return result;
     }

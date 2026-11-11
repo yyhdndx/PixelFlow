@@ -21,6 +21,124 @@
         <item name="android:windowSoftInputMode">stateHidden|adjustNothing</item>
     </style>
 
+    <style name="PixelFlowPlatformDialog" parent="android:Theme.Material.Light.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/bg_alert_dialog</item>
+        <item name="android:colorAccent">@color/profile_accent</item>
+        <item name="android:textColorPrimary">@color/profile_ink</item>
+        <item name="android:textColorSecondary">@color/profile_muted</item>
+        <item name="android:textAppearanceLarge">@style/PixelFlowDialogTitle</item>
+        <item name="android:textAppearanceMedium">@style/PixelFlowDialogBody</item>
+        <item name="android:buttonBarPositiveButtonStyle">@style/PixelFlowPlatformDialogButton</item>
+        <item name="android:buttonBarNegativeButtonStyle">@style/PixelFlowPlatformDialogCancel</item>
+    </style>
+
+    <style name="PixelFlowPlatformDialogButton" parent="android:Widget.Material.Button.Borderless">
+        <item name="android:textColor">@color/dialog_button_primary</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+    <style name="PixelFlowPlatformDialogCancel" parent="PixelFlowPlatformDialogButton">
+        <item name="android:textColor">@color/dialog_button_secondary</item>
+    </style>
+
+    <style name="PixelFlowAppCompatDialog" parent="ThemeOverlay.AppCompat.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/bg_alert_dialog</item>
+        <item name="colorAccent">@color/profile_accent</item>
+        <item name="android:textColorPrimary">@color/profile_ink</item>
+        <item name="android:textColorSecondary">@color/profile_muted</item>
+        <item name="android:textAppearanceLarge">@style/PixelFlowDialogTitle</item>
+        <item name="android:textAppearanceMedium">@style/PixelFlowDialogBody</item>
+        <item name="buttonBarPositiveButtonStyle">@style/PixelFlowAppCompatDialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/PixelFlowAppCompatDialogCancel</item>
+    </style>
+
+    <style name="PixelFlowMaterialDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="colorPrimary">@color/profile_accent</item>
+        <item name="colorSecondary">@color/profile_accent</item>
+        <item name="colorSurface">@color/profile_surface</item>
+        <item name="colorOnSurface">@color/profile_ink</item>
+        <item name="android:textColorPrimary">@color/profile_ink</item>
+        <item name="android:textColorSecondary">@color/profile_muted</item>
+        <item name="shapeAppearanceMediumComponent">@style/PixelFlowDialogShape</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/PixelFlowMaterialDialogTitle</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/PixelFlowMaterialDialogBody</item>
+        <item name="buttonBarPositiveButtonStyle">@style/PixelFlowMaterialDialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/PixelFlowMaterialDialogCancel</item>
+    </style>
+
+    <style name="PixelFlowAppCompatDialogButton" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:textColor">@color/dialog_button_primary</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+    <style name="PixelFlowAppCompatDialogCancel" parent="PixelFlowAppCompatDialogButton">
+        <item name="android:textColor">@color/dialog_button_secondary</item>
+    </style>
+
+    <style name="PixelFlowMaterialDialogButton" parent="Widget.MaterialComponents.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/dialog_button_primary</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+    <style name="PixelFlowMaterialDialogCancel" parent="PixelFlowMaterialDialogButton">
+        <item name="android:textColor">@color/dialog_button_secondary</item>
+    </style>
+
+    <style name="PixelFlowDialogTitle" parent="android:TextAppearance.Material.Title">
+        <item name="android:textColor">@color/profile_ink</item>
+        <item name="android:textSize">18sp</item>
+    </style>
+    <style name="PixelFlowDialogBody" parent="android:TextAppearance.Material.Body1">
+        <item name="android:textColor">@color/profile_muted</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+    <style name="PixelFlowDialogShape" parent="ShapeAppearance.MaterialComponents.LargeComponent">
+        <item name="cornerSize">24dp</item>
+    </style>
+    <style name="PixelFlowMaterialDialogTitle" parent="MaterialAlertDialog.MaterialComponents.Title.Text">
+        <item name="android:textColor">@color/profile_ink</item>
+        <item name="android:textSize">18sp</item>
+    </style>
+    <style name="PixelFlowMaterialDialogBody" parent="MaterialAlertDialog.MaterialComponents.Body.Text">
+        <item name="android:textColor">@color/profile_muted</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="PixelFlowSummaryRetryButton" parent="Widget.MaterialComponents.Button">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">@color/dialog_button_primary</item>
+        <item name="backgroundTint">@color/summary_retry_background</item>
+        <item name="cornerRadius">8dp</item>
+        <item name="rippleColor">@color/accent_ripple</item>
+    </style>
+
+    <style name="PixelFlowSummaryStopButton" parent="Widget.MaterialComponents.Button">
+        <item name="android:textSize">13sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">@color/profile_ink</item>
+        <item name="backgroundTint">@color/profile_soft</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="elevation">0dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="rippleColor">@color/accent_ripple</item>
+    </style>
+
+    <style name="PixelFlowVideoRetryButton" parent="PixelFlowSummaryRetryButton">
+        <item name="android:textColor">@color/video_retry_text</item>
+        <item name="backgroundTint">@color/video_retry_background</item>
+        <item name="rippleColor">#33FFFFFF</item>
+    </style>
+
+    <style name="PixelFlowFullscreenVideoRetryButton" parent="android:Widget.Material.Button">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">@color/video_retry_text</item>
+        <item name="android:background">@drawable/video_retry_button</item>
+        <item name="android:backgroundTint">@null</item>
+    </style>
+
     <style name="FullScreenDialogAnimation">
         <item name="android:windowEnterAnimation">@android:anim/fade_in</item>
         <item name="android:windowExitAnimation">@android:anim/fade_out</item>

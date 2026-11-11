@@ -66,6 +66,10 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
             bottomNavigationView.setSelectedItemId(R.id.nav_home);
         }
 
+        bottomNavigationView.post(this::styleCreateNavItem);
+        // BottomNavigationView 会在切 Tab / 配置变化时重建子视图，这里每次布局后重新套一次样式
+        bottomNavigationView.addOnLayoutChangeListener(
+                (v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> styleCreateNavItem());
         preloadManager = new PreloadManager(this);
 
         initializeUIForSplashTransition();
@@ -163,6 +167,15 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
             Fragment selectedFragment = null;
 
             int itemId = item.getItemId();
+            // 中间两个特殊入口：发布与 AI 对话，都不改变当前 Tab
+            if (itemId == R.id.nav_create) {
+                showCreateOptions();
+                return false;
+            }
+            if (itemId == R.id.nav_ai) {
+                startActivity(new Intent(this, com.PixelFlow.app.copilot.CopilotHistoryActivity.class));
+                return false;
+            }
             if (itemId == R.id.nav_home) {
                 selectedFragment = HomeFragment.newInstance();
             } else if (itemId == R.id.nav_messages) {
@@ -194,6 +207,42 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
         });
     }
 
+    /** 把导航栏中间的发布项做成主题色圆角矩形 + 白色加号。 */
+    /** 递归找导航项里的图标 ImageView（不同 Material 版本 id 不同）。 */
+    private View findIconView(View root) {
+        if (root instanceof android.widget.ImageView) return root;
+        if (root instanceof android.view.ViewGroup) {
+            android.view.ViewGroup group = (android.view.ViewGroup) root;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                View found = findIconView(group.getChildAt(i));
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    private void styleCreateNavItem() {
+        if (bottomNavigationView == null) return;
+        View item = bottomNavigationView.findViewById(R.id.nav_create);
+        if (item == null) return;
+        item.setBackground(null);
+        View icon = findIconView(item);
+        if (icon == null) return;
+        int w = Math.round(54 * getResources().getDisplayMetrics().density);
+        int h = Math.round(36 * getResources().getDisplayMetrics().density);
+        android.view.ViewGroup.LayoutParams params = icon.getLayoutParams();
+        params.width = w;
+        params.height = h;
+        icon.setLayoutParams(params);
+        icon.setBackgroundResource(R.drawable.bg_nav_create);
+        int padH = Math.round(12 * getResources().getDisplayMetrics().density);
+        int padV = Math.round(6 * getResources().getDisplayMetrics().density);
+        icon.setPadding(padH, padV, padH, padV);
+        if (icon instanceof android.widget.ImageView) {
+            ((android.widget.ImageView) icon).setImageTintList(
+                    android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE));
+        }
+    }
     private void setupCameraButton() {
         fabCamera.setOnClickListener(v -> {
             // 处理相机按钮点击事件
@@ -264,9 +313,19 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
     }
 
     private void showFragment(Fragment fragment) {
-        getSupportFragmentManager().beginTransaction()
-                .replace(R.id.fragment_container, fragment)
-                .commit();
+        androidx.fragment.app.FragmentManager manager = getSupportFragmentManager();
+        String tag = fragment.getClass().getName();
+        Fragment existing = manager.findFragmentByTag(tag);
+        if (existing != null) fragment = existing;
+        androidx.fragment.app.FragmentTransaction transaction = manager.beginTransaction();
+        for (Fragment page : manager.getFragments()) {
+            if (page.getId() == R.id.fragment_container && page != fragment) {
+                transaction.hide(page).setMaxLifecycle(page, androidx.lifecycle.Lifecycle.State.STARTED);
+            }
+        }
+        if (!fragment.isAdded()) transaction.add(R.id.fragment_container, fragment, tag);
+        transaction.show(fragment).setMaxLifecycle(fragment, androidx.lifecycle.Lifecycle.State.RESUMED);
+        transaction.setPrimaryNavigationFragment(fragment).commitNow();
     }
 
     // 实现HomeFragment的滚动监听接口

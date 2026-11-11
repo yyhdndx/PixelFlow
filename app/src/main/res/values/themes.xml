@@ -92,8 +92,8 @@
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowNoTitle">true</item>
 
-        <!-- 关键：背景颜色与布局背景一致 -->
-        <item name="android:windowBackground">@color/white</item>
+        <!-- 背景与海报顶部同色，避免状态栏区域露出黑边 -->
+        <item name="android:windowBackground">@color/splash_bg</item>
 
         <!-- 状态栏和导航栏透明 -->
         <item name="android:statusBarColor">@android:color/transparent</item>
@@ -101,6 +101,7 @@
 
         <!-- 关键：让内容延伸到状态栏下面 -->
         <item name="android:windowTranslucentStatus">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <item name="android:windowTranslucentNavigation">true</item>
 
         <!-- 关键：确保绘制在系统栏下面 -->

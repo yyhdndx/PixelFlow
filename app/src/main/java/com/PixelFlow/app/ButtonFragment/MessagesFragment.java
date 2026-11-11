@@ -39,7 +39,33 @@ public class MessagesFragment extends Fragment {
     private View loginGroup;
     private final TextView[] tabs = new TextView[3];
 
+    private static final class TabState {
+        final java.util.List<NotificationPage.NotificationItem> items = new java.util.ArrayList<>();
+        String cursor;
+        boolean hasMore, loaded;
+        android.os.Parcelable scroll;
+    }
+    private final TabState[] pages = {new TabState(), new TabState(), new TabState()};
+    private long session = -1;
     private int activeTab = 0;
+    private void rememberPage() {
+        TabState page = pages[activeTab];
+        page.items.clear(); page.items.addAll(adapter.getData());
+        page.cursor = cursor; page.hasMore = hasMore;
+        page.scroll = list.getLayoutManager().onSaveInstanceState();
+    }
+    private void restorePage() {
+        TabState page = pages[activeTab];
+        cursor = page.cursor; hasMore = page.hasMore;
+        adapter.setData(page.items);
+        if (page.scroll != null) list.getLayoutManager().onRestoreInstanceState(page.scroll);
+        refresh.setRefreshing(false);
+        updateEmpty();
+    }
+    private void resetPages() {
+        generation++; inFlight = false;
+        for (int i = 0; i < pages.length; i++) pages[i] = new TabState();
+    }
     private String cursor;
     private boolean hasMore;
     private boolean inFlight;
@@ -75,6 +101,7 @@ public class MessagesFragment extends Fragment {
         adapter.setOnNotificationClickListener(this::openPost);
         list.setLayoutManager(new LinearLayoutManager(requireContext()));
         list.setAdapter(adapter);
+        restorePage();
         list.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
@@ -100,12 +127,15 @@ public class MessagesFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        if (session != api.sessionVersion()) {
+            resetPages(); session = api.sessionVersion(); restorePage();
+        }
         if (!api.isLoggedIn()) {
             showLoginRequired();
         } else {
             loginGroup.setVisibility(View.GONE);
             list.setVisibility(View.VISIBLE);
-            reload();
+            if (!pages[activeTab].loaded && !inFlight) reload();
         }
     }
 
@@ -119,6 +149,8 @@ public class MessagesFragment extends Fragment {
 
     private void switchTab(int index) {
         if (index == activeTab) return;
+        rememberPage();
+        generation++; inFlight = false;
         activeTab = index;
         for (int i = 0; i < tabs.length; i++) {
             boolean selected = i == index;
@@ -126,13 +158,16 @@ public class MessagesFragment extends Fragment {
             tabs[i].setTextColor(requireContext().getColor(selected ? R.color.profile_ink : R.color.profile_muted));
             tabs[i].setTypeface(null, selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
         }
-        reload();
+        restorePage();
+        if (!pages[activeTab].loaded) reload();
     }
 
     private void reload() {
         if (!api.isLoggedIn()) { showLoginRequired(); return; }
         final int gen = ++generation;
         inFlight = true;
+        refresh.setRefreshing(true);
+        emptyGroup.setVisibility(View.GONE);
         api.getNotifications(TYPES[activeTab], null, new ApiClient.Callback<NotificationPage>() {
             @Override public void onSuccess(NotificationPage page) {
                 if (!alive(gen)) return;
@@ -141,6 +176,8 @@ public class MessagesFragment extends Fragment {
                 cursor = page.nextCursor;
                 hasMore = page.hasMore;
                 adapter.setData(page.items);
+                pages[activeTab].loaded = true;
+                rememberPage();
                 updateEmpty();
             }
             @Override public void onFailure(String message) {
@@ -164,6 +201,7 @@ public class MessagesFragment extends Fragment {
                 cursor = page.nextCursor;
                 hasMore = page.hasMore;
                 adapter.addData(page.items);
+                rememberPage();
             }
             @Override public void onFailure(String message) {
                 if (!alive(gen)) return;
@@ -192,6 +230,7 @@ public class MessagesFragment extends Fragment {
             @Override public void onSuccess(Void value) {
                 if (!alive(gen)) return;
                 inFlight = false;
+                for (TabState page : pages) page.loaded = false;
                 reload();
                 notifyChanged();
             }
@@ -226,11 +265,11 @@ public class MessagesFragment extends Fragment {
         reply.setChecked(muted.contains("REPLY"));
         like.setChecked(muted.contains("LIKE"));
 
-        new android.app.AlertDialog.Builder(getContext())
+        new android.app.AlertDialog.Builder(getContext(), R.style.PixelFlowPlatformDialog)
                 .setTitle(R.string.messages_settings)
                 .setView(content)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.confirm, (dialog, which) -> {
                     Set<String> next = new LinkedHashSet<>();
                     if (mention.isChecked()) next.add("MENTION");
                     if (reply.isChecked()) next.add("REPLY");
@@ -245,6 +284,7 @@ public class MessagesFragment extends Fragment {
         api.setNotificationPreferences(muted, new ApiClient.Callback<Set<String>>() {
             @Override public void onSuccess(Set<String> value) {
                 if (!alive(gen)) return;
+                for (TabState page : pages) page.loaded = false;
                 reload();
                 notifyChanged();
             }
@@ -273,11 +313,12 @@ public class MessagesFragment extends Fragment {
             ((OnMessagesChangedListener) getActivity()).onMessagesChanged();
     }
 
-    private boolean alive(int gen) { return gen == generation && isAdded(); }
+    private boolean alive(int gen) { return gen == generation && isAdded() && getView() != null && session == api.sessionVersion(); }
 
     @Override
     public void onDestroyView() {
-        generation++;
+        rememberPage();
+        generation++; inFlight = false;
         super.onDestroyView();
     }
 }

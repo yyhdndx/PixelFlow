@@ -31,4 +31,21 @@
     <string name="copilot_suggest_create_1">帮我润色正文</string>
     <string name="copilot_suggest_create_2">帮我起个标题</string>
     <string name="copilot_suggest_messages_1">帮我回复这几条</string>
-    <string name="copilot_suggest_messages_2">先说说他们问了什么</string></resources>
+    <string name="copilot_suggest_messages_2">先说说他们问了什么</string>    <string name="copilot_new_chat">新建对话</string>
+    <string name="copilot_pick_post">选择要对话的作品</string>
+    <string name="copilot_no_posts">还没有作品，先去创作一篇再来</string>
+    <string name="copilot_loading_posts">正在加载作品…</string>    <string name="copilot_back_to_history">返回 AI 对话历史</string>
+    <string name="copilot_jump_default">前往</string>
+    <string name="copilot_jump_detail">查看帖子</string>
+    <string name="copilot_jump_draft">去编辑草稿</string>
+    <string name="copilot_jump_messages">去消息</string>
+    <string name="copilot_jump_failed">打开失败：%1$s</string>    <string name="copilot_select_mode">多选对话</string>
+    <string name="copilot_cancel">取消</string>
+    <string name="copilot_delete">删除</string>
+    <string name="copilot_delete_selected">删除所选（%1$d）</string>
+    <string name="copilot_deleted">已删除 %1$d 个对话</string>    <string name="copilot_select_all">全选</string>
+    <string name="copilot_select_none">取消全选</string>    <string name="copilot_draft_created">草稿已创建，可继续编辑</string>
+    <string name="copilot_general_title">通用对话</string>    <string name="copilot_hint_general">问点什么…</string>
+    <string name="copilot_intro_general">这里不绑定具体帖子或草稿，可以直接问问题，也可以让我按站内内容起草一篇新帖子（生成后你确认才会创建）。</string>    <string name="copilot_jump_prev">上一条我的发言</string>
+    <string name="copilot_jump_next">下一条我的发言</string>
+    <string name="copilot_jump_bottom">回到底部</string></resources>

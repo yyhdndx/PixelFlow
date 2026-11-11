@@ -28,6 +28,8 @@ public final class DraftEditorModel extends AndroidViewModel {
         public String message = "";
         public String assistGoal, assistPrompt, assistAudience, assistIdentity, assistInputSnapshot;
         public CreationSuggestion assistPreview;
+        public String appliedAssistIdentity;
+        public boolean assistPendingAcceptance;
         public String previewSnapshot, previewGoal, previewTitle, previewContent;
         public List<String> previewTags;
         public String requestTitle, requestContent;
@@ -212,6 +214,12 @@ public final class DraftEditorModel extends AndroidViewModel {
             if (!current() || assistTask != value) return;
             assistBusy = value.isRunning();
             if (value.state == AiTaskRegistry.State.COMPLETED && value.result instanceof CreationSuggestion) {
+                // Reattaching a completed task must not overwrite edits or the undo point.
+                if (Objects.equals(state.appliedAssistIdentity, state.assistIdentity)) {
+                    changes.setValue(changes.getValue() + 1);
+                    return;
+                }
+                state.appliedAssistIdentity = state.assistIdentity;
                 suggestion = (CreationSuggestion) value.result;
                 state.assistPreview = suggestion; state.previewSnapshot = snapshot;
                 state.previewGoal = state.assistGoal; state.previewTitle = state.requestTitle;
@@ -223,6 +231,8 @@ public final class DraftEditorModel extends AndroidViewModel {
                     if (!suggestion.title_candidates.isEmpty()) state.title = suggestion.title_candidates.get(0);
                     if (!suggestion.content_candidates.isEmpty()) state.content = suggestion.content_candidates.get(0);
                     state.assistUndo.record(beforeTitle, beforeContent, state.title, state.content);
+                    state.previewSnapshot = textSnapshot();
+                    state.assistPendingAcceptance = true;
                 }
                 checkpoint();
                 assistMessage = getApplication().getString(suggestionStale()
@@ -242,6 +252,16 @@ public final class DraftEditorModel extends AndroidViewModel {
         assistBusy = false;
         assistMessage = assistKey == null ? "" : getApplication().getString(com.PixelFlow.app.R.string.ai_cancelled);
         changes.setValue(changes.getValue() + 1);
+    }
+    /** Confirm the visible, already filled draft without replacing its contents. */
+    public boolean confirmAssist() {
+        if (!editable() || assistBusy || !state.assistPendingAcceptance) return false;
+        state.assistPendingAcceptance = false;
+        state.assistUndo.available = false;
+        clearAssistPreview();
+        assistMessage = "已接受 AI 修改";
+        notifyChange();
+        return true;
     }
     public boolean acceptAssist(String title, String content, boolean includeTags) {
         if (!editable() || assistBusy || suggestion == null || suggestionStale()) {
@@ -265,6 +285,7 @@ public final class DraftEditorModel extends AndroidViewModel {
         if (assistSubscription != null) assistSubscription.close();
         assistTask = null; assistKey = null; state.assistIdentity = null;
         suggestion = null; state.assistPreview = null;
+        state.assistPendingAcceptance = false;
     }
     public boolean undoAssist(boolean confirmed) {
         if (!editable() || assistBusy || !state.assistUndo.canRestore(state.title, state.content, confirmed)) return false;
@@ -282,9 +303,21 @@ public final class DraftEditorModel extends AndroidViewModel {
         for (MediaEntry entry : state.media) ids.add(entry.mediaId);
         return ids;
     }
-    private String payload() { return new Gson().toJson(Arrays.asList(state.title.trim(), state.content.trim(), mediaIds())); }
+    /** 正文 + 话题标签合并：服务端不单独存标签，话题按正文文本提交。 */
+    private String effectiveContent() {
+        String content = state.content.trim();
+        if (state.tags == null || state.tags.trim().isEmpty()) return content;
+        StringBuilder merged = new StringBuilder(content);
+        for (String tag : state.tags.trim().split("\\s+")) {
+            if (tag.isEmpty() || content.contains(tag)) continue;
+            if (merged.length() > 0) merged.append('\n');
+            merged.append(tag);
+        }
+        return merged.toString();
+    }
+    private String payload() { return new Gson().toJson(Arrays.asList(state.title.trim(), effectiveContent(), mediaIds())); }
     private boolean matches(PostItem post) {
-        return Objects.equals(state.title.trim(), post.getTitle()) && Objects.equals(state.content.trim(), post.getContent())
+        return Objects.equals(state.title.trim(), post.getTitle()) && Objects.equals(effectiveContent(), post.getContent())
                 && Objects.equals(mediaIds(), post.getMediaIds());
     }
     public void resume() {
@@ -375,8 +408,8 @@ public final class DraftEditorModel extends AndroidViewModel {
                 else reconcile();
             }
         };
-        if (creating) api.createPost(state.creationKey, state.title.trim(), state.content.trim(), mediaIds(), callback);
-        else api.updatePost(state.postId, state.title.trim(), state.content.trim(), mediaIds(), callback);
+        if (creating) api.createPost(state.creationKey, state.title.trim(), effectiveContent(), mediaIds(), callback);
+        else api.updatePost(state.postId, state.title.trim(), effectiveContent(), mediaIds(), callback);
     }
     private void afterSave() {
         if (!current()) return;

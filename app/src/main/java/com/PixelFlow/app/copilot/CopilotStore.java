@@ -28,6 +28,7 @@ public final class CopilotStore {
         public String text = "";
         public long at;
         public final List<CopilotAction> actions = new ArrayList<>();
+        public final List<com.PixelFlow.app.API.CopilotReference> references = new ArrayList<>();
     }
 
     public static final class Session {
@@ -58,6 +59,9 @@ public final class CopilotStore {
                 JsonArray actions = new JsonArray();
                 for (CopilotAction action : entry.actions) actions.add(action.toJson());
                 row.add("actions", actions);
+                JsonArray refs = new JsonArray();
+                for (com.PixelFlow.app.API.CopilotReference ref : entry.references) refs.add(ref.toJson());
+                row.add("references", refs);
                 list.add(row);
             }
             out.add("entries", list);
@@ -80,6 +84,12 @@ public final class CopilotStore {
                 entry.role = string(entryJson, "role");
                 entry.text = string(entryJson, "text");
                 entry.at = entryJson.has("at") ? entryJson.get("at").getAsLong() : 0;
+                if (entryJson.has("references") && entryJson.get("references").isJsonArray()) {
+                    for (com.google.gson.JsonElement item : entryJson.getAsJsonArray("references")) {
+                        if (item.isJsonObject())
+                            entry.references.add(com.PixelFlow.app.API.CopilotReference.parse(item.getAsJsonObject()));
+                    }
+                }
                 for (com.google.gson.JsonElement action : entryJson.getAsJsonArray("actions"))
                     if (action.isJsonObject()) entry.actions.add(CopilotAction.restore(action.getAsJsonObject()));
                 session.entries.add(entry);
@@ -131,6 +141,15 @@ public final class CopilotStore {
         prefs(context).edit().putString(KEY, GSON.toJson(array)).apply();
     }
 
+    /** 按 key 批量删除会话。 */
+    public static void delete(Context context, java.util.Collection<String> keys) {
+        if (keys == null || keys.isEmpty()) return;
+        List<Session> all = all(context);
+        all.removeIf(item -> keys.contains(item.key));
+        JsonArray array = new JsonArray();
+        for (Session item : all) array.add(item.toJson());
+        prefs(context).edit().putString(KEY, GSON.toJson(array)).apply();
+    }
     public static void clearAll(Context context) {
         prefs(context).edit().remove(KEY).apply();
     }

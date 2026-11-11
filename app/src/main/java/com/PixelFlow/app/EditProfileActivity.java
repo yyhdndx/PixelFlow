@@ -52,7 +52,10 @@ public class EditProfileActivity extends AppCompatActivity {
     }
     private void render() {
         if (!model.validSession()) { finish(); return; }
-        if (model.saved) { Toast.makeText(this, "资料已保存", Toast.LENGTH_SHORT).show(); setResult(RESULT_OK); finish(); return; }
+        if (model.saved) { Toast.makeText(this, "资料已保存", Toast.LENGTH_SHORT).show(); setResult(RESULT_OK, new android.content.Intent()
+                .putExtra("profile_session", model.session)
+                .putExtra("profile_name", model.original.nickname)
+                .putExtra("profile_bio", model.original.bio)); finish(); return; }
         rendering = true;
         if (!nickname.getText().toString().equals(model.nickname)) nickname.setText(model.nickname);
         if (!bio.getText().toString().equals(model.bio)) bio.setText(model.bio);
@@ -70,7 +73,7 @@ public class EditProfileActivity extends AppCompatActivity {
     private void leave() {
         if (model.saving) { Toast.makeText(this, "正在保存，请稍候", Toast.LENGTH_SHORT).show(); return; }
         if (!model.dirty()) { finish(); return; }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle(R.string.profile_discard_title).setMessage(R.string.profile_discard_message)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.PixelFlowMaterialDialog).setTitle(R.string.profile_discard_title).setMessage(R.string.profile_discard_message)
                 .setNegativeButton(R.string.profile_keep_editing, null).setPositiveButton(R.string.profile_discard, (d, w) -> finish()).show();
     }
 }
