@@ -105,7 +105,7 @@ paths:
               additionalProperties: false
               required: [screen, message]
               properties:
-                screen: {type: string, enum: [detail, create, messages, general], description: general 为无上下文的通用对话，可引用站内公开帖子摘要并起草新帖子}
+                screen: {type: string, enum: [detail, create, messages, general], description: general 为无上下文的通用对话：可检索站内公开帖子、读取本人私信并总结/起草回复、起草新帖子}
                 postId: {type: string, pattern: '^[1-9][0-9]{0,18}$', description: screen=detail 时必填}
                 draftId: {type: string, pattern: '^[1-9][0-9]{0,18}$', description: screen=create 时必填，必须是自己的草稿}
                 conversationIds:
@@ -127,7 +127,7 @@ paths:
                       content: {type: string, maxLength: 500}
       responses:
         '200':
-          description: '{status_code, reply, actions, references, screen, trace_id}；actions 为空表示只回话不动作；general 场景可返回 CREATE_DRAFT 提案（title/content）与 references（模型检索到的站内帖子，客户端可点击跳详情）'
+          description: '{status_code, reply, actions, references, screen, trace_id}；actions 为空表示只回话不动作；general 场景可返回 CREATE_DRAFT 提案（title/content）、SEND_MESSAGES 提案（代回私信，items 的 conversation_id 必须是本人会话）与 references（模型检索到的站内帖子，客户端可点击跳详情）'
           content:
             application/json:
               schema:
