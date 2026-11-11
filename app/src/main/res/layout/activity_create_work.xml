@@ -22,7 +22,7 @@
             android:layout_height="44dp"
             android:layout_marginStart="8dp"
             android:padding="10dp"
-            android:src="@drawable/ic_arrow_back"
+            android:src="@drawable/profile_back"
             android:contentDescription="@string/back"
             android:background="?attr/selectableItemBackgroundBorderless"
             app:tint="@color/profile_ink" />
@@ -281,7 +281,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:rotationY="180"
-                    android:src="@drawable/ic_arrow_back"
+                    android:src="@drawable/profile_back"
                     app:tint="@color/profile_muted"
                     android:contentDescription="@string/back" />
             </LinearLayout>

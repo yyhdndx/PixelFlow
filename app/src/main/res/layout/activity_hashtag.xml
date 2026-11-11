@@ -34,7 +34,7 @@
                     android:id="@+id/back_button"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:src="@drawable/ic_arrow_back"
+                    android:src="@drawable/profile_back"
                     android:contentDescription="返回"
                     android:padding="8dp"
                     android:background="@drawable/ripple_circle"
