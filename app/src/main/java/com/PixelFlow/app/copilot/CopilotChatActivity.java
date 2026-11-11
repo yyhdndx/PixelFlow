@@ -360,11 +360,12 @@ public class CopilotChatActivity extends AppCompatActivity {
         toggle.setText("展开全文");
         toggle.setVisibility(View.GONE);
         final boolean[] expanded = {false};
+        toggle.setText("展开全文 ▾");
         toggle.setOnClickListener(v -> {
             expanded[0] = !expanded[0];
             text.setMaxLines(expanded[0] ? Integer.MAX_VALUE : max);
             text.setEllipsize(expanded[0] ? null : TextUtils.TruncateAt.END);
-            toggle.setText(expanded[0] ? "收起" : "展开全文");
+            toggle.setText(expanded[0] ? "收起 ▴" : "展开全文 ▾");
         });
 
         // 布局完成后读真实行数，超过阈值才显示展开入口。
