@@ -45,5 +45,5 @@
     <string name="copilot_delete_selected">删除所选（%1$d）</string>
     <string name="copilot_deleted">已删除 %1$d 个对话</string>    <string name="copilot_select_all">全选</string>
     <string name="copilot_select_none">取消全选</string>    <string name="copilot_draft_created">草稿已创建，可继续编辑</string>
-    <string name="copilot_general_title">通用对话</string>    <string name="copilot_hint_general">例如：整理一份工科数学复习经验，或根据站内内容写一篇新帖子</string>
+    <string name="copilot_general_title">通用对话</string>    <string name="copilot_hint_general">问点什么…</string>
     <string name="copilot_intro_general">这里不绑定具体帖子或草稿，可以直接问问题，也可以让我按站内内容起草一篇新帖子（生成后你确认才会创建）。</string></resources>
