@@ -26,10 +26,21 @@ async function applySuggestions() {
   if (busy.value || suggestion.value?.status !== 'done' || suggestionChanged.value || !selectedRules.value.length ||
       selectedRules.value.length + rules.value.length > 10 || !selectedRules.value.every(item => valid(item.question, item.answer))) return
   const current = revision
+  const source = post.value
+  const sourceKey = ruleKey(source)
+  const task = suggestion.value
   busy.value = true; error.value = ''; notice.value = ''
   const chosen = selectedRules.value.map(item => ({ question: item.question.trim(), answer: item.answer.trim() }))
   try {
-    const saved = await request(`/api/posts/${encodeURIComponent(post.value.post_id)}/auto-replies/batch`, {
+    const latest = await request(`/api/posts/${encodeURIComponent(source.post_id)}`)
+    if (current !== revision) return
+    if (latest.author?.user_id !== session.user?.id || ruleKey(latest) !== sourceKey ||
+        task !== suggestion.value || suggestionChanged.value) {
+      discardRuleSuggestion(source)
+      error.value = '作品内容或描述已变化，请重新生成建议'
+      return
+    }
+    const saved = await request(`/api/posts/${encodeURIComponent(source.post_id)}/auto-replies/batch`, {
       method: 'POST', body: JSON.stringify({ rules: chosen }),
     })
     if (current !== revision) return

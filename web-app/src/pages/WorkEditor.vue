@@ -35,6 +35,7 @@ function adopt() {
   const result = assist.value.result
   if (result.title_candidates.length) title.value = result.title_candidates[0]
   if (result.content_candidates.length) content.value = result.content_candidates[0]
+  discardAssist(original.value.post_id)
   notice.value = '候选已填入编辑器，请检查后保存草稿'
 }
 let revision = 0
