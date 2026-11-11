@@ -313,8 +313,7 @@ public class PreloadManager implements ComponentCallbacks2 {
     }
 
     /**
-     * 预加载图片：只把原始文件下载到磁盘缓存（不解码、不缩尺寸）。
-     * 显示时再按实际卡片尺寸 + centerCrop 解码。
+     * 预加载图片：按显示完全一致的参数（全尺寸 + centerCrop）解码，命中内存缓存。
      */
     private void preloadImage(WorkItem workItem, int priority, String cacheKey) {
         String imageUrl = workItem.getFirstImageUrl();
@@ -326,22 +325,23 @@ public class PreloadManager implements ComponentCallbacks2 {
             return;
         }
 
-        try {
-            // 用 asFile() 下载原始文件到磁盘，不做解码
-            Glide.with(context)
-                    .asFile()
-                    .load(imageUrl)
-                    .diskCacheStrategy(DiskCacheStrategy.DATA)
-                    .submit()
-                    .get(); // 阻塞直到下载完成
+        Pair<Integer, Integer> targetSize = getTargetSize(workItem, priority, false);
 
-            // 记录预加载成功
-            PreloadRecord record = new PreloadRecord(imageUrl, priority, 0, 0, false);
+        try {
+            Glide.with(context)
+                    .asDrawable()
+                    .load(imageUrl)
+                    .override(targetSize.first, targetSize.second)
+                    .centerCrop()
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .submit(targetSize.first, targetSize.second)
+                    .get(); // 阻塞直到完成
+
+            PreloadRecord record = new PreloadRecord(imageUrl, priority, targetSize.first, targetSize.second, false);
             preloadCache.put(cacheKey, record);
             preloadedUrls.add(imageUrl);
 
         } catch (Exception e) {
-            // 预加载失败，移除记录
             preloadCache.remove(cacheKey);
             throw new RuntimeException("Image preload failed", e);
         } finally {
@@ -350,7 +350,7 @@ public class PreloadManager implements ComponentCallbacks2 {
     }
 
     /**
-     * 预加载视频封面：只把视频文件下载到磁盘缓存，不做取帧解码。
+     * 预加载视频封面：按显示完全一致的参数解码取帧。
      */
     private void preloadVideoCover(WorkItem workItem, int priority, String cacheKey) {
         String videoUrl = workItem.getFirstVideoUrl();
@@ -358,21 +358,23 @@ public class PreloadManager implements ComponentCallbacks2 {
             return;
         }
 
+        Pair<Integer, Integer> targetSize = getTargetSize(workItem, priority, true);
+
         try {
             Glide.with(context)
-                    .asFile()
+                    .asBitmap()
                     .load(videoUrl)
-                    .diskCacheStrategy(DiskCacheStrategy.DATA)
-                    .submit()
-                    .get(); // 阻塞直到下载完成
+                    .override(targetSize.first, targetSize.second)
+                    .centerCrop()
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .submit(targetSize.first, targetSize.second)
+                    .get(); // 阻塞直到完成
 
-            // 记录预加载成功
-            PreloadRecord record = new PreloadRecord(videoUrl, priority, 0, 0, true);
+            PreloadRecord record = new PreloadRecord(videoUrl, priority, targetSize.first, targetSize.second, true);
             preloadCache.put(cacheKey, record);
             preloadedUrls.add(videoUrl);
 
         } catch (Exception e) {
-            // 预加载失败，移除记录
             preloadCache.remove(cacheKey);
             throw new RuntimeException("Video cover preload failed", e);
         } finally {
@@ -381,63 +383,15 @@ public class PreloadManager implements ComponentCallbacks2 {
     }
 
     /**
-     * 获取目标尺寸
+     * 获取目标尺寸：与显示完全一致的卡片全尺寸（全量解码，不再按优先级缩尺寸）。
      */
     private Pair<Integer, Integer> getTargetSize(WorkItem workItem, int priority, boolean isVideo) {
-        String sizeKey = generateSizeKey(workItem, priority, isVideo);
-        Pair<Integer, Integer> cachedSize = sizeCache.getCachedSize(sizeKey);
-
-        if (cachedSize != null) {
-            return cachedSize;
-        }
-
         int cardWidth = getCardWidth();
-        int targetWidth, targetHeight;
-
-        if (isVideo) {
-            // 视频封面尺寸
-            switch (priority) {
-                case PRIORITY_LOW:
-                    targetWidth = targetHeight = Math.max(40, cardWidth / 8);
-                    break;
-                case PRIORITY_MEDIUM:
-                    targetWidth = targetHeight = Math.max(80, cardWidth / 4);
-                    break;
-                case PRIORITY_HIGH:
-                    targetWidth = targetHeight = cardWidth / 2;
-                    break;
-                default:
-                    targetWidth = targetHeight = 80;
-            }
-        } else {
-            // 图片尺寸
-            switch (priority) {
-                case PRIORITY_LOW:
-                    targetWidth = Math.max(60, cardWidth / 8);
-                    targetHeight = workItem.getDisplayHeight(targetWidth);
-                    break;
-                case PRIORITY_MEDIUM:
-                    targetWidth = Math.max(120, cardWidth / 2);
-                    targetHeight = workItem.getDisplayHeight(targetWidth);
-                    break;
-                case PRIORITY_HIGH:
-                    targetWidth = cardWidth;
-                    targetHeight = workItem.getDisplayHeight(targetWidth);
-                    break;
-                default:
-                    targetWidth = 120;
-                    targetHeight = 160;
-            }
-        }
-
-        // 限制最大尺寸
-        targetWidth = Math.min(targetWidth, getMaxTextureSize());
+        int targetWidth = Math.min(cardWidth, getMaxTextureSize());
+        int targetHeight = workItem.getDisplayHeight(targetWidth);
+        if (targetHeight <= 0) targetHeight = (int) (targetWidth * 1.33f);
         targetHeight = Math.min(targetHeight, getMaxTextureSize());
-
-        Pair<Integer, Integer> size = new Pair<>(targetWidth, targetHeight);
-        sizeCache.cacheSize(sizeKey, targetWidth, targetHeight);
-
-        return size;
+        return new Pair<>(targetWidth, targetHeight);
     }
 
     /**
@@ -448,8 +402,8 @@ public class PreloadManager implements ComponentCallbacks2 {
             updateDisplayMetrics();
         }
 
-        // 计算每个卡片的宽度（考虑间距）
-        int totalPaddingPx = (int) (12 * density); // 4dp * 3
+        // 与 WaterfallAdapter 一致：单侧 4dp 边距，两列共 16dp
+        int totalPaddingPx = (int) (16 * density);
         return (screenWidth - totalPaddingPx) / 2;
     }
 
