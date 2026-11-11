@@ -43,7 +43,9 @@ public class AiFragment extends Fragment {
         // Tab 形态无返回栈，隐藏返回键
         view.findViewById(R.id.copilot_history_back).setVisibility(View.GONE);
         view.findViewById(R.id.copilot_history_new).setOnClickListener(v ->
-                CopilotChatActivity.open(requireContext(), "general", null, null, 0, "通用对话", null));
+                CopilotChatActivity.open(requireContext(), "general",
+                    "general:" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8),
+                    null, null, 0, "通用对话", null));
         view.findViewById(R.id.copilot_history_select).setOnClickListener(v -> enterSelection());
         view.findViewById(R.id.copilot_history_cancel).setOnClickListener(v -> exitSelection());
         view.findViewById(R.id.copilot_history_delete).setOnClickListener(v -> deleteSelected());
@@ -69,7 +71,7 @@ public class AiFragment extends Fragment {
     }
 
     private void open(CopilotStore.Session session) {
-        CopilotChatActivity.open(requireContext(), session.screen, session.postId, session.draftId,
+        CopilotChatActivity.open(requireContext(), session.screen, session.key, session.postId, session.draftId,
                 session.draftVersion, titleOf(session), session.label);
     }
 
