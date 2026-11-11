@@ -35,6 +35,9 @@ pixelflow:
     enabled: ${PIXELFLOW_LOCAL_CACHE_ENABLED:true}
     maximum-size: ${PIXELFLOW_LOCAL_CACHE_MAXIMUM_SIZE:1000}
     ttl: ${PIXELFLOW_LOCAL_CACHE_TTL:10s}
+  media-cache:
+    enabled: ${PIXELFLOW_MEDIA_CACHE_ENABLED:true}
+    maximum-weight: ${PIXELFLOW_MEDIA_CACHE_MAXIMUM_WEIGHT:268435456}
   rate-limit:
     enabled: ${PIXELFLOW_RATE_LIMIT_ENABLED:false}
     namespace: ${PIXELFLOW_RATE_LIMIT_NAMESPACE:pixelflow:local}
