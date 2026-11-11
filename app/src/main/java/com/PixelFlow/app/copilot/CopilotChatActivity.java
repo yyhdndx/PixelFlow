@@ -279,7 +279,7 @@ public class CopilotChatActivity extends AppCompatActivity {
             card.addView(text);
             card.addView(links);
             bubble = null;
-            return wrapBubble(card);
+            return wrapBubble(card, true);
         }
         // 自己的消息靠右、AI 靠左，两侧留出空白，像正常聊天窗口
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -296,12 +296,15 @@ public class CopilotChatActivity extends AppCompatActivity {
         return bubble;
     }
 
-    private View wrapBubble(View content) {
+    private View wrapBubble(View content) { return wrapBubble(content, false); }
+
+    private View wrapBubble(View content, boolean fullWidth) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                fullWidth ? ViewGroup.LayoutParams.MATCH_PARENT : ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
         params.topMargin = dp(8);
         params.gravity = android.view.Gravity.START;
-        params.rightMargin = dp(56);
+        params.rightMargin = dp(fullWidth ? 12 : 56);
         content.setLayoutParams(params);
         return content;
     }
