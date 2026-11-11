@@ -30,7 +30,25 @@ public class CopilotController {
                           @Size(max=MAX_CONVERSATIONS) List<@Pattern(regexp="[1-9][0-9]{0,18}") String> conversationIds,
                           @Size(max=500) String selection,
                           @NotBlank @Size(max=2000) String message,
+                          @Size(max=400) String summary,
                           @Size(max=MAX_HISTORY) List<@Valid HistoryItem> history) {}
+
+    @PostMapping("/api/agent/copilot/summary")
+    public Map<String,Object> summary(@AuthenticationPrincipal Actor actor,
+                                      @Valid @RequestBody SummaryRequest body) {
+        var history = new ArrayList<Map<String,Object>>();
+        for (var item : body.messages() == null ? List.<HistoryItem>of() : body.messages())
+            history.add(Map.of("role", item.role(), "content", item.content()));
+        String text = advisor.compress(body.previousSummary() == null ? "" : body.previousSummary(), history)
+                .orElseThrow(() -> new ApiException(503,"AI_UNAVAILABLE","摘要生成失败，请稍后再试"));
+        Map<String,Object> out = new LinkedHashMap<>();
+        out.put("status_code", 0);
+        out.put("summary", text);
+        return out;
+    }
+
+    public record SummaryRequest(@Size(max=400) String previousSummary,
+                                 @Size(max=MAX_HISTORY) List<@Valid HistoryItem> messages) {}
 
     public record Application(@Size(max=120) String title,
                               @NotBlank @Size(max=5000) String content,
@@ -76,6 +94,7 @@ public class CopilotController {
         for (var item : input.history() == null ? List.<HistoryItem>of() : input.history())
             history.add(Map.of("role", item.role(), "content", item.content()));
 
+        if (input.summary() != null && !input.summary().isBlank()) context.put("summary", input.summary());
         var result = advisor.chat(screen, context, input.message(), history);
         if (result.isEmpty())
             throw new ApiException(503,"AI_UNAVAILABLE","AI 暂时不可用，请稍后再试");

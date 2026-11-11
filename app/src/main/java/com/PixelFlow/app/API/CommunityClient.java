@@ -475,7 +475,7 @@ public class CommunityClient implements AutoCloseable {
 
     /** Copilot：上报页面与实体 ID，上下文由服务端按权限重读；只返回提案，不落库。 */
     public Job copilot(String screen, String postId, String draftId, java.util.List<String> conversationIds,
-            String message, java.util.List<java.util.Map<String, String>> history,
+            String message, String summary, java.util.List<java.util.Map<String, String>> history,
             Callback<CopilotReply> callback) {
         return submitAi((job, expected) -> {
             if (message == null || message.trim().isEmpty()) throw new ApiError(400, "请先输入内容");
@@ -486,12 +486,33 @@ public class CommunityClient implements AutoCloseable {
             if (conversationIds != null && !conversationIds.isEmpty())
                 input.add("conversationIds", gson.toJsonTree(conversationIds));
             input.addProperty("message", message.trim());
+            if (summary != null && !summary.isEmpty()) input.addProperty("summary", summary);
             if (history != null && !history.isEmpty()) input.add("history", gson.toJsonTree(history));
             String raw = authenticated(job, "/api/agent/copilot", "POST", input, expected, true);
             return CopilotReply.parse(gson.fromJson(raw, JsonObject.class));
         }, callback);
     }
 
+    /** 把更早的对话压成摘要；失败时界面保留原文继续发送。 */
+    public Job compressContext(String previousSummary, java.util.List<java.util.Map<String, String>> messages,
+            Callback<String> callback) {
+        return submitAi((job, expected) -> {
+            JsonObject input = new JsonObject();
+            input.addProperty("previousSummary", previousSummary == null ? "" : previousSummary);
+            com.google.gson.JsonArray array = new com.google.gson.JsonArray();
+            if (messages != null) {
+                for (java.util.Map<String, String> item : messages) {
+                    JsonObject row = new JsonObject();
+                    row.addProperty("role", item.get("role"));
+                    row.addProperty("content", item.get("content"));
+                    array.add(row);
+                }
+            }
+            input.add("messages", array);
+            String raw = authenticated(job, "/api/agent/copilot/summary", "POST", input, expected, true);
+            return gson.fromJson(raw, JsonObject.class).get("summary").getAsString();
+        }, callback);
+    }
     /** 应用 Copilot 的草稿修改；版本不一致返回 409，界面只能重新生成。 */
     public Job applyCopilotDraft(String postId, String title, String content, int expectedVersion,
             Callback<Boolean> callback) {

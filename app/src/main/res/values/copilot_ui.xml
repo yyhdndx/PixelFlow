@@ -48,4 +48,5 @@
     <string name="copilot_general_title">通用对话</string>    <string name="copilot_hint_general">问点什么…</string>
     <string name="copilot_intro_general">这里不绑定具体帖子或草稿，可以直接问问题，也可以让我按站内内容起草一篇新帖子（生成后你确认才会创建）。</string>    <string name="copilot_jump_prev">上一条我的发言</string>
     <string name="copilot_jump_next">下一条我的发言</string>
-    <string name="copilot_jump_bottom">回到底部</string></resources>
+    <string name="copilot_jump_bottom">回到底部</string>    <string name="copilot_compressing">正在压缩较早的对话…</string>
+</resources>

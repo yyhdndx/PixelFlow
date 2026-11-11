@@ -38,6 +38,9 @@ public final class CopilotStore {
         public String postId;
         public String draftId;
         public int draftVersion;
+        /** 更早对话的压缩摘要 + 已折叠的条目数；只存本机。 */
+        public String summary = "";
+        public int compressedCount;
         public long updatedAt;
         public final List<Entry> entries = new ArrayList<>();
 
@@ -49,6 +52,8 @@ public final class CopilotStore {
             if (postId != null) out.addProperty("postId", postId);
             if (draftId != null) out.addProperty("draftId", draftId);
             out.addProperty("draftVersion", draftVersion);
+            if (!summary.isEmpty()) out.addProperty("summary", summary);
+            out.addProperty("compressedCount", compressedCount);
             out.addProperty("updatedAt", updatedAt);
             JsonArray list = new JsonArray();
             for (Entry entry : entries) {
@@ -76,6 +81,8 @@ public final class CopilotStore {
             session.postId = value.has("postId") ? string(value, "postId") : null;
             session.draftId = value.has("draftId") ? string(value, "draftId") : null;
             session.draftVersion = value.has("draftVersion") ? value.get("draftVersion").getAsInt() : 0;
+            session.summary = value.has("summary") ? string(value, "summary") : "";
+            session.compressedCount = value.has("compressedCount") ? value.get("compressedCount").getAsInt() : 0;
             session.updatedAt = value.has("updatedAt") ? value.get("updatedAt").getAsLong() : 0;
             for (com.google.gson.JsonElement row : value.getAsJsonArray("entries")) {
                 if (!row.isJsonObject()) continue;

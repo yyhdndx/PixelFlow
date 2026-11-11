@@ -16,4 +16,7 @@ public interface CopilotAdvisor {
 
     Optional<Result> chat(String screen, Map<String,Object> context, String message,
                           List<Map<String,Object>> history);
+
+    /** 把更早的若干轮对话压成摘要，失败返回 empty。 */
+    Optional<String> compress(String previousSummary, List<Map<String,Object>> messages);
 }

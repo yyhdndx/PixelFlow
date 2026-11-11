@@ -115,6 +115,7 @@ paths:
                   items: {type: string, pattern: '^[1-9][0-9]{0,18}$'}
                 selection: {type: string, maxLength: 500}
                 message: {type: string, minLength: 1, maxLength: 2000}
+                summary: {type: string, maxLength: 400, description: 把更早对话压缩后的摘要，作为背景传入}
                 history:
                   type: array
                   maxItems: 20
@@ -172,7 +173,44 @@ paths:
         '403': {description: 上下文越权（他人草稿、非本人参与的会话）}
         '503': {description: AI 暂不可用，客户端应提示稍后再试}
         default: {$ref: '#/components/responses/Error'}
-  /api/agent/create-assist:
+  /api/agent/copilot/summary:
+    post:
+      summary: 压缩更早的对话
+      description: 把客户端保留的较早若干轮对话压成不超过 400 字的摘要，供后续请求以 summary 携带。仅登录可用。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [messages]
+              properties:
+                previousSummary: {type: string, maxLength: 400}
+                messages:
+                  type: array
+                  maxItems: 20
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [role, content]
+                    properties:
+                      role: {type: string, enum: [user, assistant]}
+                      content: {type: string, maxLength: 500}
+      responses:
+        '200':
+          description: '{status_code, summary}'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status_code, summary]
+                properties:
+                  status_code: {type: integer}
+                  summary: {type: string, maxLength: 400}
+        '503': {description: 摘要生成失败，客户端应保留原文继续发送}
+        default:
+          $ref: '#/components/responses/Error'  /api/agent/create-assist:
     post:
       summary: 为编辑器草稿生成候选及内容风险建议
       description: 需要登录。接收尚未保存的文字快照；不创建或修改作品。服务端调用 DeepSeek（未配置时 provider=rules），校验候选并检查原稿与候选的内容风险。返回的 suggestion_id 绑定当前用户和原稿，有效期 24 小时。Android 确认后填入本地编辑器，再由普通保存/提交接口持久化。模型失败返回 503，不自动覆盖原稿。客户端应允许至少 55 秒并提供取消。

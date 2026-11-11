@@ -157,14 +157,41 @@ public class CopilotChatActivity extends AppCompatActivity {
         render();
         input.setText("");
 
+        compressThenSend(text);
+    }
+
+    /** 超过 12 条未折叠对话时，先把最早 6 条压成摘要，再发请求；压缩失败就保留原文继续。 */
+    private void compressThenSend(String text) {
+        int pending = session.entries.size() - 1 - session.compressedCount;
+        if (pending <= 12) { dispatch(text); return; }
+        List<Map<String, String>> batch = new ArrayList<>();
+        int end = Math.min(session.entries.size() - 1, session.compressedCount + 6);
+        for (int i = session.compressedCount; i < end; i++)
+            batch.add(Map.of("role", session.entries.get(i).role, "content", session.entries.get(i).text));
+        if (batch.isEmpty()) { dispatch(text); return; }
+        setStatus(getString(R.string.copilot_compressing));
+        running = ApiClient.getInstance(this).compressContext(session.summary, batch, new CommunityClient.Callback<String>() {
+            @Override public void onSuccess(String value) {
+                if (value != null && !value.isEmpty()) {
+                    session.summary = value;
+                    session.compressedCount += batch.size();
+                    CopilotStore.save(CopilotChatActivity.this, session);
+                }
+                dispatch(text);
+            }
+            @Override public void onFailure(String message) { dispatch(text); }
+        });
+    }
+
+    private void dispatch(String text) {
+        setStatus(getString(R.string.copilot_loading));
         List<Map<String, String>> history = new ArrayList<>();
-        int start = Math.max(0, session.entries.size() - 10);
+        int start = Math.max(session.compressedCount, session.entries.size() - 10);
         for (int i = start; i < session.entries.size(); i++)
             history.add(Map.of("role", session.entries.get(i).role, "content", session.entries.get(i).text));
-
         ArrayList<String> conversations = new ArrayList<>();
         running = ApiClient.getInstance(this).copilot(screen, postId, draftId,
-                conversations, text, history, new CommunityClient.Callback<CopilotReply>() {
+                conversations, text, session.summary, history, new CommunityClient.Callback<CopilotReply>() {
                     @Override public void onSuccess(CopilotReply value) { finishReply(value); }
                     @Override public void onFailure(String message) {
                         busy = false;
