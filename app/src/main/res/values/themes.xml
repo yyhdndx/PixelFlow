@@ -64,6 +64,30 @@
         <item name="android:textColor">@color/white</item>
     </style>
 
+    <!-- 创建/编辑作品主题：不透明浅色状态栏，避免透明状态栏叠出“蒙版”感 -->
+    <style name="Theme.CreateWork" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/profile_accent</item>
+        <item name="colorPrimaryVariant">@color/brand_violet_deep</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/brand_violet_light</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="android:colorBackground">@color/profile_bg</item>
+        <item name="colorSurface">@color/profile_surface</item>
+        <item name="colorOnBackground">@color/profile_ink</item>
+        <item name="colorOnSurface">@color/profile_ink</item>
+        <item name="colorError">@color/profile_error</item>
+        <item name="android:colorAccent">@color/profile_accent</item>
+        <item name="colorControlHighlight">@color/accent_ripple</item>
+        <item name="rippleColor">@color/accent_ripple</item>
+        <!-- 关键：状态栏用页面背景的实色，去掉透明/沉浸式叠加 -->
+        <item name="android:statusBarColor">@color/profile_bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/profile_surface</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
+        <item name="android:windowBackground">@color/profile_bg</item>
+        <item name="materialButtonStyle">@style/Widget.MaterialComponents.Button</item>
+    </style>
+
     <!-- 详情页专用主题 -->
     <style name="Theme.Detail" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- 状态栏 -->

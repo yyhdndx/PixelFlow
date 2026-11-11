@@ -173,8 +173,7 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
                 return false;
             }
             if (itemId == R.id.nav_ai) {
-                startActivity(new Intent(this, com.PixelFlow.app.copilot.CopilotHistoryActivity.class));
-                return false;
+                selectedFragment = com.PixelFlow.app.ButtonFragment.AiFragment.newInstance();
             }
             if (itemId == R.id.nav_home) {
                 selectedFragment = HomeFragment.newInstance();
@@ -188,7 +187,8 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
                 showFragment(selectedFragment);
 
                 // 根据选择的Fragment调整FAB可见性
-                if (selectedFragment instanceof ProfileFragment || selectedFragment instanceof MessagesFragment) {
+                if (selectedFragment instanceof ProfileFragment || selectedFragment instanceof MessagesFragment
+                        || selectedFragment instanceof com.PixelFlow.app.ButtonFragment.AiFragment) {
                     // 在Profile/消息页面隐藏FAB
                     if (isFabVisible && fabCamera != null) {
                         hideFab();

@@ -20,7 +20,7 @@
             android:layout_height="44dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="返回"
-            android:src="@drawable/ic_arrow_back"
+            android:src="@drawable/profile_back"
             android:tint="@color/primary_color" />
 
         <TextView

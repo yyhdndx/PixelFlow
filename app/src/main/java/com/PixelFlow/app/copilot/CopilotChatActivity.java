@@ -46,6 +46,7 @@ public class CopilotChatActivity extends AppCompatActivity {
     private static final String EXTRA_VERSION = "draft_version";
     private static final String EXTRA_TITLE = "title";
     private static final String EXTRA_LABEL = "label";
+    private static final String EXTRA_KEY = "session_key";
 
     private String screen = "detail";
     @Nullable private String postId;
@@ -65,7 +66,15 @@ public class CopilotChatActivity extends AppCompatActivity {
 
     public static void open(Context context, String screen, @Nullable String postId, @Nullable String draftId,
                             int draftVersion, @Nullable String title, @Nullable String label) {
+        open(context, screen, null, postId, draftId, draftVersion, title, label);
+    }
+
+    /** 通用对话每次「新建」用独立会话 key，避免复用同一条会话。 */
+    public static void open(Context context, String screen, @Nullable String sessionKey,
+                            @Nullable String postId, @Nullable String draftId,
+                            int draftVersion, @Nullable String title, @Nullable String label) {
         Intent intent = new Intent(context, CopilotChatActivity.class);
+        if (sessionKey != null && !sessionKey.isEmpty()) intent.putExtra(EXTRA_KEY, sessionKey);
         intent.putExtra(EXTRA_SCREEN, screen);
         intent.putExtra(EXTRA_POST, postId);
         intent.putExtra(EXTRA_DRAFT, draftId);
@@ -105,7 +114,8 @@ public class CopilotChatActivity extends AppCompatActivity {
         String targetId = "detail".equals(screen) ? postId
                 : "create".equals(screen) ? draftId
                 : "general".equals(screen) ? "" : "messages";
-        String key = CopilotStore.sessionKey(screen, targetId);
+        String savedKey = getIntent().getStringExtra(EXTRA_KEY);
+        String key = savedKey != null && !savedKey.isEmpty() ? savedKey : CopilotStore.sessionKey(screen, targetId);
         session = CopilotStore.load(this, key);
         if (session == null) {
             session = new CopilotStore.Session();
@@ -157,14 +167,41 @@ public class CopilotChatActivity extends AppCompatActivity {
         render();
         input.setText("");
 
+        compressThenSend(text);
+    }
+
+    /** 超过 12 条未折叠对话时，先把最早 6 条压成摘要，再发请求；压缩失败就保留原文继续。 */
+    private void compressThenSend(String text) {
+        int pending = session.entries.size() - 1 - session.compressedCount;
+        if (pending <= 12) { dispatch(text); return; }
+        List<Map<String, String>> batch = new ArrayList<>();
+        int end = Math.min(session.entries.size() - 1, session.compressedCount + 6);
+        for (int i = session.compressedCount; i < end; i++)
+            batch.add(Map.of("role", session.entries.get(i).role, "content", session.entries.get(i).text));
+        if (batch.isEmpty()) { dispatch(text); return; }
+        setStatus(getString(R.string.copilot_compressing));
+        running = ApiClient.getInstance(this).compressContext(session.summary, batch, new CommunityClient.Callback<String>() {
+            @Override public void onSuccess(String value) {
+                if (value != null && !value.isEmpty()) {
+                    session.summary = value;
+                    session.compressedCount += batch.size();
+                    CopilotStore.save(CopilotChatActivity.this, session);
+                }
+                dispatch(text);
+            }
+            @Override public void onFailure(String message) { dispatch(text); }
+        });
+    }
+
+    private void dispatch(String text) {
+        setStatus(getString(R.string.copilot_loading));
         List<Map<String, String>> history = new ArrayList<>();
-        int start = Math.max(0, session.entries.size() - 10);
+        int start = Math.max(session.compressedCount, session.entries.size() - 10);
         for (int i = start; i < session.entries.size(); i++)
             history.add(Map.of("role", session.entries.get(i).role, "content", session.entries.get(i).text));
-
         ArrayList<String> conversations = new ArrayList<>();
         running = ApiClient.getInstance(this).copilot(screen, postId, draftId,
-                conversations, text, history, new CommunityClient.Callback<CopilotReply>() {
+                conversations, text, session.summary, history, new CommunityClient.Callback<CopilotReply>() {
                     @Override public void onSuccess(CopilotReply value) { finishReply(value); }
                     @Override public void onFailure(String message) {
                         busy = false;
@@ -253,33 +290,33 @@ public class CopilotChatActivity extends AppCompatActivity {
         });
     }
 
+    /** 长文本折叠阈值：超过该行数默认收起，提供「展开/收起」。 */
+    private static final int COLLAPSE_MAX_LINES = 6;
+
     private View bubble(CopilotStore.Entry entry) {
         boolean user = "user".equals(entry.role);
-        TextView text = new TextView(this);
-        // 先开启可选，再以 SPANNABLE 缓冲写入文本，长按才会出现选择/复制
-        text.setTextIsSelectable(true);
-        text.setText(entry.text, TextView.BufferType.SPANNABLE);
-        text.setTextSize(14);
-        text.setTextColor(Color.parseColor("#1A1A1A"));
-        text.setLineSpacing(dp(2), 1f);
+        TextView text = buildBubbleText(entry.text);
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(user ? Color.parseColor("#EFEDFF") : Color.WHITE);
         bg.setCornerRadius(dp(14));
         View links = user ? null : linksView(entry);
-        TextView bubble;
+        View content;
         if (links == null) {
-            bubble = text;
-            bubble.setBackground(bg);
-            bubble.setPadding(dp(14), dp(10), dp(14), dp(10));
+            // 纯文本气泡：包一层可折叠容器，长文默认收起
+            LinearLayout box = new LinearLayout(this);
+            box.setOrientation(LinearLayout.VERTICAL);
+            box.setBackground(bg);
+            box.setPadding(dp(14), dp(10), dp(14), dp(10));
+            box.addView(collapsible(text));
+            content = box;
         } else {
             LinearLayout card = new LinearLayout(this);
             card.setOrientation(LinearLayout.VERTICAL);
             card.setBackground(bg);
             card.setPadding(dp(14), dp(10), dp(14), dp(10));
-            card.addView(text);
+            card.addView(collapsible(text));
             card.addView(links);
-            bubble = null;
-            return wrapBubble(card, true);
+            content = card;
         }
         // 自己的消息靠右、AI 靠左，两侧留出空白，像正常聊天窗口
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -292,8 +329,64 @@ public class CopilotChatActivity extends AppCompatActivity {
             params.gravity = android.view.Gravity.START;
             params.rightMargin = dp(56);
         }
-        bubble.setLayoutParams(params);
-        return bubble;
+        content.setLayoutParams(params);
+        return content;
+    }
+
+    /** 气泡文本样式：可选中、SPANNABLE 写入，长按出现复制。 */
+    private TextView buildBubbleText(String body) {
+        TextView text = new TextView(this);
+        text.setTextIsSelectable(true);
+        text.setText(body, TextView.BufferType.SPANNABLE);
+        text.setTextSize(14);
+        text.setTextColor(Color.parseColor("#1A1A1A"));
+        text.setLineSpacing(dp(2), 1f);
+        return text;
+    }
+
+    /**
+     * 长文折叠容器：超过 {@link #COLLAPSE_MAX_LINES} 行默认收起，
+     * 末尾提供「展开全文 / 收起」切换，避免超长 AI 回复撑满或截断。
+     */
+    private View collapsible(final TextView text) {
+        final int max = COLLAPSE_MAX_LINES;
+        text.setMaxLines(max);
+        text.setEllipsize(TextUtils.TruncateAt.END);
+
+        final TextView toggle = new TextView(this);
+        toggle.setTextSize(13);
+        toggle.setTextColor(Color.parseColor("#6155CE"));
+        toggle.setPadding(0, dp(6), 0, 0);
+        toggle.setText("展开全文");
+        toggle.setVisibility(View.GONE);
+        final boolean[] expanded = {false};
+        toggle.setText("展开全文 ▾");
+        toggle.setOnClickListener(v -> {
+            expanded[0] = !expanded[0];
+            text.setMaxLines(expanded[0] ? Integer.MAX_VALUE : max);
+            text.setEllipsize(expanded[0] ? null : TextUtils.TruncateAt.END);
+            toggle.setText(expanded[0] ? "收起 ▴" : "展开全文 ▾");
+        });
+
+        // 布局完成后读真实行数，超过阈值才显示展开入口。
+        // 注意 getLineCount() 会被 maxLines 截断，需临时放开再测。
+        text.post(() -> {
+            text.setMaxLines(Integer.MAX_VALUE);
+            text.setEllipsize(null);
+            text.measure(
+                    View.MeasureSpec.makeMeasureSpec(text.getWidth(), View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+            int realLines = text.getLineCount();
+            text.setMaxLines(max);
+            text.setEllipsize(TextUtils.TruncateAt.END);
+            if (realLines > max) toggle.setVisibility(View.VISIBLE);
+        });
+
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.addView(text);
+        wrap.addView(toggle);
+        return wrap;
     }
 
     private View wrapBubble(View content) { return wrapBubble(content, false); }
@@ -442,6 +535,11 @@ public class CopilotChatActivity extends AppCompatActivity {
         TextView actionBody = card.findViewById(R.id.action_body);
         actionBody.setText(bodyOf(action));
         actionBody.setTextIsSelectable(true);
+        // 长正文折叠：用 collapsible 容器替换裸 TextView，避免超长被截断
+        ViewGroup actionBodyParent = (ViewGroup) actionBody.getParent();
+        int bodyIndex = actionBodyParent.indexOfChild(actionBody);
+        actionBodyParent.removeView(actionBody);
+        actionBodyParent.addView(collapsible(actionBody), bodyIndex);
         TextView rationale = card.findViewById(R.id.action_rationale);
         rationale.setText(action.rationale);
         rationale.setVisibility(action.rationale.isEmpty() ? View.GONE : View.VISIBLE);
@@ -490,13 +588,10 @@ public class CopilotChatActivity extends AppCompatActivity {
         if (CopilotAction.TYPE_CREATE_DRAFT.equals(action.type)) {
             String title = action.title == null ? "" : action.title;
             String content = action.content == null ? "" : action.content;
-            if (content.length() > 300) content = content.substring(0, 300) + "…";
             return title.isEmpty() ? content : title + "\n" + content;
         }
         if (CopilotAction.TYPE_DRAFT.equals(action.type)) {
-            String text = action.content;
-            if (text.length() > 300) text = text.substring(0, 300) + "…";
-            return text;
+            return action.content;
         }
         if (CopilotAction.TYPE_MESSAGES.equals(action.type)) {
             StringBuilder sb = new StringBuilder();

@@ -50,11 +50,11 @@ public class MyWorksAdapter extends RecyclerView.Adapter<MyWorksAdapter.Holder> 
         holder.status.setTextColor(context.getColor(statusColor(status)));
         com.PixelFlow.app.API.AccountMedia.load(holder.cover, firstImageUrl(post));
         bindAction(holder, post);
-        // 草稿/被驳回/已撤回点进编辑页；已发布点进详情；待审核只读。
+        // 草稿/被驳回/已撤回点进编辑页；已发布/待审核点进详情（待审核为作者本人只读预览）。
         boolean editable = "DRAFT".equals(status) || "REJECTED".equals(status) || "WITHDRAWN".equals(status);
-        boolean published = "PUBLISHED".equals(status);
-        holder.itemView.setClickable(editable || published);
-        holder.itemView.setOnClickListener((editable || published) && listener != null ? v -> {
+        boolean viewable = "PUBLISHED".equals(status) || "PENDING".equals(status);
+        holder.itemView.setClickable(editable || viewable);
+        holder.itemView.setOnClickListener((editable || viewable) && listener != null ? v -> {
             if (!actionsEnabled) return;
             if (editable) listener.onEdit(post); else listener.onView(post);
         } : null);

@@ -513,7 +513,8 @@ public class CreateWorkActivity extends AppCompatActivity {
         boolean hasMedia = !media.isEmpty();
         boolean retry = model.state != null && model.retryable();
         boolean canSave = (hasTitle || hasContent || hasMedia) && model.state != null && (model.editable() || retry);
-        boolean canPublish = hasTitle && hasMedia && model.state != null && (model.editable() || retry);
+        // 提交审核：有标题即可点，缺图时在 submitWork 里给引导，避免禁用按钮让用户无从得知原因
+        boolean canPublish = hasTitle && model.state != null && (model.editable() || retry);
         btnSave.setEnabled(canSave);
         btnPublish.setEnabled(canPublish);
         // 按钮外观由 bg_button_primary / bg_button_secondary 的启用状态选择器承载，不再用纯色覆盖圆角
@@ -682,7 +683,10 @@ public class CreateWorkActivity extends AppCompatActivity {
         if (title.length() > 120) { Toast.makeText(this, "标题最多 120 字", Toast.LENGTH_SHORT).show(); return; }
         if (content.length() > 5000) { Toast.makeText(this, "正文最多 5000 字", Toast.LENGTH_SHORT).show(); return; }
         if (publishMode && title.isEmpty()) { Toast.makeText(this, "提交审核需要标题", Toast.LENGTH_SHORT).show(); return; }
-        if (publishMode && media.isEmpty()) { Toast.makeText(this, "提交审核需要至少一张图片", Toast.LENGTH_SHORT).show(); return; }
+        if (publishMode && media.isEmpty()) {
+            Toast.makeText(this, "提交审核需要先添加至少一张图片，点下方「添加图片」", Toast.LENGTH_LONG).show();
+            return;
+        }
         if (media.isEmpty() && title.isEmpty() && content.isEmpty()) {
             Toast.makeText(this, "请填写标题或内容，或添加图片", Toast.LENGTH_SHORT).show();
             return;
