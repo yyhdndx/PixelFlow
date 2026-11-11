@@ -352,8 +352,9 @@ public class CopilotChatActivity extends AppCompatActivity {
             return box;
         }
         rows.setVisibility(View.GONE);
+        rows.setPadding(0, dp(2), 0, 0);
         TextView header = new TextView(this);
-        header.setText("涉及 " + targets.size() + " 项  ⌄");
+        header.setText(targets.size() + " 条结果  ⌄");
         header.setTextSize(12);
         header.setTextColor(getColor(R.color.profile_accent));
         header.setPadding(dp(10), dp(6), dp(10), dp(6));
@@ -364,9 +365,11 @@ public class CopilotChatActivity extends AppCompatActivity {
         header.setOnClickListener(v -> {
             boolean expand = rows.getVisibility() != View.VISIBLE;
             rows.setVisibility(expand ? View.VISIBLE : View.GONE);
-            header.setText("涉及 " + targets.size() + " 项  " + (expand ? "⌃" : "⌄"));
+            header.setText(targets.size() + " 条结果  " + (expand ? "⌃" : "⌄"));
         });
-        box.addView(header);
+        LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        box.addView(header, headerParams);
         box.addView(rows);
         return box;
     }
