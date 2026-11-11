@@ -22,7 +22,7 @@
             android:layout_height="44dp"
             android:layout_marginStart="8dp"
             android:padding="10dp"
-            android:src="@drawable/ic_arrow_back"
+            android:src="@drawable/profile_back"
             android:contentDescription="@string/back"
             android:background="?attr/selectableItemBackgroundBorderless"
             app:tint="@color/profile_ink" />
@@ -38,21 +38,31 @@
             android:textColor="@color/profile_ink"
             android:gravity="center" />
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/copilot_entry"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_marginEnd="4dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/copilot_title"
-            android:padding="10dp"
-            android:src="@drawable/ic_sparkle"
-            android:tint="@color/profile_accent" />
-        <!-- 占位，保持对称 -->
-        <View
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_marginEnd="8dp" />
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginEnd="12dp"
+            android:gravity="center"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="AI 修改"
+            android:textAllCaps="false"
+            android:textColor="@color/profile_accent"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            app:backgroundTint="@color/profile_soft"
+            app:cornerRadius="18dp"
+            app:icon="@drawable/ic_sparkle"
+            app:iconGravity="textStart"
+            app:iconPadding="4dp"
+            app:iconTint="@color/profile_accent"
+            app:rippleColor="@color/accent_ripple"
+            app:strokeColor="@color/profile_accent"
+            app:strokeWidth="1dp" />
     </LinearLayout>
 
     <ScrollView
@@ -269,7 +279,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:rotationY="180"
-                    android:src="@drawable/ic_arrow_back"
+                    android:src="@drawable/profile_back"
                     app:tint="@color/profile_muted"
                     android:contentDescription="@string/back" />
             </LinearLayout>

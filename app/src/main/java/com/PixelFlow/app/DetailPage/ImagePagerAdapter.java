@@ -230,25 +230,9 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                 if (imageClickListener != null) imageClickListener.onImageClick(clip.getUrl());
             });
             progressBar.setVisibility(View.VISIBLE);
-            android.util.DisplayMetrics metrics = itemView.getResources().getDisplayMetrics();
-            // 按屏尺寸解码，避免大图按原图解码导致 OOM
-            Glide.with(itemView).load(clip.getUrl())
-                    .override(metrics.widthPixels, metrics.heightPixels)
-                    .placeholder(R.drawable.ic_image_placeholder)
-                    .error(R.drawable.ic_image_error).dontTransform()
-                    .listener(new RequestListener<android.graphics.drawable.Drawable>() {
-                        @Override public boolean onLoadFailed(@Nullable GlideException error, Object model,
-                                Target<android.graphics.drawable.Drawable> target, boolean first) {
-                            progressBar.setVisibility(View.GONE);
-                            return false;
-                        }
-                        @Override public boolean onResourceReady(android.graphics.drawable.Drawable resource,
-                                Object model, Target<android.graphics.drawable.Drawable> target,
-                                DataSource source, boolean first) {
-                            progressBar.setVisibility(View.GONE);
-                            return false;
-                        }
-                    }).into(imageView);
+            // 私有媒体（如待审核帖子）需带账号凭证，统一走 AccountMedia；不裁切保留原始宽高比
+            com.PixelFlow.app.API.AccountMedia.loadDetail(imageView, clip.getUrl(),
+                    () -> progressBar.setVisibility(View.GONE));
         }
     }
 
