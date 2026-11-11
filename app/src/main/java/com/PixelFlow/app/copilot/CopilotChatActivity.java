@@ -290,33 +290,33 @@ public class CopilotChatActivity extends AppCompatActivity {
         });
     }
 
+    /** 长文本折叠阈值：超过该行数默认收起，提供「展开/收起」。 */
+    private static final int COLLAPSE_MAX_LINES = 6;
+
     private View bubble(CopilotStore.Entry entry) {
         boolean user = "user".equals(entry.role);
-        TextView text = new TextView(this);
-        // 先开启可选，再以 SPANNABLE 缓冲写入文本，长按才会出现选择/复制
-        text.setTextIsSelectable(true);
-        text.setText(entry.text, TextView.BufferType.SPANNABLE);
-        text.setTextSize(14);
-        text.setTextColor(Color.parseColor("#1A1A1A"));
-        text.setLineSpacing(dp(2), 1f);
+        TextView text = buildBubbleText(entry.text);
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(user ? Color.parseColor("#EFEDFF") : Color.WHITE);
         bg.setCornerRadius(dp(14));
         View links = user ? null : linksView(entry);
-        TextView bubble;
+        View content;
         if (links == null) {
-            bubble = text;
-            bubble.setBackground(bg);
-            bubble.setPadding(dp(14), dp(10), dp(14), dp(10));
+            // 纯文本气泡：包一层可折叠容器，长文默认收起
+            LinearLayout box = new LinearLayout(this);
+            box.setOrientation(LinearLayout.VERTICAL);
+            box.setBackground(bg);
+            box.setPadding(dp(14), dp(10), dp(14), dp(10));
+            box.addView(collapsible(text));
+            content = box;
         } else {
             LinearLayout card = new LinearLayout(this);
             card.setOrientation(LinearLayout.VERTICAL);
             card.setBackground(bg);
             card.setPadding(dp(14), dp(10), dp(14), dp(10));
-            card.addView(text);
+            card.addView(collapsible(text));
             card.addView(links);
-            bubble = null;
-            return wrapBubble(card, true);
+            content = card;
         }
         // 自己的消息靠右、AI 靠左，两侧留出空白，像正常聊天窗口
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -329,8 +329,56 @@ public class CopilotChatActivity extends AppCompatActivity {
             params.gravity = android.view.Gravity.START;
             params.rightMargin = dp(56);
         }
-        bubble.setLayoutParams(params);
-        return bubble;
+        content.setLayoutParams(params);
+        return content;
+    }
+
+    /** 气泡文本样式：可选中、SPANNABLE 写入，长按出现复制。 */
+    private TextView buildBubbleText(String body) {
+        TextView text = new TextView(this);
+        text.setTextIsSelectable(true);
+        text.setText(body, TextView.BufferType.SPANNABLE);
+        text.setTextSize(14);
+        text.setTextColor(Color.parseColor("#1A1A1A"));
+        text.setLineSpacing(dp(2), 1f);
+        return text;
+    }
+
+    /**
+     * 长文折叠容器：超过 {@link #COLLAPSE_MAX_LINES} 行默认收起，
+     * 末尾提供「展开全文 / 收起」切换，避免超长 AI 回复撑满或截断。
+     */
+    private View collapsible(TextView text) {
+        int max = COLLAPSE_MAX_LINES;
+        text.setMaxLines(max);
+        text.setEllipsize(TextUtils.TruncateAt.END);
+        // 测量行数决定是否提供展开；先按展开布局一次以拿到真实行数
+        text.measure(
+                View.MeasureSpec.makeMeasureSpec(getResources().getDisplayMetrics().widthPixels - dp(140), View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        final boolean expandable = text.getLineCount() > max;
+        if (!expandable) {
+            text.setMaxLines(Integer.MAX_VALUE);
+            text.setEllipsize(null);
+            return text;
+        }
+        TextView toggle = new TextView(this);
+        toggle.setTextSize(13);
+        toggle.setTextColor(Color.parseColor("#6155CE"));
+        toggle.setPadding(0, dp(6), 0, 0);
+        toggle.setText("展开全文");
+        final boolean[] expanded = {false};
+        toggle.setOnClickListener(v -> {
+            expanded[0] = !expanded[0];
+            text.setMaxLines(expanded[0] ? Integer.MAX_VALUE : max);
+            text.setEllipsize(expanded[0] ? null : TextUtils.TruncateAt.END);
+            toggle.setText(expanded[0] ? "收起" : "展开全文");
+        });
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.addView(text);
+        wrap.addView(toggle);
+        return wrap;
     }
 
     private View wrapBubble(View content) { return wrapBubble(content, false); }
