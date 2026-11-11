@@ -113,7 +113,7 @@ public class AuthService {
 
     public void logout(Actor actor) { db.update("DELETE FROM sessions WHERE id=?",actor.sessionId()); }
     public String passwordHash(String password) { checkPassword(password); return passwords.encode(password); }
-    private static ApiException unauthorized() { return new ApiException(401,"UNAUTHORIZED","账号、密码或令牌无效"); }
+    private static ApiException unauthorized() { return new ApiException(401,"UNAUTHORIZED","账号或密码错误"); }
     private static String hash(String value) {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
         catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
