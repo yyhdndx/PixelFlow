@@ -21,7 +21,17 @@ button, input, textarea { font: inherit; }
 h1, h2, h3 { color: var(--ink-900); }
 p { margin: 8px 0; }
 small { display: block; color: var(--ink-400); font-size: 12px; overflow-wrap: anywhere; }
-a { color: var(--brand-600); }
+a { color: var(--brand-600); text-decoration: none; }
+a:hover { color: var(--brand-700); }
+.feed-toolbar a, .work-actions a, .detail-actions a, .profile-back, .feature-shell > p a {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 36px;
+  padding: 7px 12px; border: 1px solid var(--brand-100); border-radius: 8px;
+  background: var(--surface); color: var(--brand-600); font-size: 13px; font-weight: 600;
+  white-space: nowrap;
+}
+.feed-toolbar a:hover, .work-actions a:hover, .detail-actions a:hover, .profile-back:hover, .feature-shell > p a:hover { background: var(--brand-50); }
+.work-actions { flex-wrap: wrap; }
+@media (max-width: 480px) { .feed-toolbar { flex-wrap: wrap; } .feed-toolbar a { white-space: normal; } }
 
 /* ============ Top bar ============ */
 .topbar {
@@ -222,7 +232,7 @@ label input { display: block; margin-top: 6px; font-weight: 400; }
 .profile-links a:hover { background: var(--brand-50); }
 .profile-links a span:last-child { color: var(--ink-400); font-size: 22px; line-height: 1; }
 .profile-editor { max-width: 520px; }
-.profile-back { display: inline-block; margin-bottom: 12px; font-size: 13px; text-decoration: none; }
+.profile-back { margin-bottom: 12px; }
 .profile-editor-avatar { display: flex; align-items: center; gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--line); }
 .profile-editor-avatar .avatar-actions { margin: 0; }
 .profile-edit { margin: 20px 0; }
