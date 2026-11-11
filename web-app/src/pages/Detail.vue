@@ -129,6 +129,7 @@ onMounted(load)
             {{ post.is_favorited ? '已收藏' : '收藏' }}
           </button>
           <button class="secondary" @click="share">分享</button>
+          <RouterLink :to="`/assistant/detail/${post.post_id}`">创作助手（暂未开放）</RouterLink>
         </div>
         <p class="detail-content">
           <template v-for="(seg, i) in segments" :key="i">

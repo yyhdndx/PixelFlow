@@ -17,6 +17,8 @@ import MyWorks from './pages/MyWorks.vue'
 import WorkEditor from './pages/WorkEditor.vue'
 import NewWork from './pages/NewWork.vue'
 import AutoReplies from './pages/AutoReplies.vue'
+import Messages from './pages/Messages.vue'
+import Copilot from './pages/Copilot.vue'
 import { identify, session } from './api/client'
 import './style.css'
 
@@ -38,6 +40,9 @@ const router = createRouter({
     { path: '/me/notifications', component: Notifications, meta: { requiresAuth: true } },
     { path: '/me/interests', component: Interests, meta: { requiresAuth: true } },
     { path: '/me/interests/history', component: InterestHistory, meta: { requiresAuth: true } },
+    { path: '/me/messages', component: Messages, meta: { requiresAuth: true } },
+    { path: '/me/messages/:id', component: Messages, meta: { requiresAuth: true } },
+    { path: '/assistant/:screen/:id?', component: Copilot, meta: { requiresAuth: true } },
     { path: '/author/:id', component: Author, meta: { requiresAuth: true } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
