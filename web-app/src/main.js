@@ -6,6 +6,7 @@ import Detail from './pages/Detail.vue'
 import Login from './pages/Login.vue'
 import Search from './pages/Search.vue'
 import Me from './pages/Me.vue'
+import EditProfile from './pages/EditProfile.vue'
 import Favorites from './pages/Favorites.vue'
 import Following from './pages/Following.vue'
 import Followers from './pages/Followers.vue'
@@ -30,6 +31,7 @@ const router = createRouter({
     { path: '/login', component: Login },
     { path: '/search', component: Search },
     { path: '/me', component: Me, meta: { requiresAuth: true } },
+    { path: '/me/edit', component: EditProfile, meta: { requiresAuth: true } },
     { path: '/me/works', component: MyWorks, meta: { requiresAuth: true } },
     { path: '/me/works/new', component: NewWork, meta: { requiresAuth: true } },
     { path: '/me/works/:id/edit', component: WorkEditor, meta: { requiresAuth: true } },
