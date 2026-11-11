@@ -201,26 +201,38 @@ public class CopilotChatActivity extends AppCompatActivity {
         for (CopilotStore.Entry entry : session.entries) {
             messages.addView(bubble(entry));
             for (CopilotAction action : entry.actions) messages.addView(actionCard(action));
-            View links = linksView(entry);
-            if (links != null) messages.addView(links);
         }
         scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
     }
 
     private View bubble(CopilotStore.Entry entry) {
         boolean user = "user".equals(entry.role);
-        TextView bubble = new TextView(this);
+        TextView text = new TextView(this);
         // 先开启可选，再以 SPANNABLE 缓冲写入文本，长按才会出现选择/复制
-        bubble.setTextIsSelectable(true);
-        bubble.setText(entry.text, TextView.BufferType.SPANNABLE);
-        bubble.setTextSize(14);
-        bubble.setTextColor(Color.parseColor("#1A1A1A"));
-        bubble.setLineSpacing(dp(2), 1f);
+        text.setTextIsSelectable(true);
+        text.setText(entry.text, TextView.BufferType.SPANNABLE);
+        text.setTextSize(14);
+        text.setTextColor(Color.parseColor("#1A1A1A"));
+        text.setLineSpacing(dp(2), 1f);
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(user ? Color.parseColor("#EFEDFF") : Color.WHITE);
         bg.setCornerRadius(dp(14));
-        bubble.setBackground(bg);
-        bubble.setPadding(dp(14), dp(10), dp(14), dp(10));
+        View links = user ? null : linksView(entry);
+        TextView bubble;
+        if (links == null) {
+            bubble = text;
+            bubble.setBackground(bg);
+            bubble.setPadding(dp(14), dp(10), dp(14), dp(10));
+        } else {
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setBackground(bg);
+            card.setPadding(dp(14), dp(10), dp(14), dp(10));
+            card.addView(text);
+            card.addView(links);
+            bubble = null;
+            return wrapBubble(card);
+        }
         // 自己的消息靠右、AI 靠左，两侧留出空白，像正常聊天窗口
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -234,6 +246,16 @@ public class CopilotChatActivity extends AppCompatActivity {
         }
         bubble.setLayoutParams(params);
         return bubble;
+    }
+
+    private View wrapBubble(View content) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.topMargin = dp(8);
+        params.gravity = android.view.Gravity.START;
+        params.rightMargin = dp(56);
+        content.setLayoutParams(params);
+        return content;
     }
 
     /** 消息内的跳转入口：已应用的提案指向对应稿件；多条时折叠。 */
