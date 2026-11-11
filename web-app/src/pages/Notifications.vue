@@ -11,6 +11,7 @@ const loading = ref(false)
 const error = ref('')
 const markError = ref('')
 const marking = ref('')
+const markingAll = ref(false)
 const muted = ref([])
 const preferencesReady = ref(false)
 const preferencesBusy = ref(false)
@@ -46,6 +47,7 @@ async function savePreferences() {
     if (selected.join(',') === muted.value.join(',')) preferencesNotice.value = '通知设置已保存'
     else preferencesNotice.value = '之前的设置已保存，当前仍有未保存的改动'
     preferencesBusy.value = false
+    window.dispatchEvent(new Event('pixelflow:notifications-changed'))
     resetList()
     load()
   } catch (e) {
@@ -61,6 +63,7 @@ function resetList() {
   hasMore.value = false
   loading.value = false
   marking.value = ''
+  markingAll.value = false
   error.value = ''
   markError.value = ''
 }
@@ -94,7 +97,7 @@ async function load() {
   }
 }
 async function mark(item) {
-  if (item.read || marking.value) return
+  if (item.read || marking.value || markingAll.value) return
   const current = revision
   marking.value = item.notification_id
   markError.value = ''
@@ -103,11 +106,29 @@ async function mark(item) {
     if (current === revision) {
       if (result.updated !== true) throw new Error('已读响应不完整')
       item.read = true
+      window.dispatchEvent(new Event('pixelflow:notifications-changed'))
     }
   } catch (e) {
     if (current === revision) markError.value = e.message
   } finally {
     if (current === revision) marking.value = ''
+  }
+}
+async function markAll() {
+  if (marking.value || markingAll.value) return
+  const current = revision
+  markingAll.value = true
+  markError.value = ''
+  try {
+    const result = await request('/api/users/me/notifications/read', { method: 'POST' })
+    if (current !== revision) return
+    if (result.updated !== true) throw new Error('已读响应不完整')
+    items.value.forEach(item => { item.read = true })
+    window.dispatchEvent(new Event('pixelflow:notifications-changed'))
+  } catch (e) {
+    if (current === revision) markError.value = e.message
+  } finally {
+    if (current === revision) markingAll.value = false
   }
 }
 watch(type, () => { resetList(); load() })
@@ -118,7 +139,7 @@ onBeforeUnmount(reset)
 
 <template>
   <section>
-    <h1>通知</h1>
+    <div class="feed-toolbar"><h1>消息通知</h1><button class="secondary" :disabled="!!marking || markingAll || loading" @click="markAll">{{ markingAll ? '处理中…' : '全部已读' }}</button></div>
     <form class="notification-settings" @submit.prevent="savePreferences">
       <strong>通知设置</strong>
       <p v-if="!preferencesReady && !preferencesError" class="muted">加载设置中…</p>
@@ -139,7 +160,7 @@ onBeforeUnmount(reset)
     <ul class="my-works-list">
       <li v-for="item in items" :key="item.notification_id" class="my-work-row">
         <div><strong>{{ item.actor.nickname }}</strong> {{ item.type === 'LIKE' ? '赞了你的作品' : item.type === 'REPLY' ? '回复了你' : '提到了你' }} <RouterLink :to="`/post/${item.post_id}`">{{ item.post_title || '查看作品' }}</RouterLink></div>
-        <button v-if="!item.read" class="secondary" :disabled="!!marking" @click="mark(item)">标为已读</button><small v-else class="muted">已读</small>
+        <button v-if="!item.read" class="secondary" :disabled="!!marking || markingAll" @click="mark(item)">标为已读</button><small v-else class="muted">已读</small>
       </li>
     </ul>
     <button v-if="hasMore && !error" class="secondary more" :disabled="loading" @click="load">{{ loading ? '加载更多…' : '加载更多' }}</button>
