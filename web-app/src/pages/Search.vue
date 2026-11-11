@@ -26,6 +26,16 @@ onMounted(() => { if (query.value) page.load() })
 
 <template>
   <section><h1>搜索</h1><p class="muted">{{ query ? `“${query}”的作品` : '在顶部输入关键词开始搜索。' }}</p>
+    <div v-if="!query" class="search-discovery">
+      <section>
+        <h2>搜索记录</h2>
+        <p class="muted">暂无搜索记录</p>
+      </section>
+      <section>
+        <h2>试试搜索</h2>
+        <p class="muted">示例关键词：摄影、旅行、插画</p>
+      </section>
+    </div>
     <div v-if="query" class="agent-answer">
       <div class="feed-toolbar"><h2>智能回答</h2><button v-if="busy" class="secondary" @click="stopSearch">停止</button><button v-else class="secondary" @click="ask">{{ currentAnswer ? '重新提问' : '生成回答' }}</button></div>
       <template v-if="currentAnswer">

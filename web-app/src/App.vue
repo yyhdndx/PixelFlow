@@ -88,6 +88,7 @@ async function leave() { try { await logout() } catch {} }
       <form class="top-search" role="search" @submit.prevent="submitSearch"><input v-model="search" aria-label="搜索作品" placeholder="搜索标题或话题" maxlength="60"><button type="submit">搜索</button></form>
       <nav class="primary-nav" aria-label="主导航">
         <RouterLink to="/">首页</RouterLink>
+        <RouterLink to="/assistant">AI</RouterLink>
         <div ref="createMenu" class="create-menu">
           <button ref="createTrigger" type="button" class="create-trigger" :aria-expanded="createOpen" aria-controls="create-options" @click="openCreate">＋ 创作</button>
           <div v-if="createOpen" id="create-options" class="create-options" aria-label="选择创作方式">

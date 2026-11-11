@@ -44,6 +44,7 @@ const router = createRouter({
     { path: '/me/interests/history', component: InterestHistory, meta: { requiresAuth: true } },
     { path: '/me/messages', component: Messages, meta: { requiresAuth: true } },
     { path: '/me/messages/:id', component: Messages, meta: { requiresAuth: true } },
+    { path: '/assistant', component: Copilot, meta: { requiresAuth: true } },
     { path: '/assistant/:screen/:id?', component: Copilot, meta: { requiresAuth: true } },
     { path: '/author/:id', component: Author, meta: { requiresAuth: true } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
