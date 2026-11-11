@@ -76,7 +76,7 @@ onBeforeUnmount(() => { window.removeEventListener('pixelflow:creation-selected'
 </script>
 
 <template>
-  <section class="work-editor">
+  <section class="work-editor new-work-page">
     <div class="feed-toolbar"><h1>创作作品</h1><RouterLink :to="from">返回</RouterLink></div>
     <form @submit.prevent="save">
       <label>标题<input v-model="title" maxlength="120"></label>
