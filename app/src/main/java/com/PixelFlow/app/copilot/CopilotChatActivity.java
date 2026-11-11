@@ -95,12 +95,6 @@ public class CopilotChatActivity extends AppCompatActivity {
         status = findViewById(R.id.chat_status);
 
         findViewById(R.id.chat_back).setOnClickListener(v -> finish());
-        MaterialButton jump = findViewById(R.id.chat_jump);
-        jump.setText("create".equals(screen) ? R.string.copilot_jump_draft
-                : "messages".equals(screen) ? R.string.copilot_jump_messages : R.string.copilot_jump_detail);
-        jump.setOnClickListener(v -> jumpToContext());
-        // 目前没有私信详情页，私信上下文不显示跳转入口
-        if ("messages".equals(screen) || "general".equals(screen)) jump.setVisibility(View.GONE);
         if (label == null || label.isEmpty()) {
             label = "general".equals(screen) ? "通用对话" : CopilotStore.label(screen, title, 0);
         }
@@ -138,59 +132,6 @@ public class CopilotChatActivity extends AppCompatActivity {
         return R.string.copilot_hint_detail;
     }
 
-    /** 回到这段对话对应的页面：帖子 → 详情页；草稿 → 编辑页；私信 → 消息页。 */
-    private void jumpToContext() {
-        if ("messages".equals(screen)) {
-            Intent intent = new Intent(this, com.PixelFlow.app.MainActivity.class);
-            intent.putExtra("open_tab", "messages");
-            startActivity(intent);
-            return;
-        }
-        final String targetId = "create".equals(screen) ? draftId : postId;
-        if (targetId == null || targetId.isEmpty()) {
-            android.widget.Toast.makeText(this, getString(R.string.copilot_jump_failed, "上下文缺失"),
-                    android.widget.Toast.LENGTH_SHORT).show();
-            return;
-        }
-        ApiClient.getInstance(this).getPost(targetId, new CommunityClient.Callback<com.PixelFlow.app.API.PostItem>() {
-            @Override public void onSuccess(com.PixelFlow.app.API.PostItem post) {
-                if (post == null) {
-                    android.widget.Toast.makeText(CopilotChatActivity.this,
-                            getString(R.string.copilot_jump_failed, "内容不存在"), android.widget.Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                if ("create".equals(screen)) {
-                    Intent intent = new Intent(CopilotChatActivity.this, CreateWorkActivity.class);
-                    intent.putExtra(CreateWorkActivity.EXTRA_POST_ID, post.getPostId());
-                    intent.putExtra(CreateWorkActivity.EXTRA_TITLE, post.getTitle() == null ? "" : post.getTitle());
-                    intent.putExtra(CreateWorkActivity.EXTRA_CONTENT, post.getContent() == null ? "" : post.getContent());
-                    java.util.ArrayList<String> ids = new java.util.ArrayList<>();
-                    if (post.getMediaIds() != null) ids.addAll(post.getMediaIds());
-                    intent.putStringArrayListExtra(CreateWorkActivity.EXTRA_MEDIA_IDS, ids);
-                    java.util.ArrayList<String> urls = new java.util.ArrayList<>();
-                    if (post.getClips() != null) {
-                        for (com.PixelFlow.app.API.PostItem.Clip clip : post.getClips()) {
-                            if (clip.getType() != 1 && clip.getUrl() != null && !clip.getUrl().isEmpty()) {
-                                urls.add(clip.getUrl());
-                            }
-                        }
-                    }
-                    intent.putStringArrayListExtra(CreateWorkActivity.EXTRA_MEDIA_URLS, urls);
-                    startActivity(intent);
-                } else {
-                    Intent intent = new Intent(CopilotChatActivity.this, WorkDetailActivity.class);
-                    intent.putExtra("work_item", new WorkItem(post));
-                    startActivity(intent);
-                    overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
-                }
-            }
-            @Override public void onFailure(String message) {
-                android.widget.Toast.makeText(CopilotChatActivity.this,
-                        getString(R.string.copilot_jump_failed, message == null ? "网络异常" : message),
-                        android.widget.Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
 
     private void submit() {
         if (busy) return;
@@ -260,6 +201,8 @@ public class CopilotChatActivity extends AppCompatActivity {
         for (CopilotStore.Entry entry : session.entries) {
             messages.addView(bubble(entry));
             for (CopilotAction action : entry.actions) messages.addView(actionCard(action));
+            View links = linksView(entry);
+            if (links != null) messages.addView(links);
         }
         scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
     }
@@ -293,6 +236,123 @@ public class CopilotChatActivity extends AppCompatActivity {
         return bubble;
     }
 
+    /** 消息内的跳转入口：已应用的提案指向对应稿件；多条时折叠。 */
+    private View linksView(CopilotStore.Entry entry) {
+        java.util.List<String[]> targets = new java.util.ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (CopilotAction action : entry.actions) {
+            if (!CopilotAction.APPLIED.equals(action.status)) continue;
+            String kind = null, id = null, label = null;
+            if (CopilotAction.TYPE_CREATE_DRAFT.equals(action.type) && !action.postId.isEmpty()) {
+                kind = "editor"; id = action.postId;
+                label = action.title.isEmpty() ? "查看新建草稿" : "查看草稿《" + action.title + "》";
+            } else if (CopilotAction.TYPE_DRAFT.equals(action.type) && session.draftId != null) {
+                kind = "editor"; id = session.draftId;
+                label = action.title.isEmpty() ? "查看草稿" : "查看草稿《" + action.title + "》";
+            } else if (CopilotAction.TYPE_COMMENT.equals(action.type) && session.postId != null) {
+                kind = "detail"; id = session.postId;
+                label = session.label != null && session.label.contains("《") ? "查看" + session.label : "查看帖子";
+            }
+            if (kind == null || seen.contains(kind + ":" + id)) continue;
+            seen.add(kind + ":" + id);
+            targets.add(new String[]{label, kind, id});
+        }
+        if (targets.isEmpty()) return null;
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams boxParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        boxParams.topMargin = dp(6);
+        box.setLayoutParams(boxParams);
+
+        LinearLayout rows = new LinearLayout(this);
+        rows.setOrientation(LinearLayout.VERTICAL);
+        for (String[] target : targets) rows.addView(linkChip(target[0], target[1], target[2]));
+
+        if (targets.size() == 1) {
+            box.addView(linkChip(targets.get(0)[0], targets.get(0)[1], targets.get(0)[2]));
+            return box;
+        }
+        rows.setVisibility(View.GONE);
+        TextView header = new TextView(this);
+        header.setText("涉及 " + targets.size() + " 项  ⌄");
+        header.setTextSize(12);
+        header.setTextColor(getColor(R.color.profile_accent));
+        header.setPadding(dp(10), dp(6), dp(10), dp(6));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(getColor(R.color.profile_soft));
+        bg.setCornerRadius(dp(12));
+        header.setBackground(bg);
+        header.setOnClickListener(v -> {
+            boolean expand = rows.getVisibility() != View.VISIBLE;
+            rows.setVisibility(expand ? View.VISIBLE : View.GONE);
+            header.setText("涉及 " + targets.size() + " 项  " + (expand ? "⌃" : "⌄"));
+        });
+        box.addView(header);
+        box.addView(rows);
+        return box;
+    }
+
+    private TextView linkChip(String label, String kind, String id) {
+        TextView chip = new TextView(this);
+        chip.setText(label);
+        chip.setTextSize(12);
+        chip.setTextColor(getColor(R.color.profile_accent));
+        chip.setPadding(dp(10), dp(6), dp(10), dp(6));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(getColor(R.color.profile_soft));
+        bg.setCornerRadius(dp(12));
+        chip.setBackground(bg);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.topMargin = dp(4);
+        chip.setLayoutParams(params);
+        chip.setOnClickListener(v -> {
+            if ("editor".equals(kind)) openEditor(id); else openDetail(id);
+        });
+        return chip;
+    }
+
+    private void openEditor(String postId) {
+        ApiClient.getInstance(this).getPost(postId, new CommunityClient.Callback<com.PixelFlow.app.API.PostItem>() {
+            @Override public void onSuccess(com.PixelFlow.app.API.PostItem post) {
+                if (post == null) return;
+                Intent intent = new Intent(CopilotChatActivity.this, CreateWorkActivity.class);
+                intent.putExtra(CreateWorkActivity.EXTRA_POST_ID, post.getPostId());
+                intent.putExtra(CreateWorkActivity.EXTRA_TITLE, post.getTitle() == null ? "" : post.getTitle());
+                intent.putExtra(CreateWorkActivity.EXTRA_CONTENT, post.getContent() == null ? "" : post.getContent());
+                java.util.ArrayList<String> ids = new java.util.ArrayList<>();
+                if (post.getMediaIds() != null) ids.addAll(post.getMediaIds());
+                intent.putStringArrayListExtra(CreateWorkActivity.EXTRA_MEDIA_IDS, ids);
+                java.util.ArrayList<String> urls = new java.util.ArrayList<>();
+                if (post.getClips() != null) {
+                    for (com.PixelFlow.app.API.PostItem.Clip clip : post.getClips()) {
+                        if (clip.getType() != 1 && clip.getUrl() != null && !clip.getUrl().isEmpty()) urls.add(clip.getUrl());
+                    }
+                }
+                intent.putStringArrayListExtra(CreateWorkActivity.EXTRA_MEDIA_URLS, urls);
+                startActivity(intent);
+            }
+            @Override public void onFailure(String message) {
+                setStatus(TextUtils.isEmpty(message) ? "打开失败" : message);
+            }
+        });
+    }
+
+    private void openDetail(String postId) {
+        ApiClient.getInstance(this).getPost(postId, new CommunityClient.Callback<com.PixelFlow.app.API.PostItem>() {
+            @Override public void onSuccess(com.PixelFlow.app.API.PostItem post) {
+                if (post == null) return;
+                Intent intent = new Intent(CopilotChatActivity.this, com.PixelFlow.app.DetailPage.WorkDetailActivity.class);
+                intent.putExtra("work_item", new com.PixelFlow.app.Streams.WorkItem(post));
+                startActivity(intent);
+            }
+            @Override public void onFailure(String message) {
+                setStatus(TextUtils.isEmpty(message) ? "打开失败" : message);
+            }
+        });
+    }
     private View actionCard(CopilotAction action) {
         View card = LayoutInflater.from(this).inflate(R.layout.item_copilot_action, messages, false);
         ((TextView) card.findViewById(R.id.action_title)).setText(action.summaryTitle());
@@ -380,6 +440,7 @@ public class CopilotChatActivity extends AppCompatActivity {
                 new CommunityClient.Callback<com.PixelFlow.app.API.PostItem>() {
                     @Override public void onSuccess(com.PixelFlow.app.API.PostItem post) {
                         action.status = CopilotAction.APPLIED;
+                        action.postId = post == null ? "" : (post.getPostId() == null ? "" : post.getPostId());
                         persistAndRender();
                         setStatus("");
                         android.widget.Toast.makeText(CopilotChatActivity.this,
