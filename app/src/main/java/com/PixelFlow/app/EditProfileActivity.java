@@ -52,7 +52,10 @@ public class EditProfileActivity extends AppCompatActivity {
     }
     private void render() {
         if (!model.validSession()) { finish(); return; }
-        if (model.saved) { Toast.makeText(this, "资料已保存", Toast.LENGTH_SHORT).show(); setResult(RESULT_OK); finish(); return; }
+        if (model.saved) { Toast.makeText(this, "资料已保存", Toast.LENGTH_SHORT).show(); setResult(RESULT_OK, new android.content.Intent()
+                .putExtra("profile_session", model.session)
+                .putExtra("profile_name", model.original.nickname)
+                .putExtra("profile_bio", model.original.bio)); finish(); return; }
         rendering = true;
         if (!nickname.getText().toString().equals(model.nickname)) nickname.setText(model.nickname);
         if (!bio.getText().toString().equals(model.bio)) bio.setText(model.bio);

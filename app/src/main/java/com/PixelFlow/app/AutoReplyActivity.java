@@ -26,6 +26,8 @@ public class AutoReplyActivity extends AppCompatActivity {
     public static final String EXTRA_POST_ID = "auto_reply_post_id";
 
     private String postId;
+    private boolean loadingRules, writing;
+    private CharSequence emptyText;
     private AutoReplyAdapter adapter;
     private ProgressBar loading;
     private TextView empty;
@@ -44,6 +46,7 @@ public class AutoReplyActivity extends AppCompatActivity {
 
         loading = findViewById(R.id.auto_loading);
         empty = findViewById(R.id.auto_empty);
+        emptyText = empty.getText();
         adapter = new AutoReplyAdapter();
         adapter.setListener(new AutoReplyAdapter.Listener() {
             @Override public void onToggle(AutoReplyRule rule, boolean enabled) {
@@ -59,6 +62,7 @@ public class AutoReplyActivity extends AppCompatActivity {
     }
 
     private void openEditor(AutoReplyRule rule) {
+        if (writing || loadingRules) return;
         Intent intent = new Intent(this, AutoReplyEditActivity.class)
                 .putExtra(AutoReplyEditActivity.EXTRA_POST_ID, postId);
         if (rule != null) {
@@ -70,21 +74,40 @@ public class AutoReplyActivity extends AppCompatActivity {
     }
 
     private void reload() {
+        if (loadingRules) return;
+        loadingRules = true;
+        adapter.setBusy(true);
+        empty.setVisibility(View.GONE);
+        empty.setOnClickListener(null);
         loading.setVisibility(View.VISIBLE);
         ApiClient.getInstance(this).getAutoReplies(postId, new CommunityClient.Callback<List<AutoReplyRule>>() {
             @Override public void onSuccess(List<AutoReplyRule> rules) {
+                loadingRules = false;
+                writing = false;
+                adapter.setBusy(false);
+                if (isFinishing() || isDestroyed()) return;
                 loading.setVisibility(View.GONE);
+                empty.setText(emptyText);
                 adapter.setData(rules);
                 empty.setVisibility(rules.isEmpty() ? View.VISIBLE : View.GONE);
             }
             @Override public void onFailure(String message) {
+                loadingRules = false;
+                writing = false;
+                adapter.setBusy(false);
+                if (isFinishing() || isDestroyed()) return;
                 loading.setVisibility(View.GONE);
-                toast(message);
+                empty.setText("加载失败：" + message + "\n点击重试");
+                empty.setVisibility(View.VISIBLE);
+                empty.setOnClickListener(v -> reload());
             }
         });
     }
 
     private void update(AutoReplyRule rule, String question, String answer, boolean enabled) {
+        if (writing || loadingRules) return;
+        writing = true;
+        adapter.setBusy(true);
         ApiClient.getInstance(this).updateAutoReply(postId, rule.id, question, answer, enabled,
                 new CommunityClient.Callback<AutoReplyRule>() {
                     @Override public void onSuccess(AutoReplyRule value) { reload(); }
@@ -93,14 +116,17 @@ public class AutoReplyActivity extends AppCompatActivity {
     }
 
     private void confirmDelete(AutoReplyRule rule) {
+        if (writing || loadingRules) return;
         new AlertDialog.Builder(this)
                 .setMessage("删除这条自动回复规则？")
                 .setNegativeButton(R.string.auto_reply_cancel, null)
-                .setPositiveButton(R.string.auto_reply_delete, (d, w) ->
+                .setPositiveButton(R.string.auto_reply_delete, (d, w) -> {
+                        if (writing || loadingRules) return;
+                        writing = true; adapter.setBusy(true);
                         ApiClient.getInstance(this).deleteAutoReply(postId, rule.id, new CommunityClient.Callback<Void>() {
                             @Override public void onSuccess(Void value) { reload(); }
-                            @Override public void onFailure(String message) { toast(message); }
-                        }))
+                            @Override public void onFailure(String message) { toast(message); reload(); }
+                        }); })
                 .show();
     }
 

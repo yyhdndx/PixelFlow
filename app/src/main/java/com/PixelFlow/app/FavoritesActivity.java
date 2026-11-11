@@ -57,6 +57,7 @@ public class FavoritesActivity extends AccountDataActivity {
         });
     }
 
+    @Override protected boolean refreshAfterReturn() { return true; }
     @Override protected void reloadPage() { load(true); }
 
     @Override protected void clearPage() {

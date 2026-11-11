@@ -306,10 +306,14 @@ public class AutoReplyEditActivity extends AppCompatActivity {
                 });
     }
 
+    private boolean manualSaving;
     private void saveManual() {
+        if (manualSaving) return;
         String q = question.getText() == null ? "" : question.getText().toString().trim();
         String a = answer.getText() == null ? "" : answer.getText().toString().trim();
         if (q.isEmpty() || a.isEmpty()) { toast(getString(R.string.auto_reply_need_both)); return; }
+        manualSaving = true;
+        findViewById(R.id.edit_save).setEnabled(false);
         if (ruleId == null) {
             AiApiHolder.api(this).createAutoReply(postId, q, a, doneCallback());
         } else {
@@ -323,7 +327,12 @@ public class AutoReplyEditActivity extends AppCompatActivity {
                 setResult(RESULT_OK);
                 finish();
             }
-            @Override public void onFailure(String message) { toast(message); }
+            @Override public void onFailure(String message) {
+                manualSaving = false;
+                if (isFinishing() || isDestroyed()) return;
+                findViewById(R.id.edit_save).setEnabled(true);
+                toast(message);
+            }
         };
     }
 

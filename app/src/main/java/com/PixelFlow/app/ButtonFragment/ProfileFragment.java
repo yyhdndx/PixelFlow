@@ -35,6 +35,7 @@ public class ProfileFragment extends Fragment {
     private int observedAvatarCompletion;
     private String avatarUrl = "";
     private int requestVersion;
+    private boolean returnedFromActivity;
     private final ActivityResultLauncher<Intent> avatarPicker = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
@@ -43,6 +44,16 @@ public class ProfileFragment extends Fragment {
                         && result.getData().getData() != null) {
                     onAvatarPicked(result.getData().getData());
                 }
+            });
+    private final ActivityResultLauncher<Intent> profileEditor = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(), result -> {
+                Intent data = result.getData();
+                if (result.getResultCode() != Activity.RESULT_OK || data == null || api == null
+                        || data.getLongExtra("profile_session", -1) != api.sessionVersion()) return;
+                cancel();
+                profileData.name = data.getStringExtra("profile_name");
+                profileData.bio = data.getStringExtra("profile_bio");
+                if (getView() != null) restoreCached();
             });
     public static ProfileFragment newInstance() { return new ProfileFragment(); }
     @Nullable @Override public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle state) {
@@ -61,7 +72,10 @@ public class ProfileFragment extends Fragment {
         edit = view.findViewById(R.id.btn_edit_profile); retry = view.findViewById(R.id.profile_retry);
         loading = view.findViewById(R.id.profile_loading); insights = view.findViewById(R.id.btn_insights);
         refresh.setOnRefreshListener(this::load); retry.setOnClickListener(v -> load());
-        edit.setOnClickListener(v -> startActivity(new Intent(requireContext(), api.isLoggedIn() ? EditProfileActivity.class : AccountActivity.class)));
+        edit.setOnClickListener(v -> {
+            if (api.isLoggedIn()) profileEditor.launch(new Intent(requireContext(), EditProfileActivity.class));
+            else startActivity(new Intent(requireContext(), AccountActivity.class));
+        });
         logout = view.findViewById(R.id.btn_logout);
         logout.setOnClickListener(v -> confirmLogout());
         avatar.setOnClickListener(v -> onAvatarClick());
@@ -92,7 +106,13 @@ public class ProfileFragment extends Fragment {
         window.getDecorView().setSystemUiVisibility(flags);
         window.setStatusBarColor(requireContext().getColor(R.color.profile_bg));
         window.setNavigationBarColor(requireContext().getColor(R.color.profile_surface));
-        load();
+        if (returnedFromActivity || profileData.loadedSession != api.sessionVersion() || !api.isLoggedIn()) load();
+        else {
+            restoreCached(); edit.setText(R.string.profile_edit); edit.setEnabled(true);
+            insights.setEnabled(true); insights.setAlpha(1f); logout.setVisibility(View.VISIBLE);
+            finishLoading();
+        }
+        returnedFromActivity = false;
     }
     private void cancel() {
         requestVersion++;
@@ -273,7 +293,7 @@ public class ProfileFragment extends Fragment {
         if (!api.isLoggedIn()) { startActivity(new Intent(requireContext(), AccountActivity.class)); return; }
         startActivity(new Intent(requireContext(), FavoritesActivity.class));
     }
-    @Override public void onStop() { cancel(); super.onStop(); }
+    @Override public void onStop() { returnedFromActivity = true; cancel(); super.onStop(); }
     @Override public void onDestroyView() {
         cancel(); if (avatar != null) Glide.with(this).clear(avatar);
         refresh = null; name = username = bio = posts = followers = following = status = null;

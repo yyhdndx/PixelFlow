@@ -72,10 +72,11 @@ public class HistoryProfileActivity extends AccountDataActivity {
             nextCursor = null; hasMore = true;
             adapter.setData(java.util.Collections.emptyList());
             empty.setVisibility(View.GONE); list.setVisibility(View.GONE);
-            refresh.setRefreshing(true);
+            refresh.setRefreshing(false);
             status.setVisibility(View.GONE); retry.setVisibility(View.GONE);
         }
         if (adapter.size() == 0) loading.setVisibility(View.VISIBLE);
+        else refresh.setRefreshing(true);
         final String cursor = refreshMode ? null : nextCursor;
         job = api.getProfileHistory(20, cursor, new CommunityClient.Callback<ProfileHistoryPage>() {
             public void onSuccess(ProfileHistoryPage page) {
