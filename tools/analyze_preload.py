@@ -26,19 +26,28 @@ IMG_RE = re.compile(r'source=(\w+)\s+ms=(\d+)\s+preloaded=(\d)\s+url=(.*)')
 PRE_RE = re.compile(r'priority=(\d+)\s+url=(.*)')
 
 
+def read_text(path):
+    raw = open(path, 'rb').read()
+    for enc in ('utf-8', 'utf-16', 'utf-16-le', 'utf-16-be'):
+        try:
+            return raw.decode(enc)
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    return raw.decode('utf-8', errors='replace')
+
+
 def parse(path):
     imgs = []       # list of (source, ms, preloaded, url)
     preloads = []   # list of (priority, url)
-    with open(path, encoding='utf-8', errors='replace') as f:
-        for line in f:
-            if 'PF_ImgTiming' in line:
-                m = IMG_RE.search(line)
-                if m:
-                    imgs.append((m.group(1), int(m.group(2)), int(m.group(3)), m.group(4)))
-            elif 'PF_Preload' in line:
-                m = PRE_RE.search(line)
-                if m:
-                    preloads.append((int(m.group(1)), m.group(2)))
+    for line in read_text(path).splitlines():
+        if 'PF_ImgTiming' in line:
+            m = IMG_RE.search(line)
+            if m:
+                imgs.append((m.group(1), int(m.group(2)), int(m.group(3)), m.group(4)))
+        elif 'PF_Preload' in line:
+            m = PRE_RE.search(line)
+            if m:
+                preloads.append((int(m.group(1)), m.group(2)))
     return imgs, preloads
 
 
