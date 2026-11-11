@@ -18,7 +18,7 @@ from ..agents.moderation import suggest_moderation
 from ..agents.comment_reply import decide_reply
 from ..agents.auto_reply_suggest import suggest_rules
 from ..agents.post_summary import summarize_post
-from ..agents.copilot import run_copilot
+from ..agents.copilot import compress_context, run_copilot
 
 
 class ProfileRefreshInput(BaseModel):
@@ -109,6 +109,11 @@ class CopilotRequest(BaseModel):
     context: dict = Field(default_factory=dict)
 
 
+
+class CopilotSummaryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    previous_summary: str = Field(default="", max_length=400)
+    messages: list[CopilotHistoryItem] = Field(default_factory=list, max_length=20)
 class PostSummaryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     post_id: str = Field(min_length=1, max_length=18, pattern=r"^[1-9][0-9]*$")
@@ -312,6 +317,15 @@ def create_app(settings=None, upstream=None):
             raise HTTPException(502, "Comment reply store unavailable") from None
         return {"status_code": 0, "reply": decision}
 
+    @app.post("/internal/copilot/summary")
+    def copilot_summary(body: CopilotSummaryRequest,
+                        credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        verify_maintenance(credentials)
+        text = compress_context(settings, body.previous_summary,
+                                [item.model_dump() for item in body.messages])
+        if not text:
+            raise HTTPException(503, "Summary unavailable")
+        return {"status_code": 0, "summary": text}
     @app.post("/internal/copilot")
     def copilot(body: CopilotRequest,
                 credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
