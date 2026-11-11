@@ -35,6 +35,25 @@ public class PythonCopilotAdvisor implements CopilotAdvisor {
     }
 
     @Override
+    public Optional<String> compress(String previousSummary, List<Map<String,Object>> messages) {
+        if (origin == null || serviceToken.length() < 32) return Optional.empty();
+        try {
+            var payload = json.createObjectNode();
+            payload.put("previous_summary", previousSummary == null ? "" : previousSummary);
+            payload.set("messages", json.valueToTree(messages == null ? List.of() : messages));
+            var request = HttpRequest.newBuilder(origin.resolve("/internal/copilot/summary"))
+                    .timeout(Duration.ofSeconds(30))
+                    .header("Authorization","Bearer "+serviceToken)
+                    .header("Accept","application/json").header("Content-Type","application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(payload.toString())).build();
+            var reply = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (reply.statusCode() != 200) return Optional.empty();
+            String summary = json.readTree(reply.body()).path("summary").asText("").trim();
+            return summary.isEmpty() ? Optional.empty() : Optional.of(summary);
+        } catch (Exception error) {
+            return Optional.empty();
+        }
+    }    @Override
     public Optional<Result> chat(String screen, Map<String,Object> context, String message,
                                  List<Map<String,Object>> history) {
         if (origin == null) return Optional.empty();

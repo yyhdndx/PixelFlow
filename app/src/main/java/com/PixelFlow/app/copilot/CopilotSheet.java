@@ -188,7 +188,7 @@ public class CopilotSheet extends BottomSheetDialogFragment {
 
         final String screenArg = screen, postArg = postId, draftArg = draftId;
         running = ApiClient.getInstance(requireContext()).copilot(screenArg, postArg, draftArg,
-                conversationIds, text, history, new CommunityClient.Callback<CopilotReply>() {
+                conversationIds, text, "", history, new CommunityClient.Callback<CopilotReply>() {
                     @Override public void onSuccess(CopilotReply value) {
                         Activity activity = getActivity();
                         if (activity == null) return;
