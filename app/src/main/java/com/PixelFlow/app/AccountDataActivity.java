@@ -11,7 +11,8 @@ public abstract class AccountDataActivity extends AppCompatActivity {
     protected ApiClient api;
     protected CommunityClient.Job job;
     private int version;
-    private long session;
+    private long session = -1;
+    private boolean reloadOnReturn;
     private boolean active, ready, writing;
 
     @Override protected void onCreate(Bundle state) {
@@ -22,13 +23,18 @@ public abstract class AccountDataActivity extends AppCompatActivity {
     @Override protected void onResume() {
         super.onResume();
         active = true;
-        restart();
+        if (session != api.sessionVersion()) restart();
+        else if (reloadOnReturn || !ready) { reloadOnReturn = false; reloadPage(); }
     }
 
     @Override protected void onStop() {
         active = false;
-        invalidate();
-        clearPage();
+        reloadOnReturn = writing || !ready || refreshAfterReturn();
+        // Completed pages keep their request token: row actions also validate it.
+        if (reloadOnReturn) ++version;
+        if (job != null && !writing) job.cancel();
+        job = null;
+        writing = false;
         super.onStop();
     }
 
@@ -92,6 +98,7 @@ public abstract class AccountDataActivity extends AppCompatActivity {
     }
 
     // Do not cancel writes on stop: the client's serial queue puts the next read behind them.
+    protected boolean refreshAfterReturn() { return false; }
     protected abstract void clearPage();
     protected abstract void reloadPage();
     protected void setActionsEnabled(boolean enabled) { }

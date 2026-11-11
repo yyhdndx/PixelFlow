@@ -61,15 +61,15 @@ public class SummaryStreamingFlowTest {
                 screen.onActivity(a -> a.findViewById(R.id.summarize_entry).performClick());
                 for (int i = 0; i < 80; i++) {
                     AtomicBoolean retryVisible = new AtomicBoolean();
-                    screen.onActivity(a -> retryVisible.set(a.findViewById(R.id.summary_retry).isShown()));
+                    screen.onActivity(a -> retryVisible.set(a.findViewById(R.id.summary_regen).isShown()));
                     if (retryVisible.get()) break;
                     Thread.sleep(50);
                 }
                 screen.onActivity(a -> {
-                    assertTrue(a.findViewById(R.id.summary_retry).isShown());
+                    assertTrue(a.findViewById(R.id.summary_regen).isShown());
                     assertEquals(0, calls.get());
                     failReads.set(false);
-                    a.findViewById(R.id.summary_retry).performClick();
+                    a.findViewById(R.id.summary_regen).performClick();
                     for (int click = 0; click < 4; click++) a.findViewById(R.id.summarize_entry).performClick();
                 });
                 awaitText(screen, "先看到概括");

@@ -313,9 +313,19 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnSc
     }
 
     private void showFragment(Fragment fragment) {
-        getSupportFragmentManager().beginTransaction()
-                .replace(R.id.fragment_container, fragment)
-                .commit();
+        androidx.fragment.app.FragmentManager manager = getSupportFragmentManager();
+        String tag = fragment.getClass().getName();
+        Fragment existing = manager.findFragmentByTag(tag);
+        if (existing != null) fragment = existing;
+        androidx.fragment.app.FragmentTransaction transaction = manager.beginTransaction();
+        for (Fragment page : manager.getFragments()) {
+            if (page.getId() == R.id.fragment_container && page != fragment) {
+                transaction.hide(page).setMaxLifecycle(page, androidx.lifecycle.Lifecycle.State.STARTED);
+            }
+        }
+        if (!fragment.isAdded()) transaction.add(R.id.fragment_container, fragment, tag);
+        transaction.show(fragment).setMaxLifecycle(fragment, androidx.lifecycle.Lifecycle.State.RESUMED);
+        transaction.setPrimaryNavigationFragment(fragment).commitNow();
     }
 
     // 实现HomeFragment的滚动监听接口

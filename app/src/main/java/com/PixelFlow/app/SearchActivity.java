@@ -106,12 +106,35 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
     private boolean hasMore;
     private boolean loading;
     private int requestGeneration;
+    public static class ResultsState extends androidx.lifecycle.ViewModel {
+        java.util.List<WorkItem> items = new ArrayList<>();
+        String query, cursor;
+        boolean hasMore, complete, dismissed;
+        long session;
+        android.os.Parcelable scroll;
+    }
+    private ResultsState retained;
+    private boolean recreated;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_search);
+        recreated = savedInstanceState != null;
+        retained = new androidx.lifecycle.ViewModelProvider(this).get(ResultsState.class);
         initViews();
+        if (retained.complete && retained.session == ApiClient.getInstance(this).sessionVersion()) {
+            activeQuery = retained.query; nextCursor = retained.cursor; hasMore = retained.hasMore;
+            searchInput.setText(activeQuery);
+            adapter.setData(retained.items);
+            adapter.setEndVisible(!hasMore && !retained.items.isEmpty());
+            if (retained.items.isEmpty()) showState(getString(R.string.search_empty_title), getString(R.string.search_empty_message), false);
+            else showResults();
+            restoringAi = true; runAgentSearch(activeQuery); restoringAi = false;
+            aiDismissed = retained.dismissed; updateAiCard();
+            resultsView.getLayoutManager().onRestoreInstanceState(retained.scroll);
+            return;
+        }
         String restoredQuery = savedInstanceState == null ? null : savedInstanceState.getString("active_query");
         if (restoredQuery == null || restoredQuery.isEmpty()) showDiscovery();
         else {
@@ -144,11 +167,17 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
     @Override protected void onSaveInstanceState(Bundle state) {
         super.onSaveInstanceState(state);
         state.putString("active_query", activeQuery);
+        retained.query = activeQuery; retained.cursor = nextCursor; retained.hasMore = hasMore;
+        retained.items = new ArrayList<>(adapter.getData());
+        retained.session = ApiClient.getInstance(this).sessionVersion();
+        retained.scroll = resultsView.getLayoutManager().onSaveInstanceState();
+        retained.dismissed = aiDismissed;
     }
 
     @Override
     protected void onDestroy() {
         // AI 任务交由 AiTaskRegistry 页面外管理，销毁页面时不取消（P03）；普通请求仍随页面取消
+        requestGeneration++;
         if (activeCall != null) activeCall.cancel();
         if (sourceRead != null) sourceRead.cancel();
         if (aiSubscription != null) aiSubscription.close();
@@ -224,11 +253,24 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         adapter.setHeader(aiCard);
         adapter.setHeaderVisible(false);
         resultsView.setAdapter(adapter);
+        // 滚动到底自动加载更多（此前无滚动监听，onLoadMore 永不触发导致分页失效）
+        resultsView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
+                if (dy <= 0) return;
+                StaggeredGridLayoutManager lm = (StaggeredGridLayoutManager) rv.getLayoutManager();
+                if (lm == null) return;
+                int[] last = lm.findLastVisibleItemPositions(null);
+                int max = 0;
+                for (int p : last) if (p > max) max = p;
+                if (max >= lm.getItemCount() - 5) onLoadMore();
+            }
+        });
 
         renderHistoryChips();
         renderHotChips();
         searchInput.requestFocus();
-        showKeyboard();
+        if (!recreated) showKeyboard();
+        else getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
     }
 
     private void showKeyboard() {
@@ -260,6 +302,7 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
         loading = true;
         if (cursor == null && aiKey != null && !query.equals(activeQuery)) AiTaskRegistry.get().cancel(aiKey);
         activeQuery = query;
+        if (cursor == null) retained.complete = false;
         showLoading(cursor == null);
         if (cursor == null) runAgentSearch(query);
         activeCall = ApiClient.getInstance(this).searchPosts(query, PAGE_SIZE, cursor,
@@ -268,6 +311,7 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
                         handler.post(() -> {
                             if (generation != requestGeneration) return;
                             loading = false;
+                            retained.complete = true;
                             List<WorkItem> incoming = new ArrayList<>();
                             if (response.getPostList() != null) {
                                 for (PostItem post : response.getPostList()) {
@@ -319,6 +363,7 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
 
     private void showDiscovery() {
         activeQuery = null;
+        retained.complete = false;
         aiState = AI_NONE;
         discoveryView.setVisibility(View.VISIBLE);
         progress.setVisibility(View.GONE);
@@ -657,7 +702,12 @@ public class SearchActivity extends AppCompatActivity implements WaterfallAdapte
     }
 
     @Override public void onLikeClick(WorkItem workItem, int position) {
-        // 复用信息流卡片：未登录时跳转登录页，与首页行为一致由适配器内部处理。
+        // 与首页一致：未登录跳登录页，登录后切换点赞状态
+        if (!ApiClient.getInstance(this).isLoggedIn()) {
+            startActivity(new Intent(this, com.PixelFlow.app.AccountActivity.class));
+            return;
+        }
+        adapter.updateLikeStatus(position, !workItem.isLiked());
     }
 
     @Override public void onItemClick(WorkItem workItem, int position) {

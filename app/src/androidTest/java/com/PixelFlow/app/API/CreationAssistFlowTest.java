@@ -65,8 +65,8 @@ public class CreationAssistFlowTest {
         awaitDone();
         screen.onActivity(a -> {
             assertNotNull(model(a).suggestion);
-            assertTrue(a.findViewById(R.id.creation_assist_preview).isShown());
-            assertEquals("原正文", model(a).state.content);
+            assertTrue(a.findViewById(R.id.creation_assist_actions).isShown());
+            assertEquals("新正文", model(a).state.content);
         });
         assertEquals(1, server.getRequestCount());
     }
@@ -93,21 +93,22 @@ public class CreationAssistFlowTest {
         }
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
             assertNotNull(restored.suggestion);
-            assertEquals("原正文", restored.state.content);
+            assertEquals("新正文", restored.state.content);
             restored.discard();
         });
         assertEquals(1, server.getRequestCount());
     }
 
-    @Test public void previewSurvivesRecreationAndOnlyConfirmationChangesDraft() throws Exception {
+    @Test public void autoFillSurvivesRecreationAndConfirmationKeepsVisibleDraft() throws Exception {
         request(new MockResponse().setBody(RESPONSE)); awaitDone();
-        screen.onActivity(a -> { assertEquals("原正文",model(a).state.content); assertNotNull(model(a).suggestion); });
+        screen.onActivity(a -> { assertEquals("新正文",model(a).state.content); assertNotNull(model(a).suggestion); });
         screen.recreate();
         screen.onActivity(a -> {
             assertNotNull(model(a).suggestion);
-            assertTrue(model(a).acceptAssist("新标题","新正文",true));
+            assertTrue(model(a).confirmAssist());
             assertEquals("新标题",model(a).state.title);
-            assertEquals("新正文\n#咖啡",model(a).state.content);
+            assertEquals("新正文",model(a).state.content);
+            assertFalse(model(a).state.assistPendingAcceptance);
         });
         assertEquals(1,server.getRequestCount()); // No create, edit or publish request until save.
     }
@@ -161,7 +162,7 @@ public class CreationAssistFlowTest {
             assertNotNull(restored.suggestion); // Completed preview belongs to the saved local draft.
             assertFalse(restored.assistBusy);
             assertEquals(InstrumentationRegistry.getInstrumentation().getTargetContext().getString(R.string.ai_expired), restored.assistMessage);
-            assertEquals("原正文", restored.state.content);
+            assertEquals("新正文", restored.state.content);
             restored.discard();
         });
         assertEquals(1, server.getRequestCount());
@@ -177,7 +178,7 @@ public class CreationAssistFlowTest {
         screen.onActivity(a -> {
             assertNotNull(model(a).suggestion);
             assertEquals("新正文",model(a).suggestion.content_candidates.get(0));
-            assertEquals("原正文",model(a).state.content);
+            assertEquals("新正文",model(a).state.content);
         });
         screen.recreate();
         screen.onActivity(a -> assertNotNull(model(a).suggestion));
@@ -195,7 +196,6 @@ public class CreationAssistFlowTest {
     @Test public void undoRequiresConfirmationAfterManualEdit() throws Exception {
         request(new MockResponse().setBody(RESPONSE)); awaitDone();
         screen.onActivity(a -> {
-            assertTrue(model(a).acceptAssist("新标题","新正文",false));
             model(a).state.content="再手写一段";
             assertFalse(model(a).undoAssist(false));
             assertEquals("再手写一段",model(a).state.content);
@@ -215,25 +215,72 @@ public class CreationAssistFlowTest {
         screen.onActivity(a -> assertEquals("新正文",model(a).suggestion.content_candidates.get(0)));
     }
 
-    @Test public void previewDialogAppliesSelectedCandidateToVisibleEditor() throws Exception {
+    @Test public void completionFillsBothVisibleFieldsAndUndoRestoresBoth() throws Exception {
         request(new MockResponse().setBody(RESPONSE)); awaitDone();
-        screen.onActivity(a -> a.findViewById(R.id.creation_assist_preview).performClick());
         screen.onActivity(a -> {
-            try {
-                Field field = CreateWorkActivity.class.getDeclaredField("assistDialog");
-                field.setAccessible(true);
-                android.app.Dialog dialog = (android.app.Dialog) field.get(a);
-                android.widget.LinearLayout titles = dialog.findViewById(R.id.container_titles);
-                assertTrue(titles.getChildCount() > 1);
-                assertEquals("新标题", titles.getChildAt(1).getTag());
-                titles.getChildAt(1).performClick();
-                dialog.findViewById(R.id.btn_ai_apply).performClick();
-            } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
+            assertEquals("新标题", ((EditText)a.findViewById(R.id.et_title)).getText().toString());
+            assertEquals("新正文", ((EditText)a.findViewById(R.id.et_description)).getText().toString());
+            assertFalse(model(a).suggestionStale());
+            assertEquals(android.view.View.VISIBLE, a.findViewById(R.id.creation_assist_actions).getVisibility());
+            assertTrue(a.findViewById(R.id.creation_assist_accept).isEnabled());
+            assertTrue(a.findViewById(R.id.creation_assist_refine).isEnabled());
+            a.findViewById(R.id.creation_assist_undo).performClick();
+            assertEquals("原标题", ((EditText)a.findViewById(R.id.et_title)).getText().toString());
+            assertEquals("原正文", ((EditText)a.findViewById(R.id.et_description)).getText().toString());
+            assertEquals(android.view.View.GONE, a.findViewById(R.id.creation_assist_actions).getVisibility());
         });
+        assertEquals(1, server.getRequestCount());
+    }
+
+    @Test public void completedTaskReattachmentPreservesUndoPoint() throws Exception {
+        request(new MockResponse().setBody(RESPONSE)); awaitDone();
+        final DraftEditorModel.State[] saved = new DraftEditorModel.State[1];
+        screen.onActivity(a -> saved[0] = new com.google.gson.Gson().fromJson(
+                new com.google.gson.Gson().toJson(model(a).state), DraftEditorModel.State.class));
+        screen.close(); screen = null;
+        DraftEditorModel restored = new DraftEditorModel((android.app.Application)
+                InstrumentationRegistry.getInstrumentation().getTargetContext().getApplicationContext());
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            restored.initialize(saved[0], true);
+            restored.resume();
+        });
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            assertFalse(restored.suggestionStale());
+            assertTrue(restored.undoAssist(false));
+            assertEquals("原标题", restored.state.title);
+            assertEquals("原正文", restored.state.content);
+            restored.discard();
+        });
+        assertEquals(1, server.getRequestCount());
+    }
+
+    @Test public void streamedCompletionAlsoFillsEditor() throws Exception {
+        String result = RESPONSE.replace("\"title_candidates\":[\"新标题\"]", "\"title_candidates\":[]");
+        String done = result.substring(0, result.length() - 1) + ",\"seq\":2,\"validated\":true}";
+        server.enqueue(new MockResponse().setHeader("Content-Type", "text/event-stream")
+                .setBody("event: delta\ndata: {\"seq\":1,\"text\":\"新正文\"}\n\nevent: done\ndata: " + done + "\n\n"));
+        screen.onActivity(a -> model(a).requestAssist("write_content", "咖啡", ""));
+        awaitDone();
         screen.onActivity(a -> {
-            assertEquals("新标题",((EditText)a.findViewById(R.id.et_title)).getText().toString());
-            assertEquals("原正文",((EditText)a.findViewById(R.id.et_description)).getText().toString());
+            assertEquals("原标题", ((EditText)a.findViewById(R.id.et_title)).getText().toString());
+            assertEquals("新正文", ((EditText)a.findViewById(R.id.et_description)).getText().toString());
+            assertTrue(model(a).state.assistPendingAcceptance);
+            assertFalse(model(a).suggestionStale());
         });
-        assertEquals(1,server.getRequestCount());
+        assertEquals("/api/agent/create-assist/stream", server.takeRequest().getPath());
+    }
+
+    @Test public void acceptButtonKeepsTextAndHidesActions() throws Exception {
+        request(new MockResponse().setBody(RESPONSE)); awaitDone();
+        screen.onActivity(a -> a.findViewById(R.id.creation_assist_accept).performClick());
+        screen.recreate();
+        screen.onActivity(a -> {
+            assertEquals("新标题", ((EditText)a.findViewById(R.id.et_title)).getText().toString());
+            assertEquals("新正文", ((EditText)a.findViewById(R.id.et_description)).getText().toString());
+            assertEquals(android.view.View.GONE, a.findViewById(R.id.creation_assist_actions).getVisibility());
+            assertFalse(model(a).state.assistUndo.available);
+        });
+        assertEquals(1, server.getRequestCount());
     }
 }

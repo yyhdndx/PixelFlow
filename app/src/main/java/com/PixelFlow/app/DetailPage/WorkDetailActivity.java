@@ -1134,7 +1134,12 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
                             android.widget.Toast.makeText(this, R.string.comments_copied, android.widget.Toast.LENGTH_SHORT).show();
                         }
                     } else {
-                        deleteComment(item);
+                        new android.app.AlertDialog.Builder(this)
+                                .setTitle("删除评论？")
+                                .setMessage("删除后无法恢复；如果是一级评论，其下的回复也会被删除。")
+                                .setNegativeButton("取消", null)
+                                .setPositiveButton("删除", (confirmation, action) -> deleteComment(item))
+                                .show();
                     }
                 })
                 .show();
