@@ -183,6 +183,7 @@ public class CopilotChatActivity extends AppCompatActivity {
         entry.text = value.reply;
         entry.at = System.currentTimeMillis();
         entry.actions.addAll(value.actions);
+        entry.references.addAll(value.references);
         session.entries.add(entry);
         session.updatedAt = entry.at;
         CopilotStore.save(this, session);
@@ -309,6 +310,13 @@ public class CopilotChatActivity extends AppCompatActivity {
     private View linksView(CopilotStore.Entry entry) {
         java.util.List<String[]> targets = new java.util.ArrayList<>();
         java.util.Set<String> seen = new java.util.HashSet<>();
+        for (com.PixelFlow.app.API.CopilotReference ref : entry.references) {
+            if (ref.postId.isEmpty()) continue;
+            String label = ref.title.isEmpty() ? "查看帖子" : "《" + ref.title + "》";
+            if (seen.contains("detail:" + ref.postId)) continue;
+            seen.add("detail:" + ref.postId);
+            targets.add(new String[]{label, "detail", ref.postId});
+        }
         for (CopilotAction action : entry.actions) {
             if (!CopilotAction.APPLIED.equals(action.status)) continue;
             String kind = null, id = null, label = null;
@@ -339,8 +347,8 @@ public class CopilotChatActivity extends AppCompatActivity {
         rows.setOrientation(LinearLayout.VERTICAL);
         for (String[] target : targets) rows.addView(linkChip(target[0], target[1], target[2]));
 
-        if (targets.size() == 1) {
-            box.addView(linkChip(targets.get(0)[0], targets.get(0)[1], targets.get(0)[2]));
+        if (targets.size() <= 3) {
+            for (String[] target : targets) box.addView(linkChip(target[0], target[1], target[2]));
             return box;
         }
         rows.setVisibility(View.GONE);

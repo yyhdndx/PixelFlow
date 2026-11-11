@@ -127,7 +127,7 @@ paths:
                       content: {type: string, maxLength: 500}
       responses:
         '200':
-          description: '{status_code, reply, actions, screen, trace_id}；actions 为空表示只回话不动作；general 场景可返回 CREATE_DRAFT 提案（title/content），由客户端调用 POST /api/posts 落成草稿'
+          description: '{status_code, reply, actions, references, screen, trace_id}；actions 为空表示只回话不动作；general 场景可返回 CREATE_DRAFT 提案（title/content）与 references（模型检索到的站内帖子，客户端可点击跳详情）'
           content:
             application/json:
               schema:
@@ -144,7 +144,7 @@ paths:
                     items:
                       type: object
                       properties:
-                        type: {type: string, enum: [POST_COMMENT, UPDATE_DRAFT, SEND_MESSAGES]}
+                        type: {type: string, enum: [POST_COMMENT, UPDATE_DRAFT, SEND_MESSAGES, CREATE_DRAFT]}
                         rationale: {type: string}
                         text: {type: string, description: POST_COMMENT}
                         title: {type: string, description: UPDATE_DRAFT}
@@ -157,6 +157,17 @@ paths:
                             properties:
                               conversation_id: {type: string}
                               text: {type: string}
+                  references:
+                    type: array
+                    maxItems: 8
+                    description: general 场景下模型通过 search_site 检索到的站内公开帖子，客户端展示为可点击结果
+                    items:
+                      type: object
+                      required: [id, title]
+                      properties:
+                        id: {type: string, pattern: '^[1-9][0-9]{0,17}$'}
+                        title: {type: string, maxLength: 120}
+                        excerpt: {type: string, maxLength: 160}
         '400': {description: 参数缺失（如 detail 无 postId、messages 无会话）}
         '403': {description: 上下文越权（他人草稿、非本人参与的会话）}
         '503': {description: AI 暂不可用，客户端应提示稍后再试}

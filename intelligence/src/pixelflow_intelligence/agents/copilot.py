@@ -277,6 +277,19 @@ def _public_context(screen, context):
     return {"conversations": conversations}
 
 
+def _reference_list(context):
+    """给客户端返回可点击的检索结果（仅公开帖子的 id/标题/摘要）。"""
+    out = []
+    for row in (context.get("references") or [])[:8]:
+        if not isinstance(row, dict):
+            continue
+        post_id = str(row.get("id") or "")
+        if not post_id.isdigit() or post_id.startswith("0") or len(post_id) > 18:
+            continue
+        out.append({"id": post_id, "title": _trim(row.get("title"), 120),
+                    "excerpt": _trim(row.get("excerpt"), 160)})
+    return out
+
 def run_copilot(*, screen, context, message, history, settings, store, ctx, writer=None):
     """返回 {reply, actions, degraded, reason, trace_id}；模型失败时只降级，不抛异常给网关。"""
     screen = str(screen or "").strip().lower()
@@ -334,5 +347,7 @@ def run_copilot(*, screen, context, message, history, settings, store, ctx, writ
                 latency_ms=latency_ms, provider=provider, degraded_reason=degraded_reason)
         except Exception:  # noqa: BLE001 - trace 失败不影响返回
             pass
-    return {"reply": reply, "actions": actions, "degraded": degraded, "reason": degraded_reason,
+    return {"reply": reply, "actions": actions,
+            "references": _reference_list(context) if screen == "general" else [],
+            "degraded": degraded, "reason": degraded_reason,
             "trace_id": ctx.trace_id, "screen": screen}

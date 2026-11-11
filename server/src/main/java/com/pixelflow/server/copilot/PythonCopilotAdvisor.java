@@ -65,7 +65,19 @@ public class PythonCopilotAdvisor implements CopilotAdvisor {
                 if (!item.isObject()) continue;
                 actions.add(json.convertValue(item, Map.class));
             }
-            return Optional.of(new Result(text, actions, traceId));
+            var references = new ArrayList<Map<String,Object>>();
+            for (var item : root.path("references")) {
+                if (!item.isObject()) continue;
+                String id = item.path("id").asText("");
+                if (!id.matches("[1-9][0-9]{0,17}")) continue;
+                Map<String,Object> row = new LinkedHashMap<>();
+                row.put("id", id);
+                row.put("title", item.path("title").asText(""));
+                row.put("excerpt", item.path("excerpt").asText(""));
+                references.add(row);
+                if (references.size() >= 8) break;
+            }
+            return Optional.of(new Result(text, actions, references, traceId));
         } catch (Exception error) {
             return Optional.empty();
         } finally {
