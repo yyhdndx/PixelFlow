@@ -27,14 +27,15 @@ async function checked(response) {
     const body = await response.json().catch(() => ({}))
     throw new ApiError(response.status, body, response.headers.get('Retry-After'))
   }
+  if (response.status === 204) return null
   return response.json()
 }
-export async function request(path, options = {}, retry = true) {
+export async function request(path, options = {}, retry = true, responseType = 'json') {
   if (!path.startsWith('/api/') && !path.startsWith('/feed/')) throw new Error('仅允许访问 Java API')
   const generation = session.generation
   const headers = new Headers(options.headers)
   if (session.tokens.accessToken) headers.set('Authorization', `Bearer ${session.tokens.accessToken}`)
-  if (options.body) headers.set('Content-Type', 'application/json')
+  if (options.body && !(options.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   const response = await fetch(path, { ...options, headers, cache: 'no-store' })
   if (generation !== session.generation) throw new Error('会话已变更，请重新操作')
   if (response.status === 401 && retry && session.tokens.refreshToken) {
@@ -49,10 +50,10 @@ export async function request(path, options = {}, retry = true) {
         .finally(() => { refreshing = null })
     }
     await refreshing
-    return request(path, options, false)
+    return request(path, options, false, responseType)
   }
   if (response.status === 401) clearSession()
-  const result = await checked(response)
+  const result = responseType === 'blob' && response.ok ? await response.blob() : await checked(response)
   if (generation !== session.generation && response.status !== 401) throw new Error('会话已变更，请重新操作')
   return result
 }

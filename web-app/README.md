@@ -1,6 +1,6 @@
 # Web 用户端
 
-US-09 的最小 Vue 用户端：游客可浏览公开作品流与详情，登录后点赞、收藏、评论与回复。与 `admin-web` 同栈（Vue 3 + Vite + Vue Router），复用其鉴权与令牌刷新封装。
+Vue 用户端：游客可浏览公开作品流与详情；登录后可进行互动、创作、查看和编辑个人资料。与 `admin-web` 同栈（Vue 3 + Vite + Vue Router）。
 
 ## 本地启动
 
@@ -39,15 +39,24 @@ npm run preview
 
 | 路由 | 内容与接口 | 登录要求 |
 | --- | --- | --- |
-| `/search?q=` | 标题/话题搜索，`GET /api/search/posts` | 游客可用 |
-| `/me` | 当前账号昵称、头像，`GET /api/users/me` | 需登录 |
+| `/search?q=` | 标题/话题搜索及按需生成的增量回答，`GET /api/search/posts`、`POST /api/agent/search/stream` | 列表可游客浏览；AI 需登录 |
+| `/me`、`/me/edit` | 本人资料展示、独立编辑页、头像上传/清除、统计，`/api/users/me`、`/api/users/me/avatar`、`/api/users/me/stats` | 需登录 |
+| `/post/:id` | 作品详情、评论、长文增量提炼（200 字以上且已发布） | 提炼需登录 |
+| `/me/works`、`/me/works/new`、`/me/works/:id/edit` | 主导航「创作」可选拍摄/相册/空白后进入创建页；「我的作品」管理已有作品、编辑/提交审核/撤回，草稿支持文案候选预览与手动采纳 | 需登录 |
+| `/me/works/:id/auto-replies` | 作者查看/维护已有回复规则，勾选并编辑 AI 候选后保存 | 需登录 |
+| `/me/messages`、`/me/messages/:id` | 私信列表与会话占位页；不能查看、发送消息，不调用私信接口 | 需登录 |
+| `/assistant/:screen/:id?` | 详情、草稿及消息场景的助手占位页；不生成或执行建议，不调用 Copilot 接口 | 需登录 |
 | `/me/favorites` | 收藏作品，`GET /api/users/me/favorites` | 需登录 |
-| `/me/following` | 只读关注名单，`GET /api/users/me/following` | 需登录 |
+| `/me/following`、`/me/followers` | 分页查看关注与粉丝，`/api/users/me/following`、`/api/users/me/followers` | 需登录 |
+| `/me/notifications` | 主导航「消息」进入分类通知，支持单条/全部已读、未读角标和屏蔽类型，`/api/users/me/notifications`、`/read`、`/unread-count` 与偏好接口 | 需登录 |
+| `/me/interests`、`/me/interests/history` | 兴趣画像/历史、个性化开关、恢复屏蔽主题/作者 | 需登录 |
 | `/author/:id` | 作者公开资料与作品，`GET /api/users/{id}/profile`、`GET /api/users/{id}/posts` | 既有接口要求登录 |
 
 搜索、收藏、作者作品复用卡片及游标分页，关注名单支持分页；首屏/续页失败均可重试，续页失败保留已加载内容。空白搜索不请求。首页卡片及详情作者名可进入作者页。
 
-详情关注状态使用作者资料的 `is_following`，不遍历关注名单；通过 `PUT /api/interactions/follows` 成功后更新按钮。游客点击跳登录并回到原详情，本人作品隐藏按钮。受保护路由保留登录回跳，退出或会话改变后清空新页面的私有列表，忽略旧响应。不提供资料编辑、发布、通知或推荐偏好功能。
+详情关注状态使用作者资料的 `is_following`；通过 `PUT /api/interactions/follows` 成功后更新按钮。游客点击跳登录并回到原详情，本人作品隐藏按钮。受保护路由保留登录回跳，退出或会话改变后清空私有列表，忽略旧响应。
+
+主导航直接进入创作方式选择；从相册选图可预览，拍摄使用浏览器的 `capture` 提示，是否打开相机由设备/浏览器决定，桌面可选择本地图片。当前创作支持图片草稿、编辑媒体顺序、提交审核和撤回；提交审核后并非直接发布。头像与图片上传按接口限制 JPEG/PNG 和每张 8 MiB。AI 搜索和长文总结通过 SSE 增量展示；文案与回复规则使用现有完整响应，只有用户手动采纳或确认才写入。AI 结果仅保留在当前运行的标签页内，不支持杀进程后恢复；私信及通用 Copilot 目前仅为明确标注未开放的前端壳子，不读取私信、不发送消息、不请求模型，不能视为整体与 Android 对齐。新增写入流程仅使用本地模拟接口验收，未对真实远程账号执行写入验证。
 
 截图与实际联调边界见 [浏览闭环验收](../docs/testing/Web用户端浏览闭环验收-20261105.md)。
 
