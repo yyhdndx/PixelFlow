@@ -300,7 +300,11 @@ class CreatorTools:
             if not isinstance(limit, int) or not 1 <= limit <= 20:
                 raise ToolError("INVALID_ARGUMENT", "limit 必须在 1 到 20 之间")
             body = self.gateway.search_posts(keyword, limit)
-            items = body.get("items") if isinstance(body, dict) else body
+            items = None
+            if isinstance(body, dict):
+                items = body.get("items") or body.get("post_list")
+            else:
+                items = body
             results = []
             for row in (items or [])[:limit]:
                 if not isinstance(row, dict):
