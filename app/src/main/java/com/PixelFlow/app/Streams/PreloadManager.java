@@ -6,6 +6,7 @@ import android.content.res.Configuration;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.util.LruCache;
 import android.util.Pair;
 
@@ -31,6 +32,9 @@ public class PreloadManager implements ComponentCallbacks2 {
     public static final int PRIORITY_LOW = 1;      // 低优先级：即时预加载
     public static final int PRIORITY_MEDIUM = 2;   // 中优先级：可视区预加载
     public static final int PRIORITY_HIGH = 3;     // 高优先级：详情页预加载
+
+    /** A/B 对比开关：false 时预加载整体关闭，仅用于性能评估实验。 */
+    public static volatile boolean ENABLED = true;
 
     // 线程池配置
     private static final int CORE_POOL_SIZE;
@@ -58,6 +62,9 @@ public class PreloadManager implements ComponentCallbacks2 {
     private final LruCache<String, PreloadRecord> preloadCache;
     private final Map<String, Future<?>> pendingTasks;
 
+    // 已成功预加载的 URL 集合：用于在显示时统计「命中率」（跨实例共享，MainActivity 与 HomeFragment 各持一个实例）
+    private static final Set<String> preloadedUrls = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     // 尺寸缓存
     private int screenWidth = -1;
     private int screenHeight = -1;
@@ -76,6 +83,11 @@ public class PreloadManager implements ComponentCallbacks2 {
             instance = new PreloadManager(context.getApplicationContext());
         }
         return instance;
+    }
+
+    /** 该 URL 是否已被预加载成功过（用于统计显示时的命中率）。 */
+    public static boolean isPreloaded(String url) {
+        return url != null && preloadedUrls.contains(url);
     }
 
     public PreloadManager(Context context) {
@@ -224,7 +236,7 @@ public class PreloadManager implements ComponentCallbacks2 {
      * 批量预加载工作项（智能分批处理）
      */
     public synchronized void preloadWorkItems(List<WorkItem> workItems, int priority) {
-        if (released || workItems == null || workItems.isEmpty()) {
+        if (!ENABLED || released || workItems == null || workItems.isEmpty()) {
             return;
         }
 
@@ -272,6 +284,11 @@ public class PreloadManager implements ComponentCallbacks2 {
         if (existingRecord != null && !shouldRepreload(existingRecord, priority)) {
             return;
         }
+
+        String url = workItem.getFirstImageUrl();
+        if (url == null) url = workItem.getFirstVideoUrl();
+        if (url == null) url = workItem.getCoverUrl();
+        Log.d("PF_Preload", "priority=" + priority + " url=" + url);
 
         // 取消可能存在的相同任务
         cancelPendingTask(cacheKey);
@@ -327,6 +344,7 @@ public class PreloadManager implements ComponentCallbacks2 {
                     imageUrl, priority, targetSize.first, targetSize.second, false
             );
             preloadCache.put(cacheKey, record);
+            preloadedUrls.add(imageUrl);
 
         } catch (Exception e) {
             // 预加载失败，移除记录
@@ -364,6 +382,7 @@ public class PreloadManager implements ComponentCallbacks2 {
                     videoUrl, priority, targetSize.first, targetSize.second, true
             );
             preloadCache.put(cacheKey, record);
+            preloadedUrls.add(videoUrl);
 
         } catch (Exception e) {
             // 预加载失败，移除记录
@@ -581,6 +600,7 @@ public class PreloadManager implements ComponentCallbacks2 {
         // 清除缓存
         preloadCache.evictAll();
         sizeCache.clear();
+        preloadedUrls.clear();
     }
 
     /**

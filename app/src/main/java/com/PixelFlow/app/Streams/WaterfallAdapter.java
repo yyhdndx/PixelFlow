@@ -293,6 +293,7 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         private void loadImageSafely(String url, ImageView imageView,
                                      int targetWidth, int targetHeight) {
             try {
+                final long startNanos = System.nanoTime();
                 Glide.with(context)
                         .load(url)
                         .override(targetWidth, targetHeight)
@@ -315,6 +316,10 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                             public boolean onResourceReady(Drawable resource, Object model,
                                                            Target<Drawable> target, DataSource dataSource,
                                                            boolean isFirstResource) {
+                                long ms = (System.nanoTime() - startNanos) / 1_000_000;
+                                Log.d("PF_ImgTiming", "source=" + dataSource + " ms=" + ms
+                                        + " preloaded=" + (PreloadManager.isPreloaded(url) ? 1 : 0)
+                                        + " url=" + url);
                                 return false;
                             }
                         })
@@ -332,6 +337,7 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         private void loadVideoCoverSafely(String videoUrl, ImageView imageView,
                                           int targetWidth, int targetHeight, int position) {
             try {
+                final long startNanos = System.nanoTime();
                 // 使用Glide的VideoDecoder提取视频第一帧
                 Glide.with(context)
                         .asBitmap()
@@ -358,8 +364,10 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                             public boolean onResourceReady(Bitmap resource, Object model,
                                                            Target<Bitmap> target, DataSource dataSource,
                                                            boolean isFirstResource) {
-                                // 记录成功日志
-                                Log.d("VideoCover", "视频封面提取成功，位置: " + position);
+                                long ms = (System.nanoTime() - startNanos) / 1_000_000;
+                                Log.d("PF_ImgTiming", "video source=" + dataSource + " ms=" + ms
+                                        + " preloaded=" + (PreloadManager.isPreloaded(videoUrl) ? 1 : 0)
+                                        + " url=" + videoUrl);
                                 return false;
                             }
                         })
