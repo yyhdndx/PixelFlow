@@ -290,33 +290,33 @@ public class CopilotChatActivity extends AppCompatActivity {
         });
     }
 
+    /** 长文本折叠阈值：超过该行数默认收起，提供「展开/收起」。 */
+    private static final int COLLAPSE_MAX_LINES = 6;
+
     private View bubble(CopilotStore.Entry entry) {
         boolean user = "user".equals(entry.role);
-        TextView text = new TextView(this);
-        // 先开启可选，再以 SPANNABLE 缓冲写入文本，长按才会出现选择/复制
-        text.setTextIsSelectable(true);
-        text.setText(entry.text, TextView.BufferType.SPANNABLE);
-        text.setTextSize(14);
-        text.setTextColor(Color.parseColor("#1A1A1A"));
-        text.setLineSpacing(dp(2), 1f);
+        TextView text = buildBubbleText(entry.text);
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(user ? Color.parseColor("#EFEDFF") : Color.WHITE);
         bg.setCornerRadius(dp(14));
         View links = user ? null : linksView(entry);
-        TextView bubble;
+        View content;
         if (links == null) {
-            bubble = text;
-            bubble.setBackground(bg);
-            bubble.setPadding(dp(14), dp(10), dp(14), dp(10));
+            // 纯文本气泡：包一层可折叠容器，长文默认收起
+            LinearLayout box = new LinearLayout(this);
+            box.setOrientation(LinearLayout.VERTICAL);
+            box.setBackground(bg);
+            box.setPadding(dp(14), dp(10), dp(14), dp(10));
+            box.addView(collapsible(text));
+            content = box;
         } else {
             LinearLayout card = new LinearLayout(this);
             card.setOrientation(LinearLayout.VERTICAL);
             card.setBackground(bg);
             card.setPadding(dp(14), dp(10), dp(14), dp(10));
-            card.addView(text);
+            card.addView(collapsible(text));
             card.addView(links);
-            bubble = null;
-            return wrapBubble(card, true);
+            content = card;
         }
         // 自己的消息靠右、AI 靠左，两侧留出空白，像正常聊天窗口
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -329,8 +329,64 @@ public class CopilotChatActivity extends AppCompatActivity {
             params.gravity = android.view.Gravity.START;
             params.rightMargin = dp(56);
         }
-        bubble.setLayoutParams(params);
-        return bubble;
+        content.setLayoutParams(params);
+        return content;
+    }
+
+    /** 气泡文本样式：可选中、SPANNABLE 写入，长按出现复制。 */
+    private TextView buildBubbleText(String body) {
+        TextView text = new TextView(this);
+        text.setTextIsSelectable(true);
+        text.setText(body, TextView.BufferType.SPANNABLE);
+        text.setTextSize(14);
+        text.setTextColor(Color.parseColor("#1A1A1A"));
+        text.setLineSpacing(dp(2), 1f);
+        return text;
+    }
+
+    /**
+     * 长文折叠容器：超过 {@link #COLLAPSE_MAX_LINES} 行默认收起，
+     * 末尾提供「展开全文 / 收起」切换，避免超长 AI 回复撑满或截断。
+     */
+    private View collapsible(final TextView text) {
+        final int max = COLLAPSE_MAX_LINES;
+        text.setMaxLines(max);
+        text.setEllipsize(TextUtils.TruncateAt.END);
+
+        final TextView toggle = new TextView(this);
+        toggle.setTextSize(13);
+        toggle.setTextColor(Color.parseColor("#6155CE"));
+        toggle.setPadding(0, dp(6), 0, 0);
+        toggle.setText("展开全文");
+        toggle.setVisibility(View.GONE);
+        final boolean[] expanded = {false};
+        toggle.setText("展开全文 ▾");
+        toggle.setOnClickListener(v -> {
+            expanded[0] = !expanded[0];
+            text.setMaxLines(expanded[0] ? Integer.MAX_VALUE : max);
+            text.setEllipsize(expanded[0] ? null : TextUtils.TruncateAt.END);
+            toggle.setText(expanded[0] ? "收起 ▴" : "展开全文 ▾");
+        });
+
+        // 布局完成后读真实行数，超过阈值才显示展开入口。
+        // 注意 getLineCount() 会被 maxLines 截断，需临时放开再测。
+        text.post(() -> {
+            text.setMaxLines(Integer.MAX_VALUE);
+            text.setEllipsize(null);
+            text.measure(
+                    View.MeasureSpec.makeMeasureSpec(text.getWidth(), View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+            int realLines = text.getLineCount();
+            text.setMaxLines(max);
+            text.setEllipsize(TextUtils.TruncateAt.END);
+            if (realLines > max) toggle.setVisibility(View.VISIBLE);
+        });
+
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.addView(text);
+        wrap.addView(toggle);
+        return wrap;
     }
 
     private View wrapBubble(View content) { return wrapBubble(content, false); }
@@ -479,6 +535,11 @@ public class CopilotChatActivity extends AppCompatActivity {
         TextView actionBody = card.findViewById(R.id.action_body);
         actionBody.setText(bodyOf(action));
         actionBody.setTextIsSelectable(true);
+        // 长正文折叠：用 collapsible 容器替换裸 TextView，避免超长被截断
+        ViewGroup actionBodyParent = (ViewGroup) actionBody.getParent();
+        int bodyIndex = actionBodyParent.indexOfChild(actionBody);
+        actionBodyParent.removeView(actionBody);
+        actionBodyParent.addView(collapsible(actionBody), bodyIndex);
         TextView rationale = card.findViewById(R.id.action_rationale);
         rationale.setText(action.rationale);
         rationale.setVisibility(action.rationale.isEmpty() ? View.GONE : View.VISIBLE);
@@ -527,13 +588,10 @@ public class CopilotChatActivity extends AppCompatActivity {
         if (CopilotAction.TYPE_CREATE_DRAFT.equals(action.type)) {
             String title = action.title == null ? "" : action.title;
             String content = action.content == null ? "" : action.content;
-            if (content.length() > 300) content = content.substring(0, 300) + "…";
             return title.isEmpty() ? content : title + "\n" + content;
         }
         if (CopilotAction.TYPE_DRAFT.equals(action.type)) {
-            String text = action.content;
-            if (text.length() > 300) text = text.substring(0, 300) + "…";
-            return text;
+            return action.content;
         }
         if (CopilotAction.TYPE_MESSAGES.equals(action.type)) {
             StringBuilder sb = new StringBuilder();

@@ -119,6 +119,24 @@ public class CopilotSheet extends BottomSheetDialogFragment {
             send.setEnabled(false);
             input.setEnabled(false);
         }
+        expandFullScreen();
+    }
+
+    /** 创作辅助需要更大空间：让底部弹层全屏展开、禁用手势拖拽收起。 */
+    private void expandFullScreen() {
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(requireDialog().getWindow().getDecorView(), null);
+        com.google.android.material.bottomsheet.BottomSheetDialog dialog =
+                (com.google.android.material.bottomsheet.BottomSheetDialog) requireDialog();
+        android.view.View bottom = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+        if (bottom == null) return;
+        bottom.setLayoutParams(new android.widget.FrameLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+        com.google.android.material.bottomsheet.BottomSheetBehavior<?> behavior =
+                com.google.android.material.bottomsheet.BottomSheetBehavior.from(bottom);
+        behavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
+        behavior.setDraggable(false);
+        behavior.setSkipCollapsed(true);
     }
 
 
