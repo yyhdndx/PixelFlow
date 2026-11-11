@@ -24,6 +24,8 @@ public final class CopilotAction {
     public final String rationale;
     public final List<Message> messages;
     public String status = PENDING;
+    /** CREATE_DRAFT 应用后写入的新草稿 id，用于消息内跳转。 */
+    public String postId = "";
 
     public static final class Message {
         public final String conversationId;
@@ -50,6 +52,7 @@ public final class CopilotAction {
             }
         }
         messages = parsed;
+        postId = string(value, "post_id");
     }
 
     public static CopilotAction parse(JsonObject value) { return new CopilotAction(value); }
@@ -79,6 +82,7 @@ public final class CopilotAction {
             }
             out.add("items", array);
         }
+        if (!postId.isEmpty()) out.addProperty("post_id", postId);
         out.addProperty("status", status);
         return out;
     }
