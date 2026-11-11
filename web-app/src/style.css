@@ -242,6 +242,9 @@ label input { display: block; margin-top: 6px; font-weight: 400; }
 .my-work-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 4px; border-bottom: 1px solid var(--line); }
 .my-work-row strong { overflow-wrap: anywhere; }
 .my-work-row a { flex-shrink: 0; }
+.my-work-row .work-actions > a, .my-work-row .work-actions > button { min-width: 88px; min-height: 36px; padding: 7px 12px; text-align: center; }
+.my-work-row .work-actions > button.danger { background: var(--danger-600); border-color: var(--danger-600); color: #fff; }
+.my-work-row .work-actions > button.danger:hover:not(:disabled) { background: var(--danger-700); border-color: var(--danger-700); }
 .work-actions { display: flex; align-items: center; gap: 12px; }
 .agent-answer { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 14px 0; margin: 20px 0; }
 .agent-answer h2 { font-size: 18px; }
