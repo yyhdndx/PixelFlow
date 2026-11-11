@@ -313,7 +313,8 @@ public class PreloadManager implements ComponentCallbacks2 {
     }
 
     /**
-     * 预加载图片
+     * 预加载图片：只把原始文件下载到磁盘缓存（不解码、不缩尺寸）。
+     * 显示时再按实际卡片尺寸 + centerCrop 解码。
      */
     private void preloadImage(WorkItem workItem, int priority, String cacheKey) {
         String imageUrl = workItem.getFirstImageUrl();
@@ -325,24 +326,17 @@ public class PreloadManager implements ComponentCallbacks2 {
             return;
         }
 
-        // 获取目标尺寸
-        Pair<Integer, Integer> targetSize = getTargetSize(workItem, priority, false);
-
-        // 执行预加载
         try {
-            // 使用Glide的submit()方法在后台线程执行
+            // 用 asFile() 下载原始文件到磁盘，不做解码
             Glide.with(context)
-                    .asDrawable()
+                    .asFile()
                     .load(imageUrl)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .onlyRetrieveFromCache(false)
-                    .submit(targetSize.first, targetSize.second)
-                    .get(); // 阻塞直到完成
+                    .diskCacheStrategy(DiskCacheStrategy.DATA)
+                    .submit()
+                    .get(); // 阻塞直到下载完成
 
             // 记录预加载成功
-            PreloadRecord record = new PreloadRecord(
-                    imageUrl, priority, targetSize.first, targetSize.second, false
-            );
+            PreloadRecord record = new PreloadRecord(imageUrl, priority, 0, 0, false);
             preloadCache.put(cacheKey, record);
             preloadedUrls.add(imageUrl);
 
@@ -356,7 +350,7 @@ public class PreloadManager implements ComponentCallbacks2 {
     }
 
     /**
-     * 预加载视频封面
+     * 预加载视频封面：只把视频文件下载到磁盘缓存，不做取帧解码。
      */
     private void preloadVideoCover(WorkItem workItem, int priority, String cacheKey) {
         String videoUrl = workItem.getFirstVideoUrl();
@@ -364,23 +358,16 @@ public class PreloadManager implements ComponentCallbacks2 {
             return;
         }
 
-        // 获取目标尺寸
-        Pair<Integer, Integer> targetSize = getTargetSize(workItem, priority, true);
-
-        // 执行预加载
         try {
             Glide.with(context)
-                    .asBitmap()
+                    .asFile()
                     .load(videoUrl)
                     .diskCacheStrategy(DiskCacheStrategy.DATA)
-                    .placeholder(R.drawable.ic_video_placeholder)
-                    .submit(targetSize.first, targetSize.second)
-                    .get(); // 阻塞直到完成
+                    .submit()
+                    .get(); // 阻塞直到下载完成
 
             // 记录预加载成功
-            PreloadRecord record = new PreloadRecord(
-                    videoUrl, priority, targetSize.first, targetSize.second, true
-            );
+            PreloadRecord record = new PreloadRecord(videoUrl, priority, 0, 0, true);
             preloadCache.put(cacheKey, record);
             preloadedUrls.add(videoUrl);
 
