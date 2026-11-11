@@ -207,7 +207,7 @@ class FavoritePostsApiTest {
         assertEquals(result,spoofed);
         var card=result.get("post_list").get(0);
         assertEquals(Set.of("post_id","title","content","create_time","submit_time","review_time","publish_time","status","media_ids","author","clips","hashtag","music",
-                "like_count","comment_count","is_liked","is_favorited"),json.convertValue(card,Map.class).keySet());
+                "like_count","favorite_count","comment_count","is_liked","is_favorited"),json.convertValue(card,Map.class).keySet());
         assertEquals("中文作品",card.get("title").asText()); assertEquals("图文正文",card.get("content").asText());
         assertTrue(card.get("create_time").isIntegralNumber()); assertEquals(1791000000L,card.get("create_time").asLong());
         assertEquals("PUBLISHED",card.get("status").asText());
