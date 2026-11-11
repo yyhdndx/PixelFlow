@@ -85,6 +85,7 @@ public class CopilotController {
         response.put("status_code", 0);
         response.put("reply", result.get().reply());
         response.put("actions", actions);
+        if (!result.get().references().isEmpty()) response.put("references", result.get().references());
         response.put("screen", screen);
         response.put("trace_id", result.get().traceId());
         return response;
