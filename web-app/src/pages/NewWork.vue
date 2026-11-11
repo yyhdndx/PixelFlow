@@ -81,7 +81,7 @@ onBeforeUnmount(() => { window.removeEventListener('pixelflow:creation-selected'
     <form @submit.prevent="save">
       <label>标题<input v-model="title" maxlength="120"></label>
       <label>正文<textarea v-model="content" maxlength="5000" rows="10"></textarea></label>
-      <label>图片<input type="file" accept="image/jpeg,image/png" multiple :disabled="busy" @change="selected"></label>
+      <div class="image-picker-row"><span>图片</span><label class="image-picker"><span>添加图片</span><input type="file" accept="image/jpeg,image/png" multiple :disabled="busy" aria-label="添加图片" @change="selected"></label><small>{{ images.length }}/9</small></div>
       <ul v-if="images.length" class="draft-images">
         <li v-for="(image, index) in images" :key="image.preview"><img :src="image.preview" alt="已选图片"><button type="button" class="quiet" :disabled="busy" @click="remove(index)">移除</button></li>
       </ul>

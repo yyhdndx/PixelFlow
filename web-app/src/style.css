@@ -265,6 +265,14 @@ label input { display: block; margin-top: 6px; font-weight: 400; }
 .notification-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
 .notification-tabs button[aria-pressed="true"] { background: var(--brand-100); color: var(--brand-700); }
 .work-editor { max-width: 760px; }
+.image-picker-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 16px 0 8px; font-size: 13.5px; font-weight: 600; color: var(--ink-700); }
+.image-picker { position: relative; display: inline-flex; align-items: center; justify-content: center; margin: 0; padding: 8px 14px; border: 1px solid var(--brand-100); border-radius: 8px; background: var(--surface); color: var(--brand-600); font-size: 13px; font-weight: 600; cursor: pointer; overflow: hidden; }
+.image-picker:hover { background: var(--brand-50); }
+.image-picker:focus-within { outline: 3px solid #b3bdfb; outline-offset: 2px; }
+.image-picker:has(input:disabled) { opacity: .5; cursor: not-allowed; }
+.image-picker input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: inherit; }
+.image-picker input[type="file"]:focus-visible { outline: none; }
+.image-picker-row small { display: inline; }
 .draft-images { display: flex; flex-wrap: wrap; gap: 12px; list-style: none; padding: 0; }
 .draft-images li { width: 110px; }
 .draft-images img { width: 110px; height: 110px; object-fit: cover; }

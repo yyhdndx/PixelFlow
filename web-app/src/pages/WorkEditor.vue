@@ -169,7 +169,7 @@ onBeforeUnmount(() => { revision++; release() })
       <form @submit.prevent="save">
         <label>标题<input v-model="title" maxlength="120"></label>
         <label>正文<textarea v-model="content" maxlength="5000" rows="10"></textarea></label>
-        <label>图片<input type="file" accept="image/jpeg,image/png" multiple :disabled="saving" @change="selected"></label>
+        <div class="image-picker-row"><span>图片</span><label class="image-picker"><span>添加图片</span><input type="file" accept="image/jpeg,image/png" multiple :disabled="saving" aria-label="添加图片" @change="selected"></label><small>{{ images.length }}/9</small></div>
         <ul v-if="images.length" class="draft-images">
           <li v-for="(image, index) in images" :key="image.id || image.preview">
             <img v-if="image.preview" :src="image.preview" alt="草稿图片">

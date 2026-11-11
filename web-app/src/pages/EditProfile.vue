@@ -104,7 +104,7 @@ watch(() => session.generation, () => {
     <div class="profile-editor-avatar">
       <span class="profile-avatar"><img v-if="session.user?.avatar" :src="session.user.avatar" alt="头像"><template v-else>{{ (session.user?.nickname || 'U').charAt(0) }}</template></span>
       <div class="avatar-actions">
-        <label>更换头像<input type="file" accept="image/jpeg,image/png" :disabled="avatarBusy" @change="selectAvatar"></label>
+        <label class="image-picker"><span>更换头像</span><input type="file" accept="image/jpeg,image/png" :disabled="avatarBusy" aria-label="更换头像" @change="selectAvatar"></label>
         <button v-if="session.user?.avatar" class="secondary" :disabled="avatarBusy" @click="clearAvatar">清除头像</button>
         <span v-if="avatarBusy" role="status">正在处理头像…</span>
       </div>
