@@ -1,4 +1,3 @@
-import random
 from collections import Counter
 from ..models import RankOutput, Ranked
 from ..common import unique_safe, topics_for, components
@@ -12,8 +11,7 @@ def execute(data, context):
         context.checkpoint()
         values = components(candidate, data.insight, context.now)
         score = (4*values["topic"] + 2*values["author"] + values["media"]
-                 + values["popularity"] + values["freshness"]
-                 + random.uniform(0.0, 0.05))  # 小随机扰动，避免每次刷新顺序完全相同
+                 + values["popularity"] + values["freshness"])
         # Derive explanations from computed features, never from candidate-supplied instructions.
         reason = "近期公开内容与热度"
         if values["topic"] > 0:
@@ -22,6 +20,12 @@ def execute(data, context):
             reason = "与你的作者偏好相关"
         ranked.append((candidate, values, score, reason))
     ranked.sort(key=lambda item: (-item[2], -item[0].create_time, int(item[0].post_id)))
+    # 高相关层随机置换：顶部一批（相关性最高）随机打乱顺序，
+    # 让每次刷新的顶部作品顺序真正变化；之前 0~0.05 的抖动太小，顶部几个几乎不重排
+    shuffle_band = min(15, len(ranked))
+    head = ranked[:shuffle_band]
+    context.rng.shuffle(head)
+    ranked = head + ranked[shuffle_band:]
     authors, topics = Counter(), Counter()
     result, limited = [], 0
     for candidate, values, score, reason in ranked:

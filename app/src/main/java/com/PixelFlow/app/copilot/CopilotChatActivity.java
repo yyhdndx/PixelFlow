@@ -20,6 +20,8 @@ import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.PixelFlow.app.API.ApiClient;
 import com.PixelFlow.app.API.CommunityClient;
@@ -90,6 +92,14 @@ public class CopilotChatActivity extends BaseActivity {
     @Override protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_copilot_chat);
+
+        // 沉浸式下窗口不随键盘重排，手动用 IME insets 把输入栏顶到键盘正上方
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.chat_root), (view, insets) -> {
+            int imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+            view.setPadding(view.getPaddingLeft(), insets.getInsets(WindowInsetsCompat.Type.statusBars()).top,
+                    view.getPaddingRight(), imeBottom);
+            return insets;
+        });
 
         screen = getIntent().getStringExtra(EXTRA_SCREEN);
         if (screen == null || screen.isEmpty()) screen = "detail";

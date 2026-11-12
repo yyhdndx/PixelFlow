@@ -579,6 +579,8 @@ public class WorkDetailActivity extends BaseActivity implements GestureDetector.
 
         // 设置适配器
         imageAdapter = new ImagePagerAdapter(this, mediaItems);
+        // 已公开作品的媒体可落盘缓存，私有（草稿/待审核）不缓存
+        imageAdapter.setCacheableMedia("PUBLISHED".equals(postStatus));
         imageAdapter.setVideoPlaybackListener(this::onVideoPlaybackChanged);
         imageAdapter.setImageClickListener(this::openFullScreenImage);
         imageAdapter.restorePlayback(restoredPlayback);
@@ -1005,7 +1007,11 @@ public class WorkDetailActivity extends BaseActivity implements GestureDetector.
                     // 悬浮顶部栏：下滑收起、上滑立刻滑回；回到顶部一定显示
                     if (topBar == null) return;
                     if (scrollY <= 0) { showTopBar(); showBottomBar(); }
-                    else if (scrollY > oldScrollY + 8) { hideTopBar(); hideBottomBar(); }
+                    else if (scrollY > oldScrollY + 8) {
+                        hideTopBar();
+                        // 正在准备评论（输入框聚焦/有文字/回复态）时，底部栏常驻，不随下滑消失
+                        if (!isCommenting()) hideBottomBar();
+                    }
                     else if (scrollY < oldScrollY - 8) { showTopBar(); showBottomBar(); }
                 }
             });
@@ -1129,6 +1135,14 @@ public class WorkDetailActivity extends BaseActivity implements GestureDetector.
         if (bottomBar == null || bottomBarHidden || bottomBar.getHeight() == 0) return;
         bottomBarHidden = true;
         bottomBar.animate().translationY(bottomBar.getHeight()).setDuration(180).start();
+    }
+
+    /** 是否正在准备评论：输入框聚焦、已有文字或处于回复某人的状态。 */
+    private boolean isCommenting() {
+        if (replyTarget != null) return true;
+        if (commentInput == null) return false;
+        if (commentInput.hasFocus()) return true;
+        return !commentInput.getText().toString().trim().isEmpty();
     }
 
     /** 退出打字后回到默认：输入框重新表示“评论这条帖子”，而不是回复某个人。 */

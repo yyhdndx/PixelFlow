@@ -59,6 +59,10 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         this.mediaItems = mediaItems;
     }
 
+    /** 作品已公开时媒体可落盘缓存。 */
+    private boolean cacheableMedia = false;
+    public void setCacheableMedia(boolean cacheable) { this.cacheableMedia = cacheable; }
+
     public void setVideoPlaybackListener(VideoPlaybackListener listener) {
         this.playbackListener = listener;
     }
@@ -232,8 +236,8 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                 if (imageClickListener != null) imageClickListener.onImageClick(position);
             });
             progressBar.setVisibility(View.VISIBLE);
-            // 私有媒体（如待审核帖子）需带账号凭证，统一走 AccountMedia；不裁切保留原始宽高比
-            com.PixelFlow.app.API.AccountMedia.loadDetail(imageView, clip.getUrl(),
+            // 已公开作品走落盘缓存；私有媒体（如待审核帖子）带账号凭证且不落盘
+            com.PixelFlow.app.API.AccountMedia.loadDetail(imageView, clip.getUrl(), cacheableMedia,
                     () -> progressBar.setVisibility(View.GONE));
         }
     }

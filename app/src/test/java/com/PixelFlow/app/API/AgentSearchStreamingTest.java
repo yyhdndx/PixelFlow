@@ -23,6 +23,7 @@ public class AgentSearchStreamingTest {
                                 .setBody(prefix + new String(new char[100]).replace("\0", ": heartbeat\n\n"))
                                 .throttleBody(prefix.length(), 8, TimeUnit.SECONDS);
                     }
+                    if (request.getPath().equals("/api/interactions/likes")) return new MockResponse().setBody("{\"post_id\":\"1\",\"is_liked\":true,\"like_count\":1}");
                     if (request.getPath().equals("/api/posts/1")) return new MockResponse().setBody("{\"post_id\":\"1\",\"title\":\"作品\"}");
                     if (request.getPath().endsWith("/comments")) return new MockResponse().setBody("{\"comment_id\":\"1\",\"post_id\":\"1\",\"content\":\"普通评论\"}");
                     return new MockResponse().setBody("{\"status_code\":0,\"has_more\":0,\"post_list\":[]}");

@@ -48,22 +48,22 @@ public final class AccountMedia {
         view.setImageResource(R.drawable.ic_image_placeholder);
     }
     public static void load(ImageView view, String url) {
-        loadInto(view, url, true, null);
+        loadInto(view, url, true, false, null);
     }
 
     /**
      * 详情页用：不裁切（保留原始宽高比），并回调加载完成/失败以便隐藏进度条。
-     * 私有媒体带账号凭证拉字节流，公开媒体直接 Glide。
+     * cacheable=true 表示作品已公开、媒体可落盘缓存；私有媒体带账号凭证拉字节流且不落盘。
      */
-    public static void loadDetail(ImageView view, String url, Runnable onDone) {
-        loadInto(view, url, false, onDone);
+    public static void loadDetail(ImageView view, String url, boolean cacheable, Runnable onDone) {
+        loadInto(view, url, false, cacheable, onDone);
     }
 
-    private static void loadInto(ImageView view, String url, boolean centerCrop, Runnable onDone) {
+    private static void loadInto(ImageView view, String url, boolean centerCrop, boolean cacheable, Runnable onDone) {
         clear(view);
         ApiClient api = ApiClient.getInstance(view.getContext());
-        // 统一用 application context：返回/销毁时 Glide.with(view) 可能因 Activity 已销毁而抛异常
-        if (!api.isPrivateMediaUrl(url)) {
+        // cacheable=true（已发布作品）时，即使 /api/media 也按公开走 Glide 落盘缓存
+        if (!api.isPrivateMediaUrl(url) || cacheable) {
             // Third-party/public images receive no account headers and use normal Glide caching.
             com.bumptech.glide.RequestBuilder<android.graphics.drawable.Drawable> req = Glide.with(view.getContext().getApplicationContext())
                     .load(url).diskCacheStrategy(DiskCacheStrategy.ALL).timeout(5000)

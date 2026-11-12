@@ -913,8 +913,18 @@ public class CommunityClient implements AutoCloseable {
                         refreshCredentials(expected, token);
                         continue;
                     }
-                    if (!response.isSuccessful() || response.body() == null)
-                        throw new ApiError(response.code(), "创作辅助服务暂时不可用");
+                    if (!response.isSuccessful() || response.body() == null) {
+                        // 透出服务端的具体原因（如“请填写这次的修改要求”），不要一律盖成“暂时不可用”
+                        String message = "创作辅助服务暂时不可用";
+                        try {
+                            if (response.body() != null) {
+                                JsonObject err = gson.fromJson(response.body().string(), JsonObject.class);
+                                if (err != null && err.has("message") && !err.get("message").isJsonNull())
+                                    message = err.get("message").getAsString();
+                            }
+                        } catch (Exception ignored) { }
+                        throw new ApiError(response.code(), message);
+                    }
                     try {
                         return CreationAssistStreamReader.read(response.body().source(), piece -> {
                             synchronized (CommunityClient.this) {

@@ -132,14 +132,7 @@ public class ProfileFragment extends Fragment {
 
     @Override public void onResume() {
         super.onResume();
-        // Home uses immersive media browsing; the personal page restores normal system bars.
-        Window window = requireActivity().getWindow();
-        window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN | WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
-        int flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-        if (android.os.Build.VERSION.SDK_INT >= 26) flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
-        window.getDecorView().setSystemUiVisibility(flags);
-        window.setStatusBarColor(requireContext().getColor(R.color.profile_bg));
-        window.setNavigationBarColor(requireContext().getColor(R.color.profile_surface));
+        // 系统栏由 BaseActivity 统一沉浸式隐藏，这里不再恢复
         if (returnedFromActivity || profileData.loadedSession != api.sessionVersion() || !api.isLoggedIn()) load();
         else {
             restoreCached(); edit.setText(R.string.profile_edit); edit.setEnabled(true);
