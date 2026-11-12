@@ -785,8 +785,8 @@ public class CommunityClient implements AutoCloseable {
         return submit((job, expected) -> {
             validateId(id);
             JsonObject input = new JsonObject(); input.addProperty("targetId", id); input.addProperty("active", active);
-            authenticated(job, "/api/interactions/likes", "PUT", input, expected, true);
-            return post(job, id, expected);
+            // PUT 直接返回最新计数与状态，无需再 GET 详情（消除二次请求的卡顿）
+            return gson.fromJson(authenticated(job, "/api/interactions/likes", "PUT", input, expected, true), PostItem.class);
         }, callback);
     }
     public Job setFollow(String targetId, boolean active, Callback<Void> callback) {
@@ -804,8 +804,8 @@ public class CommunityClient implements AutoCloseable {
             validateId(id);
             JsonObject input = new JsonObject();
             input.addProperty("targetId", id); input.addProperty("active", active);
-            authenticated(job, "/api/interactions/favorites", "PUT", input, expected, true);
-            return post(job, id, expected);
+            // PUT 直接返回最新计数与状态，无需再 GET 详情（消除二次请求的卡顿）
+            return gson.fromJson(authenticated(job, "/api/interactions/favorites", "PUT", input, expected, true), PostItem.class);
         }, callback);
     }
     public Job getFavorites(int count, String cursor, Callback<ApiResponse> callback) {

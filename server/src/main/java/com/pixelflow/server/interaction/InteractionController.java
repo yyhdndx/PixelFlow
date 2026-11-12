@@ -67,7 +67,19 @@ public class InteractionController {
         }
         if ((kind.equals("likes") || kind.equals("favorites")) && input.targetId().matches("[1-9][0-9]{0,17}"))
             posts.invalidateContentAfterCommit(Long.parseLong(input.targetId()));
-        return Map.of("targetId",input.targetId(),"active",input.active());
+        Map<String,Object> result = new LinkedHashMap<>();
+        result.put("targetId", input.targetId());
+        result.put("active", input.active());
+        // 返回最新计数与状态，客户端无需再 GET 详情，消除二次请求带来的卡顿
+        if ((kind.equals("likes") || kind.equals("favorites")) && input.targetId().matches("[1-9][0-9]{0,17}")) {
+            String postId = input.targetId();
+            result.put("post_id", postId);
+            result.put("like_count", db.queryForObject("SELECT COUNT(*) FROM interactions WHERE kind='likes' AND target_id=?", Long.class, postId));
+            result.put("favorite_count", db.queryForObject("SELECT COUNT(*) FROM interactions WHERE kind='favorites' AND target_id=?", Long.class, postId));
+            result.put("is_liked", db.queryForObject("SELECT COUNT(*) FROM interactions WHERE user_id=? AND kind='likes' AND target_id=?", Integer.class, actor.id(), postId) > 0);
+            result.put("is_favorited", db.queryForObject("SELECT COUNT(*) FROM interactions WHERE user_id=? AND kind='favorites' AND target_id=?", Integer.class, actor.id(), postId) > 0);
+        }
+        return result;
     }
     @GetMapping("/{kind}") public List<Map<String,Object>> list(@PathVariable String kind,@AuthenticationPrincipal Actor actor,
             @RequestParam(defaultValue="50") int count,@RequestParam(defaultValue="") String after) {
