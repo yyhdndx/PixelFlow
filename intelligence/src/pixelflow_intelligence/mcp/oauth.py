@@ -285,26 +285,90 @@ class OAuthBearerSource:
 
 def login_page(request_id: str, error: str = "") -> str:
     safe_id = html.escape(request_id)
-    notice = f'<p class="error">{html.escape(error)}</p>' if error else ""
+    notice = f'<p class="error" role="alert">{html.escape(error)}</p>' if error else ""
     return f"""<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><title>PixelFlow MCP 授权</title>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>授权 PixelFlow MCP</title>
 <style>
-body{{font-family:system-ui,sans-serif;max-width:360px;margin:12vh auto;padding:0 1rem;color:#222}}
-h1{{font-size:1.25rem}} label{{display:block;margin:.75rem 0 .25rem}}
-input{{width:100%;padding:.55rem;box-sizing:border-box}}
-button{{margin-top:1rem;width:100%;padding:.6rem;background:#111;color:#fff;border:0;border-radius:4px}}
-.error{{color:#b00020}}.hint{{color:#666;font-size:.85rem}}
+:root {{
+  --font: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --ink-900: #17203a; --ink-500: #5b6785; --ink-400: #78839a;
+  --line: #e6eaf3; --line-strong: #d6dce8; --bg: #f3f5fa; --surface: #fff;
+  --brand-500: #4f5dd5; --brand-600: #4556c2; --danger-700: #9d3044; --danger-50: #fdeef1;
+  --radius-s: 9px; --shadow-1: 0 1px 2px #25314a0d, 0 1px 6px #25314a08;
+}}
+* {{ box-sizing: border-box; }}
+body {{
+  margin: 0; font-family: var(--font); color: var(--ink-900); line-height: 1.6;
+  min-height: 100vh; display: grid; place-items: center; padding: 24px;
+  background: radial-gradient(ellipse 700px 480px at 12% -8%, #dfe5fd 0%, transparent 60%),
+              radial-gradient(ellipse 620px 520px at 105% 110%, #e7e0fd 0%, transparent 55%),
+              var(--bg);
+}}
+.panel {{
+  width: min(420px, 100%); padding: 40px 38px 32px;
+  border: 1px solid var(--line); border-radius: 22px; background: var(--surface);
+  box-shadow: 0 18px 50px #25314a1a;
+}}
+.brand {{ display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }}
+.brand-mark {{
+  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--brand-500), #7a5af8);
+  display: grid; place-items: center; color: #fff; box-shadow: 0 6px 14px #4f5dd540;
+}}
+.brand-name {{ font-size: 17px; font-weight: 780; letter-spacing: -.3px; line-height: 1.15; }}
+.brand-name small {{ display: block; font-weight: 500; font-size: 10.5px; color: var(--ink-400); letter-spacing: .5px; }}
+h1 {{ font-size: 23px; margin: 0 0 4px; }}
+.muted {{ color: var(--ink-500); font-size: 13.5px; margin: 0 0 18px; }}
+label {{ display: block; font-size: 13px; font-weight: 600; color: var(--ink-500); margin-top: 14px; }}
+input {{
+  width: 100%; margin-top: 6px; padding: 10px 12px; font: inherit;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-s);
+  background: var(--surface); color: var(--ink-900);
+}}
+input:focus-visible {{ outline: 3px solid #b3bdfb; outline-offset: 2px; border-color: var(--brand-500); }}
+button {{
+  width: 100%; margin: 20px 0 14px; padding: 11px; cursor: pointer;
+  border: 1px solid transparent; border-radius: var(--radius-s);
+  font: inherit; font-weight: 600; font-size: 13.5px; color: #fff;
+  background: linear-gradient(180deg, var(--brand-500), var(--brand-600));
+  box-shadow: var(--shadow-1); transition: filter .15s ease, transform .15s ease;
+}}
+button:hover {{ filter: brightness(1.05); }}
+button:active {{ transform: translateY(1px); }}
+.error {{
+  margin: 16px 0 0; padding: 11px 14px; font-size: 13.5px;
+  color: var(--danger-700); background: var(--danger-50);
+  border: 1px solid #f3c9d2; border-radius: var(--radius-s);
+}}
+.hint {{ margin: 0; text-align: center; font-size: 12.5px; color: var(--ink-400); }}
 </style></head>
 <body>
-<h1>授权 PixelFlow MCP</h1>
-<p class="hint">使用你的 PixelFlow 账号登录；密码只用于换取令牌，不会保存在 MCP 服务端。</p>
-{notice}
-<form method="post" action="/oauth/login">
-  <input type="hidden" name="request_id" value="{safe_id}">
-  <label for="username">用户名</label>
-  <input id="username" name="username" autocomplete="username" required>
-  <label for="password">密码</label>
-  <input id="password" name="password" type="password" autocomplete="current-password" required>
-  <button type="submit">登录并授权</button>
-</form>
+<main class="panel">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">
+      <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
+        <rect x="2" y="2" width="7" height="7" rx="2" fill="#fff" opacity=".95"/>
+        <rect x="11" y="2" width="7" height="7" rx="3.5" fill="#fff" opacity=".65"/>
+        <rect x="2" y="11" width="7" height="7" rx="3.5" fill="#fff" opacity=".65"/>
+        <rect x="11" y="11" width="7" height="7" rx="2" fill="#fff" opacity=".95"/>
+      </svg>
+    </span>
+    <span class="brand-name">PixelFlow<small>创作社区</small></span>
+  </div>
+  <h1>授权 PixelFlow MCP</h1>
+  <p class="muted">使用你的 PixelFlow 账号登录并授权创作工具；密码只用于换取令牌，不会保存在 MCP 服务端。</p>
+  {notice}
+  <form method="post" action="/oauth/login">
+    <input type="hidden" name="request_id" value="{safe_id}">
+    <label for="username">账号</label>
+    <input id="username" name="username" autocomplete="username" required maxlength="32" placeholder="3–32 位字母数字下划线">
+    <label for="password">密码</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="72" placeholder="至少 10 位">
+    <button type="submit">登录并授权</button>
+  </form>
+  <p class="hint">授权后可在支持 MCP 的客户端中管理你的作品与草稿。</p>
+</main>
 </body></html>"""
+
