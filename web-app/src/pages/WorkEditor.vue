@@ -163,7 +163,7 @@ onBeforeUnmount(() => { revision++; release() })
 
 <template>
   <section class="work-editor">
-    <div class="feed-toolbar"><h1>编辑草稿</h1><div class="work-actions"><RouterLink :to="`/assistant/create/${route.params.id}`">创作助手（暂未开放）</RouterLink><RouterLink to="/me/works">返回我的作品</RouterLink></div></div>
+    <div class="feed-toolbar"><h1>编辑草稿</h1><div class="work-actions"><RouterLink :to="`/assistant/create/${route.params.id}`">AI 助手</RouterLink><RouterLink to="/me/works">返回我的作品</RouterLink></div></div>
     <p v-if="loading" class="spinner">加载中…</p>
     <template v-else-if="editable">
       <form @submit.prevent="save">
