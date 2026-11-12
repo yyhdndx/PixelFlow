@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 深色模式：覆盖 profile_* 令牌 -->
+    <color name="profile_bg">#12121A</color>
+    <color name="profile_surface">#1E1E28</color>
+    <color name="profile_ink">#ECEAF6</color>
+    <color name="profile_muted">#9C9AB0</color>
+    <color name="profile_accent">#8B7FE0</color>
+    <color name="profile_soft">#292640</color>
+    <color name="profile_border">#353447</color>
+    <color name="profile_error">#F2B8B5</color>
+
+    <!-- 品牌色在深色下提亮，保证对比度 -->
+    <color name="brand_violet_light">#A79AF2</color>
+    <color name="brand_violet">#8B7FE0</color>
+    <color name="brand_violet_deep">#7A6ED4</color>
+    <color name="accent_ripple">#338B7FE0</color>
+    <color name="accent_ripple_strong">#4D8B7FE0</color>
+</resources>

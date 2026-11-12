@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- 主应用主题 - PixelFlow 商用设计系统（与 profile_* 令牌同源） -->
-    <style name="AppTheme" parent="Theme.MaterialComponents.Light.NoActionBar">
+    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- 品牌色 -->
         <item name="colorPrimary">@color/profile_accent</item>
         <item name="colorPrimaryVariant">@color/brand_violet_deep</item>
@@ -20,9 +20,9 @@
 
         <!-- 状态栏 / 导航栏：浅色纸面 + 深色图标 -->
         <item name="android:statusBarColor">@color/profile_bg</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightStatusBar">@bool/light_status_bar</item>
         <item name="android:navigationBarColor">@color/profile_surface</item>
-        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">@bool/light_navigation_bar</item>
         <item name="android:windowBackground">@color/profile_bg</item>
 
         <!-- 交互反馈：低强度靛紫波纹，避免默认灰色太生硬 -->
@@ -65,7 +65,7 @@
     </style>
 
     <!-- 创建/编辑作品主题：不透明浅色状态栏，避免透明状态栏叠出“蒙版”感 -->
-    <style name="Theme.CreateWork" parent="Theme.MaterialComponents.Light.NoActionBar">
+    <style name="Theme.CreateWork" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/profile_accent</item>
         <item name="colorPrimaryVariant">@color/brand_violet_deep</item>
         <item name="colorOnPrimary">@color/white</item>
@@ -81,9 +81,9 @@
         <item name="rippleColor">@color/accent_ripple</item>
         <!-- 关键：状态栏用页面背景的实色，去掉透明/沉浸式叠加 -->
         <item name="android:statusBarColor">@color/profile_bg</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightStatusBar">@bool/light_status_bar</item>
         <item name="android:navigationBarColor">@color/profile_surface</item>
-        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">@bool/light_navigation_bar</item>
         <item name="android:windowBackground">@color/profile_bg</item>
         <item name="materialButtonStyle">@style/Widget.MaterialComponents.Button</item>
     </style>
@@ -92,7 +92,7 @@
     <style name="Theme.Detail" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- 状态栏 -->
         <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightStatusBar">@bool/light_status_bar</item>
 
         <!-- 导航栏 -->
         <item name="android:navigationBarColor">@color/white</item>
