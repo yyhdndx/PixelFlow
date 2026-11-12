@@ -577,10 +577,15 @@ public class CommunityClient implements AutoCloseable {
                 try (Response response = job.call.execute()) {
                     if (response.code() == 401 && attempt == 0) { refreshCredentials(expected, token); continue; }
                     if (!response.isSuccessful() || response.body() == null) throw new ApiError(response.code(), "AI 提炼暂不可用，可以先读原文");
-                    return PostSummaryStreamReader.read(response.body().source(), partial -> {
-                        synchronized (CommunityClient.this) { if (job.cancelled || generation != expected) return; }
-                        progress.accept(partial);
-                    });
+                    try {
+                        return PostSummaryStreamReader.read(response.body().source(), partial -> {
+                            synchronized (CommunityClient.this) { if (job.cancelled || generation != expected) return; }
+                            progress.accept(partial);
+                        });
+                    } catch (IOException streamFailure) {
+                        // 流式解析失败（含模型输出超长被校验拒绝）不是网络问题，给明确文案
+                        throw new ApiError(0, "提炼未完成，可以先读原文");
+                    }
                 }
             }
             throw new ApiError(401, "请重新登录");

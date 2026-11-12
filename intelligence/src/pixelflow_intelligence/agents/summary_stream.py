@@ -31,7 +31,7 @@ def summary_events(*, post_id, post, token, upstream, settings, store, user, can
         if len(post["content"].strip()) < MIN_CONTENT_LENGTH:
             raise ValueError("Short text")
         check()
-        system = SYSTEM + '\n本次输出使用逐行JSON协议替代上述对象：第一行仅含summary键，后续每行仅含point键。概括最多60字，每条要点最多80字，3至5条。每个对象独占一行，不加代码围栏。'
+        system = SYSTEM + '\n本次输出使用逐行JSON协议替代上述对象：第一行仅含summary键，后续每行仅含point键。概括最多40字，每条要点最多60字，3至5条。每个对象独占一行，不加代码围栏。'
         chunks = model() if model else stream_chat(settings, system=system,
             user_content=json.dumps({"title": post["title"], "content": post["content"]}, ensure_ascii=False),
             max_tokens=700, deadline=deadline, cancelled=cancelled)
