@@ -90,7 +90,10 @@ class AutoReplyApiTest {
         assertTrue(auto.get("auto").asBoolean(),"自动回复必须带 auto 标记，不能冒充真人");
         assertEquals(result.get("comment_id").asText(),auto.get("parent_comment_id").asText());
         assertEquals(2,count(post));
-        assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM notifications WHERE type='REPLY'",Integer.class));
+        // The root comment notifies the author; the auto reply notifies the visitor.
+        assertEquals(2,db.queryForObject("SELECT COUNT(*) FROM notifications WHERE type='REPLY'",Integer.class));
+        assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM notifications n JOIN users u ON u.id=n.recipient_id WHERE n.type='REPLY' AND u.username='ar_author'",Integer.class));
+        assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM notifications n JOIN users u ON u.id=n.recipient_id WHERE n.type='REPLY' AND u.username='ar_visitor'",Integer.class));
         assertEquals(db.queryForObject("SELECT author_id FROM posts WHERE id=?",String.class,Long.parseLong(post)),
                 db.queryForObject("SELECT author_id FROM comments WHERE auto_reply=TRUE",String.class),
                 "自动回复必须以作者身份发出");
