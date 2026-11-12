@@ -8,8 +8,8 @@ from ..skills import Context, create_registry
 
 GOAL_INSTRUCTION = {
     "improve_title": "请直接输出优化后的标题纯文本，不要JSON、不要Markdown、不要解释，最多120字。",
-    "polish_content": "请直接输出润色后的正文纯文本，不要JSON、不要Markdown、不要解释。保留原意和事实，除非用户明确要求缩短，不主动删减关键细节。",
-    "write_content": "请直接输出你生成的正文纯文本，不要JSON、不要Markdown、不要解释。只依据草稿和主题，不编造事实。",
+    "polish_content": "请直接输出润色后的正文纯文本，不要JSON、不要Markdown、不要解释，正文最多3000字。保留原意和事实，除非用户明确要求缩短，不主动删减关键细节。",
+    "write_content": "请直接输出你生成的正文纯文本，不要JSON、不要Markdown、不要解释，正文最多3000字。只依据草稿和主题，不编造事实。",
     "suggest_tags": "请直接输出推荐话题标签，用空格分隔，每个以#开头，最多5个，每个最多20字。",
 }
 

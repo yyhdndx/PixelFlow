@@ -904,12 +904,17 @@ public class CommunityClient implements AutoCloseable {
                     }
                     if (!response.isSuccessful() || response.body() == null)
                         throw new ApiError(response.code(), "创作辅助服务暂时不可用");
-                    return CreationAssistStreamReader.read(response.body().source(), piece -> {
-                        synchronized (CommunityClient.this) {
-                            if (job.cancelled || generation != expected) return;
-                        }
-                        delta.accept(piece);
-                    });
+                    try {
+                        return CreationAssistStreamReader.read(response.body().source(), piece -> {
+                            synchronized (CommunityClient.this) {
+                                if (job.cancelled || generation != expected) return;
+                            }
+                            delta.accept(piece);
+                        });
+                    } catch (IOException streamFailure) {
+                        // 流式解析失败（含模型输出超长被校验拒绝）不是网络问题，给明确文案
+                        throw new ApiError(0, "AI 辅助创作未完成，请重试");
+                    }
                 }
             }
             throw new ApiError(401, "请重新登录");
