@@ -55,7 +55,39 @@ export async function request(path, options = {}, retry = true, responseType = '
   if (response.status === 401) clearSession()
   const result = responseType === 'blob' && response.ok ? await response.blob() : await checked(response)
   if (generation !== session.generation && response.status !== 401) throw new Error('会话已变更，请重新操作')
-  return result
+  return normalizeMediaUrls(result)
+}
+
+// 后端 media URL 带固定 host（如 http://8.140.36.87），在 HTTPS 页面会触发混合内容拦截。
+// 统一改成同源相对路径，既避免混合内容，也能跟随当前域名/协议。
+const MEDIA_ORIGIN = /^https?:\/\/[^/]+(\/api\/media\/.+)$/i
+export function normalizeMediaUrl(value) {
+  if (typeof value !== 'string') return value
+  const match = MEDIA_ORIGIN.exec(value)
+  return match ? match[1] : value
+}
+function normalizeMediaUrls(value) {
+  if (typeof value === 'string') return normalizeMediaUrl(value)
+  if (Array.isArray(value)) {
+    let changed = false
+    const next = value.map((item) => {
+      const mapped = normalizeMediaUrls(item)
+      if (mapped !== item) changed = true
+      return mapped
+    })
+    return changed ? next : value
+  }
+  if (value && typeof value === 'object') {
+    let changed = false
+    const next = {}
+    for (const [key, item] of Object.entries(value)) {
+      const mapped = normalizeMediaUrls(item)
+      if (mapped !== item) changed = true
+      next[key] = mapped
+    }
+    return changed ? next : value
+  }
+  return value
 }
 export async function identify() {
   session.user = await request('/api/users/me')
