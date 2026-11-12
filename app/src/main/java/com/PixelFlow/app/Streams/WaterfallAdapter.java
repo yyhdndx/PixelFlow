@@ -423,6 +423,7 @@ public class WaterfallAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
             // 点赞按钮点击事件
             likeIcon.setOnClickListener(v -> {
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM);
                 if (onWorkActionListener != null) {
                     int current = getBindingAdapterPosition();
                     if (current != RecyclerView.NO_POSITION)

@@ -49,6 +49,14 @@
                 </LinearLayout>
                 <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/profile_back" android:rotation="180" app:tint="@color/profile_muted" android:importantForAccessibility="no"/>
             </LinearLayout>
+            <LinearLayout android:id="@+id/btn_font_size" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="88dp" android:layout_marginBottom="12dp" android:padding="16dp" android:background="@drawable/profile_card" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:orientation="horizontal" android:gravity="center_vertical">
+                <ImageView android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/profile_badge" android:padding="11dp" android:src="@drawable/ic_edit_note" app:tint="@color/profile_accent" android:importantForAccessibility="no"/>
+                <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="14dp" android:orientation="vertical">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/font_size_title" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/profile_ink"/>
+                    <TextView android:id="@+id/font_size_value" style="@style/ProfileBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/font_size_normal" android:textSize="12sp" android:layout_marginTop="4dp"/>
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/profile_back" android:rotation="180" app:tint="@color/profile_muted" android:importantForAccessibility="no"/>
+            </LinearLayout>
             <LinearLayout android:id="@+id/btn_logout" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="88dp" android:layout_marginBottom="12dp" android:padding="16dp" android:background="@drawable/profile_card" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:orientation="horizontal" android:gravity="center_vertical">
                 <ImageView android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/profile_badge" android:padding="11dp" android:src="@drawable/logout" app:tint="@color/profile_error" android:importantForAccessibility="no"/>
                 <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="14dp" android:orientation="vertical">

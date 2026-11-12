@@ -65,9 +65,21 @@ public class CommentController {
         },key);
         long commentId=key.getKey().longValue();
         db.update("UPDATE posts SET comment_count=comment_count+1 WHERE id=?",postId);
-        if (replyToUser!=null)
+        String notifiedReply=replyToUser;
+        if (replyToUser!=null) {
             notifications.notify(replyToUser,"REPLY",actor.id(),postId,commentId);
-        notifyMentions(content,actor,postId,commentId,replyToUser);
+        } else {
+            // 一级评论：通知作品作者（作者不是评论者本人时），作者在「回复」Tab 可见
+            var owners=db.queryForList("SELECT author_id FROM posts WHERE id=?",postId);
+            if (!owners.isEmpty()) {
+                String ownerId=(String)owners.get(0).get("author_id");
+                if (ownerId!=null && !ownerId.equals(actor.id())) {
+                    notifications.notify(ownerId,"REPLY",actor.id(),postId,commentId);
+                    notifiedReply=ownerId;
+                }
+            }
+        }
+        notifyMentions(content,actor,postId,commentId,notifiedReply);
         Map<String,Object> created=view(commentId);
         // 一级评论交给 Agent 判定是否命中作者配置的场景，命中才以作者身份自动回一条二级评论
         if (parentId==null) {

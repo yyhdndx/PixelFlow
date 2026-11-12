@@ -7,7 +7,7 @@ import androidx.appcompat.app.*;
 import com.PixelFlow.app.API.*;
 import com.google.android.material.textfield.*;
 
-public class AccountActivity extends AppCompatActivity {
+public class AccountActivity extends BaseActivity {
     private ApiClient api;
     private CommunityClient.Job job;
     private TextInputEditText username, password, nickname;

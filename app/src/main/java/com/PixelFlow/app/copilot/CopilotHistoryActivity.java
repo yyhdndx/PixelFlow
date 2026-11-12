@@ -1,5 +1,7 @@
 package com.PixelFlow.app.copilot;
 
+import com.PixelFlow.app.BaseActivity;
+
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -22,7 +24,7 @@ import java.util.List;
 import java.util.Locale;
 
 /** 本机 Copilot 对话历史：按上下文标签列出，可清空；不上传服务端。 */
-public class CopilotHistoryActivity extends AppCompatActivity {
+public class CopilotHistoryActivity extends BaseActivity {
     private final List<CopilotStore.Session> sessions = new ArrayList<>();
     private Adapter adapter;
     private View empty;

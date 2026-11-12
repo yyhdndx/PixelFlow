@@ -21,7 +21,7 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-public class SplashActivity extends AppCompatActivity {
+public class SplashActivity extends BaseActivity {
 
     private FrameLayout logoContainer;  // 保持为FrameLayout
     private ImageView logoImageView;

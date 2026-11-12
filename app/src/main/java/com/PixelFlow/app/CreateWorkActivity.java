@@ -32,7 +32,7 @@ import com.google.android.material.card.MaterialCardView;
 import java.util.ArrayList;
 import java.util.List;
 
-public class CreateWorkActivity extends AppCompatActivity {
+public class CreateWorkActivity extends BaseActivity {
     public static final String EXTRA_POST_ID = "extra_post_id";
     public static final String EXTRA_TITLE = "extra_title";
     public static final String EXTRA_CONTENT = "extra_content";

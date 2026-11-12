@@ -422,6 +422,17 @@ public class CommunityClient implements AutoCloseable {
             return null;
         }, callback);
     }
+    /** 标记指定通知为已读（单条或批量）。 */
+    public Job markNotificationsRead(java.util.List<String> ids, Callback<Void> callback) {
+        return submit((job, expected) -> {
+            JsonObject input = new JsonObject();
+            JsonArray array = new JsonArray();
+            for (String id : ids) array.add(id);
+            input.add("ids", array);
+            authenticated(job, "/api/users/me/notifications/read", "POST", input, expected, true);
+            return null;
+        }, callback);
+    }
     public Job getNotificationPreferences(Callback<java.util.Set<String>> callback) {
         return submit((job, expected) -> parseMuted(authenticated(job, "/api/users/me/notification-preferences",
                 "GET", null, expected, true)), callback);

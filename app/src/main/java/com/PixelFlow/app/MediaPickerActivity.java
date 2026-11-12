@@ -37,7 +37,7 @@ import java.util.concurrent.Executors;
  * 进入时申请一次相册读取权限（Android 13+ 为 READ_MEDIA_IMAGES），
  * 网格多选、数字角标、最多可选数量限制，确认后通过 EXTRA_SELECTED_URIS 回传。
  */
-public class MediaPickerActivity extends AppCompatActivity {
+public class MediaPickerActivity extends BaseActivity {
 
     public static final String EXTRA_MAX_COUNT = "extra_max_count";
     public static final String EXTRA_SELECTED_URIS = "extra_selected_uris";

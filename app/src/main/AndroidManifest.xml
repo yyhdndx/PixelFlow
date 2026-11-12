@@ -115,6 +115,14 @@
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
             android:windowSoftInputMode="adjustResize|stateHidden" />
 
+        <!-- ================== 全屏图片查看器 ================== -->
+        <activity
+            android:name=".DetailPage.FullScreenImageActivity"
+            android:theme="@style/Theme.FullScreen"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout" />
+
         <!-- ================== 话题页Activity ================== -->
         <activity
             android:name=".Hashtag.HashtagActivity"

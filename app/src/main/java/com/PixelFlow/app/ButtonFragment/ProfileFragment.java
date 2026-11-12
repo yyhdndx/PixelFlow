@@ -29,7 +29,8 @@ public class ProfileFragment extends Fragment {
     private TextView name, username, bio, posts, followers, following, status;
     private ImageView avatar;
     private Button edit, retry;
-    private View loading, insights, logout;
+    private View loading, insights, logout, fontSize;
+    private TextView fontSizeValue;
     private AvatarModel avatarModel;
     private ProfileDataModel profileData;
     private int observedAvatarCompletion;
@@ -82,6 +83,10 @@ public class ProfileFragment extends Fragment {
         insights.setOnClickListener(v -> startActivity(new Intent(requireContext(), InterestProfileActivity.class)));
         view.findViewById(R.id.stats_posts).setOnClickListener(v -> openMyWorks());
         view.findViewById(R.id.btn_favorites).setOnClickListener(v -> openFavorites());
+        fontSize = view.findViewById(R.id.btn_font_size);
+        fontSizeValue = view.findViewById(R.id.font_size_value);
+        updateFontSizeLabel();
+        fontSize.setOnClickListener(v -> showFontSizeDialog());
         view.findViewById(R.id.stats_followers).setOnClickListener(v -> openConnections(true));
         view.findViewById(R.id.stats_following).setOnClickListener(v -> openConnections(false));
         avatarModel.changes.observe(getViewLifecycleOwner(), ignored -> {
@@ -96,6 +101,35 @@ public class ProfileFragment extends Fragment {
             }
         });
     }
+    private void updateFontSizeLabel() {
+        if (fontSizeValue == null) return;
+        float scale = FontScaleUtil.get(requireContext());
+        if (scale <= FontScaleUtil.SMALL + 0.01f) fontSizeValue.setText(R.string.font_size_small);
+        else if (scale >= FontScaleUtil.LARGE - 0.01f) fontSizeValue.setText(R.string.font_size_large);
+        else fontSizeValue.setText(R.string.font_size_normal);
+    }
+
+    private void showFontSizeDialog() {
+        float current = FontScaleUtil.get(requireContext());
+        String[] options = {
+                getString(R.string.font_size_small),
+                getString(R.string.font_size_normal),
+                getString(R.string.font_size_large)
+        };
+        int checked = current <= FontScaleUtil.SMALL + 0.01f ? 0 : (current >= FontScaleUtil.LARGE - 0.01f ? 2 : 1);
+        new MaterialAlertDialogBuilder(requireContext(), R.style.PixelFlowMaterialDialog)
+                .setTitle(R.string.font_size_title)
+                .setSingleChoiceItems(options, checked, (dialog, which) -> {
+                    float scale = which == 0 ? FontScaleUtil.SMALL : (which == 2 ? FontScaleUtil.LARGE : FontScaleUtil.NORMAL);
+                    FontScaleUtil.set(requireContext(), scale);
+                    updateFontSizeLabel();
+                    dialog.dismiss();
+                    requireActivity().recreate();
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
     @Override public void onResume() {
         super.onResume();
         // Home uses immersive media browsing; the personal page restores normal system bars.

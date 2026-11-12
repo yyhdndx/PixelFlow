@@ -55,7 +55,7 @@ import java.util.Set;
  * 返回结构与社区 Feed 一致，因此结果直接复用瀑布流卡片。
  * 后端未上线时以 404 空状态提示「搜索服务即将上线」。
  */
-public class SearchActivity extends AppCompatActivity implements WaterfallAdapter.OnWorkActionListener {
+public class SearchActivity extends BaseActivity implements WaterfallAdapter.OnWorkActionListener {
 
     private static final int PAGE_SIZE = 30;
     private static final int MAX_HISTORY = 10;

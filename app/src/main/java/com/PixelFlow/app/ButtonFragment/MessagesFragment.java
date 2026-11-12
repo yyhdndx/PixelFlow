@@ -296,6 +296,8 @@ public class MessagesFragment extends Fragment {
 
     private void openPost(NotificationPage.NotificationItem item) {
         if (item.postId == null || item.postId.isEmpty()) return;
+        // 点击即把该条通知标记为已读
+        if (!item.read) markRead(item.id);
         api.getPost(item.postId, new ApiClient.Callback<PostItem>() {
             @Override public void onSuccess(PostItem post) {
                 Intent intent = new Intent(getContext(), WorkDetailActivity.class);
@@ -305,6 +307,17 @@ public class MessagesFragment extends Fragment {
             @Override public void onFailure(String message) {
                 Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
             }
+        });
+    }
+
+    private void markRead(String notificationId) {
+        api.markNotificationsRead(java.util.Collections.singletonList(notificationId), new ApiClient.Callback<Void>() {
+            @Override public void onSuccess(Void value) {
+                notifyChanged();
+                for (TabState page : pages) page.loaded = false;
+                if (isAdded() && getView() != null) reload();
+            }
+            @Override public void onFailure(String message) { }
         });
     }
 
