@@ -96,16 +96,18 @@ label input { display: block; margin-top: 6px; font-weight: 400; }
 .feed-toolbar .hint { color: var(--ink-400); font-size: 12.5px; }
 
 /* ============ Waterfall ============ */
-.waterfall { columns: 2; column-gap: 18px; }
-/* 宽屏铺更多列 */
-@media (min-width: 1900px) { .waterfall { columns: 6; } }
-@media (min-width: 1700px) and (max-width: 1899px) { .waterfall { columns: 5; } }
-@media (min-width: 1450px) and (max-width: 1699px) { .waterfall { columns: 4; } }
-@media (min-width: 1120px) and (max-width: 1449px) { .waterfall { columns: 3; } }
-@media (min-width: 820px) and (max-width: 1119px) { .waterfall { columns: 2; } }
-@media (max-width: 819px) { .waterfall { columns: 1; } }
-/* 列多时卡片略收窄封面比例，避免卡片过高 */
-@media (min-width: 1120px) { .card .cover { aspect-ratio: 4/5; } }
+.waterfall { columns: 2; column-gap: 14px; }
+/* 宽屏铺更多列（更密） */
+@media (min-width: 2400px) { .waterfall { columns: 9; } }
+@media (min-width: 2100px) and (max-width: 2399px) { .waterfall { columns: 8; } }
+@media (min-width: 1900px) and (max-width: 2099px) { .waterfall { columns: 7; } }
+@media (min-width: 1700px) and (max-width: 1899px) { .waterfall { columns: 6; } }
+@media (min-width: 1450px) and (max-width: 1699px) { .waterfall { columns: 5; } }
+@media (min-width: 1200px) and (max-width: 1449px) { .waterfall { columns: 4; } }
+@media (min-width: 950px) and (max-width: 1199px) { .waterfall { columns: 3; } }
+@media (min-width: 700px) and (max-width: 949px) { .waterfall { columns: 2; } }
+@media (max-width: 699px) { .waterfall { columns: 1; } }
+
 .card {
   break-inside: avoid; margin: 0 0 16px; background: var(--surface);
   border: 1px solid var(--line); border-radius: var(--radius-m); overflow: hidden;
@@ -330,3 +332,13 @@ label input { display: block; margin-top: 6px; font-weight: 400; }
 .copilot-history-item { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .copilot-history-item small { grid-column: 1; }
 .copilot-history-item button { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+
+/* 多列时封面改近方形、文字收紧，同屏信息量更大 */
+@media (min-width: 950px) {
+  .card .cover { aspect-ratio: 1/1; }
+  .card .card-body { padding: 9px 11px 11px; }
+  .card .card-title { font-size: 13.5px; margin-bottom: 4px; }
+  .card .author, .card .likes { font-size: 11.5px; }
+  .card .avatar, .card .avatar img { width: 18px; height: 18px; }
+  .card { margin-bottom: 14px; }
+}
