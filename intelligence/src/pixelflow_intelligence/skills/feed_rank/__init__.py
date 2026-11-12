@@ -1,3 +1,4 @@
+import random
 from collections import Counter
 from ..models import RankOutput, Ranked
 from ..common import unique_safe, topics_for, components
@@ -11,7 +12,8 @@ def execute(data, context):
         context.checkpoint()
         values = components(candidate, data.insight, context.now)
         score = (4*values["topic"] + 2*values["author"] + values["media"]
-                 + values["popularity"] + values["freshness"])
+                 + values["popularity"] + values["freshness"]
+                 + random.uniform(0.0, 0.05))  # 小随机扰动，避免每次刷新顺序完全相同
         # Derive explanations from computed features, never from candidate-supplied instructions.
         reason = "近期公开内容与热度"
         if values["topic"] > 0:

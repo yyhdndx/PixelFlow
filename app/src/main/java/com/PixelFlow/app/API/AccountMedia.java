@@ -37,9 +37,9 @@ public final class AccountMedia {
         ApiClient api = ApiClient.getInstance(view.getContext());
         // 统一用 application context：返回/销毁时 Glide.with(view) 可能因 Activity 已销毁而抛异常
         if (!api.isPrivateMediaUrl(url)) {
-            // Third-party/public images receive no account headers and no account cache.
+            // Third-party/public images receive no account headers and use normal Glide caching.
             com.bumptech.glide.RequestBuilder<android.graphics.drawable.Drawable> req = Glide.with(view.getContext().getApplicationContext())
-                    .load(url).diskCacheStrategy(DiskCacheStrategy.NONE).skipMemoryCache(true)
+                    .load(url).diskCacheStrategy(DiskCacheStrategy.ALL).timeout(5000)
                     .placeholder(R.drawable.ic_image_placeholder).error(R.drawable.ic_image_error);
             if (centerCrop) req = req.centerCrop();
             req.listener(new com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable>() {
