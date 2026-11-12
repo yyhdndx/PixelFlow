@@ -145,7 +145,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private long viewingSession;
     private String viewingUser;
     private boolean clickTracked;
-    private FullScreenMediaDialog fullscreenImageDialog;
+    private android.app.Dialog fullscreenImageDialog;
 
     // 拖拽退出相关
     private View contentLayout;
@@ -442,7 +442,8 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     @Override
     public boolean onDown(MotionEvent e) {
         android.graphics.Rect bounds = new android.graphics.Rect();
-        dragEligible = imageAdapter != null && imageAdapter.getItemCount() > 0
+        // 仅单图作品启用下滑退出；多图时横滑切页交给 ViewPager2，避免手势冲突
+        dragEligible = imageAdapter != null && imageAdapter.getItemCount() == 1
                 && imageAdapter.getItemViewType(imagePager.getCurrentItem()) == 0
                 && imageContainer.getGlobalVisibleRect(bounds)
                 && bounds.contains((int)e.getRawX(), (int)e.getRawY());
@@ -846,9 +847,22 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
     }
 
-    private void openFullScreenImage(String url) {
+    private void openFullScreenImage(int position) {
         if (isFinishing() || isDestroyed() || fullscreenImageDialog != null) return;
-        FullScreenMediaDialog dialog = new FullScreenMediaDialog(this, url);
+        if (imageAdapter == null) return;
+        List<WorkItem.Clip> media = imageAdapter.getMediaItems();
+        if (media == null || media.isEmpty()) return;
+        // 只收集图片（type==0），并定位点击图片在全图列表中的位置
+        List<String> imageUrls = new ArrayList<>();
+        int imageStart = 0;
+        for (int i = 0; i < media.size(); i++) {
+            if (media.get(i).getType() == 0) {
+                if (i == position) imageStart = imageUrls.size();
+                imageUrls.add(media.get(i).getUrl());
+            }
+        }
+        if (imageUrls.isEmpty()) return;
+        FullScreenImagePagerDialog dialog = new FullScreenImagePagerDialog(this, imageUrls, imageStart);
         fullscreenImageDialog = dialog;
         dialog.setOnDismissListener(ignored -> {
             if (fullscreenImageDialog == dialog) fullscreenImageDialog = null;

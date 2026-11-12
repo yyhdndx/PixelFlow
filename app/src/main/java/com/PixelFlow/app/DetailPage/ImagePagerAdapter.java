@@ -38,7 +38,7 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     public interface ImageClickListener {
-        void onImageClick(String url);
+        void onImageClick(int position);
     }
 
     private final Context context;
@@ -66,6 +66,8 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     public void setImageClickListener(ImageClickListener listener) {
         imageClickListener = listener;
     }
+
+    public List<WorkItem.Clip> getMediaItems() { return mediaItems; }
 
     public void restorePlayback(Bundle state) {
         if (state == null) return;
@@ -95,7 +97,7 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     @Override public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
-        if (holder instanceof ImageViewHolder) ((ImageViewHolder) holder).bind(mediaItems.get(position));
+        if (holder instanceof ImageViewHolder) ((ImageViewHolder) holder).bind(mediaItems.get(position), position);
         else ((VideoViewHolder) holder).bind(position);
     }
 
@@ -225,9 +227,9 @@ public class ImagePagerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             imageView = view.findViewById(R.id.detail_image);
             progressBar = view.findViewById(R.id.image_loading);
         }
-        void bind(WorkItem.Clip clip) {
+        void bind(WorkItem.Clip clip, int position) {
             imageView.setOnClickListener(v -> {
-                if (imageClickListener != null) imageClickListener.onImageClick(clip.getUrl());
+                if (imageClickListener != null) imageClickListener.onImageClick(position);
             });
             progressBar.setVisibility(View.VISIBLE);
             // 私有媒体（如待审核帖子）需带账号凭证，统一走 AccountMedia；不裁切保留原始宽高比
