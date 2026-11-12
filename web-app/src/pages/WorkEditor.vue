@@ -166,7 +166,8 @@ onBeforeUnmount(() => { revision++; release() })
     <div class="feed-toolbar"><h1>编辑草稿</h1><div class="work-actions"><RouterLink :to="`/assistant/create/${route.params.id}`">AI 助手</RouterLink><RouterLink to="/me/works">返回我的作品</RouterLink></div></div>
     <p v-if="loading" class="spinner">加载中…</p>
     <template v-else-if="editable">
-      <form @submit.prevent="save">
+      <div class="editor-layout">
+      <form @submit.prevent="save" class="editor-form">
         <label>标题<input v-model="title" maxlength="120"></label>
         <label>正文<textarea v-model="content" maxlength="5000" rows="10"></textarea></label>
         <label>话题<input placeholder="#摄影 #旅行" disabled></label>
@@ -205,7 +206,29 @@ onBeforeUnmount(() => { revision++; release() })
           </template>
         </template>
       </section>
+      </div>
     </template>
     <p v-else-if="error" class="error" role="alert">{{ error }} <button class="quiet" @click="load">重试</button></p>
   </section>
 </template>
+
+<style scoped>
+/* 桌面端：编辑表单为主列，文案建议为右侧边栏；窄屏回退为单列 */
+.editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+.editor-form { min-width: 0; }
+.editor-form label:first-child { margin-top: 0; }
+.editor-form textarea { min-height: 220px; }
+.draft-assist {
+  position: sticky; top: 86px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l);
+  padding: 18px 18px 14px; box-shadow: var(--shadow-1);
+  display: grid; gap: 4px;
+}
+.draft-assist h2 { margin: 0 0 6px; font-size: 16px; }
+.draft-assist label { margin: 8px 0; }
+.draft-assist .work-actions { flex-wrap: wrap; }
+@media (max-width: 960px) {
+  .editor-layout { grid-template-columns: 1fr; }
+  .draft-assist { position: static; }
+}
+</style>

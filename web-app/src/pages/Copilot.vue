@@ -93,7 +93,13 @@ async function send(text) {
     if (screen.value === 'create') body.draftId = targetId.value
     if (screen.value === 'messages') body.conversationIds = [targetId.value]
     const reply = await write('/api/agent/copilot', 'POST', body)
-    s.entries.push({ role: 'assistant', text: reply.reply || '', actions: reply.actions || [], time: Date.now() })
+    const seen = new Set()
+    const references = (reply.references || []).filter((r) => {
+      if (!r || !r.id || seen.has(r.id)) return false
+      seen.add(r.id)
+      return true
+    })
+    s.entries.push({ role: 'assistant', text: reply.reply || '', actions: reply.actions || [], references, time: Date.now() })
     s.updatedAt = Date.now()
     persist()
   } catch (e) {
@@ -207,6 +213,13 @@ watch(() => route.fullPath, () => { error.value = '' })
           <div class="msg-main">
             <div class="msg-bubble">
               <p class="msg-text">{{ e.text }}</p>
+            </div>
+            <div v-if="e.references && e.references.length" class="msg-refs">
+              <p class="refs-title">引用的作品</p>
+              <RouterLink v-for="(r, ri) in e.references" :key="ri" :to="`/post/${r.id}`" class="ref-item">
+                <span class="ref-name">《{{ r.title || '未命名作品' }}》</span>
+                <span v-if="r.excerpt" class="ref-excerpt">{{ r.excerpt }}</span>
+              </RouterLink>
             </div>
             <div v-if="e.actions && e.actions.length" class="msg-actions">
               <div v-for="(a, ai) in e.actions" :key="ai" class="action-card">
@@ -322,6 +335,12 @@ watch(() => route.fullPath, () => { error.value = '' })
 @keyframes blink { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
 
 .msg-actions { display: grid; gap: 8px; width: 100%; }
+.msg-refs { display: grid; gap: 6px; width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.refs-title { margin: 0 0 2px; font-size: 11.5px; font-weight: 700; color: var(--ink-400); letter-spacing: .6px; }
+.ref-item { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: #fbfcff; text-decoration: none; transition: border-color .15s, background .15s; }
+.ref-item:hover { border-color: var(--brand-100); background: var(--brand-50); }
+.ref-name { font-size: 13px; font-weight: 700; color: var(--brand-700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ref-excerpt { font-size: 12px; color: var(--ink-500); line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .action-card { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: var(--surface); box-shadow: 0 6px 18px #25314a0d; }
 .action-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .action-head strong { font-size: 13.5px; }
