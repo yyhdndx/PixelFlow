@@ -185,8 +185,7 @@ public class CommunityClientTest {
         assertEquals(2, requests.size());
     }
     @Test public void likeReadsAuthoritativeStateAndLogoutRemovesToken() throws Exception {
-        login(); reply(200, "{\"active\":true}");
-        reply(200, "{\"post_id\":\"1\",\"is_liked\":true,\"like_count\":3}");
+        login(); reply(200, "{\"post_id\":\"1\",\"is_liked\":true,\"like_count\":3}");
         Result<PostItem> like = new Result<>(); client.setLike("1", true, like);
         assertEquals(3, like.get().getLikeCount());
         assertTrue(requests.get(1).contains("PUT /api/interactions/likes Bearer first"));
@@ -195,7 +194,7 @@ public class CommunityClientTest {
         assertFalse(client.isLoggedIn()); logout.get();
         reply(200, FEED);
         Result<ApiResponse> feed = new Result<>(); client.getFeed(12, null, feed); feed.get();
-        assertTrue(requests.get(4).contains(" null "));
+        assertTrue(requests.get(3).contains(" null "));
     }
     @Test public void postDetailCarriesFavoriteState() throws Exception {
         reply(200, "{\"post_id\":\"1\",\"is_liked\":true,\"like_count\":3,\"is_favorited\":true}");
@@ -207,12 +206,11 @@ public class CommunityClientTest {
         assertTrue(requests.get(0).startsWith("GET /api/posts/1 null"));
     }
     @Test public void favoriteWriteReadsAuthoritativeState() throws Exception {
-        login(); reply(200, "{\"active\":true}");
-        reply(200, "{\"post_id\":\"1\",\"is_favorited\":true,\"is_liked\":false}");
+        login(); reply(200, "{\"post_id\":\"1\",\"is_favorited\":true,\"is_liked\":false}");
         Result<PostItem> fav = new Result<>(); client.setFavorite("1", true, fav);
         assertTrue(fav.get().isFavorited());
         assertTrue(requests.get(1).contains("PUT /api/interactions/favorites Bearer first"));
-        assertTrue(requests.get(2).contains("GET /api/posts/1 Bearer first"));
+        assertEquals(2, requests.size()); // PUT returns authoritative state without another GET
     }
     @Test public void guestCannotFavoriteAndFailureDoesNotInventSuccess() throws Exception {
         Result<PostItem> guest = new Result<>(); client.setFavorite("1", true, guest); guest.fails();

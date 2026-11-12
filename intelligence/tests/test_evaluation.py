@@ -10,7 +10,10 @@ def test_fixed_regression_suite_is_repeatable_and_does_not_mutate_fixtures():
     assert cases == original
     assert result["passed"] == result["total"] == 9
     assert result["labeled_cases"] == 2
-    assert result["hit_at_1"] == 1 and result["popular_baseline_hit_at_1"] == 0
+    for key, field in (("hit_at_1", "post_ids"), ("popular_baseline_hit_at_1", "baseline_post_ids")):
+        labeled = [(case, row) for case, row in zip(cases, result["cases"]) if case.get("relevant")]
+        hits = sum(bool(row[field]) and row[field][0] in case["relevant"] for case, row in labeled)
+        assert result[key] == hits / len(labeled)
 
 
 def test_changed_expectation_fails_regression():
@@ -18,7 +21,7 @@ def test_changed_expectation_fails_regression():
     cases[0]["expected"] = ["999"]
     result = evaluate(cases)
     assert result["passed"] == 0
-    assert "unexpected_order" in result["cases"][0]["errors"]
+    assert "unexpected_candidates" in result["cases"][0]["errors"]
 
 
 def test_independent_safety_checker_detects_invalid_result():

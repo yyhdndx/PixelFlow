@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+import random
 import time
 import uuid
 from pydantic import ValidationError
@@ -18,6 +19,8 @@ class Context:
     now: int
     deadline: float
     trace_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    # Per-request RNG permits reproducible offline evaluation without changing global state.
+    rng: random.Random = field(default_factory=random.Random, compare=False, repr=False)
 
     def checkpoint(self):
         if time.monotonic() >= self.deadline:

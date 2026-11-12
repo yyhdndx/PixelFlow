@@ -1,5 +1,3 @@
-import random
-
 from ..models import RecallOutput, Recalled
 from ..common import unique_safe, matches, topics_for, components
 
@@ -16,8 +14,8 @@ def execute(data, context):
     # Reserve half the budget for interest; fill remaining slots with popular/exploration.
     # 随机抽样兴趣子集 + 打乱热门，避免每次刷新召回完全相同的作品（探索性）
     half = (data.limit + 1) // 2
-    chosen = random.sample(interest, min(half, len(interest))) if interest else []
-    random.shuffle(popular)
+    chosen = context.rng.sample(interest, min(half, len(interest))) if interest else []
+    context.rng.shuffle(popular)
     seen = {c.post_id for c in chosen}
     for candidate in popular:
         context.checkpoint()

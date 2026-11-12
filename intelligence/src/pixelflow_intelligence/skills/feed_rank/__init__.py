@@ -1,4 +1,3 @@
-import random
 from collections import Counter
 from ..models import RankOutput, Ranked
 from ..common import unique_safe, topics_for, components
@@ -25,7 +24,7 @@ def execute(data, context):
     # 让每次刷新的顶部作品顺序真正变化；之前 0~0.05 的抖动太小，顶部几个几乎不重排
     shuffle_band = min(15, len(ranked))
     head = ranked[:shuffle_band]
-    random.shuffle(head)
+    context.rng.shuffle(head)
     ranked = head + ranked[shuffle_band:]
     authors, topics = Counter(), Counter()
     result, limited = [], 0

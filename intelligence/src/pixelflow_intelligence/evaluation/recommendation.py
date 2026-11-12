@@ -1,12 +1,13 @@
 """Deterministic synthetic regression benchmark, not a real-world accuracy estimate."""
 from collections import Counter
 import json
+import random
 import time
 from ..analytics.profile import build_profile
 from ..skills import Context, SkillError, create_registry
 
 NOW = 1791000000
-DATASET_VERSION = "synthetic-recommendation-v1"
+DATASET_VERSION = "synthetic-recommendation-v2-exploration"
 
 
 def post(identifier, title="咖啡", author=None, **changes):
@@ -27,8 +28,8 @@ def fixtures():
         dict(name="visibility_and_conflicts", pool=[post(1), post(1, status="WITHDRAWN"),
              post(2, status="DRAFT"), post(3, author_enabled=False), post(4, create_time=NOW+1000),
              post(5), post(5)], expected=["5"]),
-        dict(name="author_diversity", pool=[post(i, author="same") for i in range(1, 5)], expected=["1", "2"]),
-        dict(name="topic_diversity", pool=[post(i) for i in range(1, 6)], max_per_topic=2, expected=["1", "2"]),
+        dict(name="author_diversity", pool=[post(i, author="same") for i in range(1, 5)], expected_count=2),
+        dict(name="topic_diversity", pool=[post(i) for i in range(1, 6)], max_per_topic=2, expected_count=2),
         dict(name="empty_pool", pool=[], expected=[]),
     ]
 
@@ -36,7 +37,7 @@ def fixtures():
 def execute(case, baseline=False):
     registry = create_registry()
     context = Context("evaluation-user", frozenset({"profile:read", "candidates:read"}),
-                      NOW, time.monotonic() + 5)
+                      NOW, time.monotonic() + 5, rng=random.Random(20261113))
     snapshot = None
     if case.get("topic") and not baseline:
         snapshot = build_profile(context.user_id, [], 1, NOW - case.get("age", 0))
@@ -85,8 +86,11 @@ def evaluate(cases=None):
             ids = [item["post_id"] for item in result["items"]]
             baseline_ids = [item["post_id"] for item in baseline["items"]]
             errors = violations(case, result) + ["baseline_" + e for e in violations(case, baseline)]
-            if ids != case["expected"]:
-                errors.append("unexpected_order")
+            # Exploration may reorder or choose different equally eligible items.
+            if "expected" in case and set(ids) != set(case["expected"]):
+                errors.append("unexpected_candidates")
+            if "expected_count" in case and len(ids) != case["expected_count"]:
+                errors.append("unexpected_count")
             if case.get("relevant"):
                 labeled += 1
                 hits += int(bool(ids) and ids[0] in case["relevant"])
@@ -99,7 +103,8 @@ def evaluate(cases=None):
             rows.append({"case": case["name"], "passed": False, "errors": [error.code]})
     return {"dataset_version": DATASET_VERSION, "evaluation_time": NOW,
             "scope": "synthetic_skill_regression_only", "parameters": {
-                "recall_limit": 50, "rank_limit": 3, "max_per_author": 2, "max_per_topic": 3},
+                "recall_limit": 50, "rank_limit": 3, "max_per_author": 2, "max_per_topic": 3,
+                "random_seed": 20261113},
             "cases": rows, "total": len(rows), "passed": sum(row["passed"] for row in rows),
             "labeled_cases": labeled, "hit_at_1": hits/labeled if labeled else None,
             "popular_baseline_hit_at_1": baseline_hits/labeled if labeled else None}
