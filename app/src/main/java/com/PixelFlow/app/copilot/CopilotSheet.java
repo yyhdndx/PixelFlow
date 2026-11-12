@@ -129,11 +129,12 @@ public class CopilotSheet extends BottomSheetDialogFragment {
                 (com.google.android.material.bottomsheet.BottomSheetDialog) requireDialog();
         android.view.View bottom = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
         if (bottom == null) return;
+        // 先取 behavior 再改布局参数：setLayoutParams 会覆盖 CoordinatorLayout.LayoutParams 里的 behavior
+        com.google.android.material.bottomsheet.BottomSheetBehavior<?> behavior =
+                com.google.android.material.bottomsheet.BottomSheetBehavior.from(bottom);
         bottom.setLayoutParams(new android.widget.FrameLayout.LayoutParams(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT));
-        com.google.android.material.bottomsheet.BottomSheetBehavior<?> behavior =
-                com.google.android.material.bottomsheet.BottomSheetBehavior.from(bottom);
         behavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
         behavior.setDraggable(false);
         behavior.setSkipCollapsed(true);
