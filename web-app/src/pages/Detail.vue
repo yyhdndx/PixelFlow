@@ -1,4 +1,5 @@
 <script setup>
+import UserAvatar from '../components/UserAvatar.vue'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { request, write, session } from '../api/client'
@@ -112,7 +113,7 @@ onMounted(load)
       <div class="detail-info">
         <h1>{{ post.title || '（无标题）' }}</h1>
         <div class="detail-author">
-          <span class="avatar">{{ (post.author?.nickname || post.author?.username || 'U').charAt(0).toUpperCase() }}</span>
+          <UserAvatar :user="post.author" :size="34" class="avatar" />
           <div class="meta">
             <RouterLink :to="`/author/${post.author?.user_id}`" class="nick">{{ post.author?.nickname }}</RouterLink>
             <small>{{ timeAgo(publishedTime) }}</small>

@@ -1,7 +1,7 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { write } from '../api/client'
+import { request, write } from '../api/client'
 
 const route = useRoute()
 const router = useRouter()
@@ -99,7 +99,14 @@ async function applyAction(entry, action, index) {
       if (items.length) await write('/api/conversations/messages/batch', 'POST', { items })
       entry.applied = { type: 'messages' }
     } else if (action.type === 'UPDATE_DRAFT') {
-      router.push(`/me/works/${targetId.value}/edit`)
+      // 走乐观锁接口：先取当前 content_version，再提交 title/content
+      const post = await request(`/api/posts/${targetId.value}`)
+      const updated = await write(`/api/posts/${targetId.value}/copilot-application`, 'POST', {
+        title: action.title || post.title || '',
+        content: action.content || post.content || '',
+        expected_version: post.content_version ?? 0,
+      })
+      entry.applied = { type: 'update', version: updated.content_version }
     }
     entry.appliedIndex = index
     persist()
@@ -157,6 +164,7 @@ watch(() => route.fullPath, () => { error.value = '' })
               <p v-if="e.appliedIndex === ai" class="success">
                 已应用
                 <RouterLink v-if="e.applied && e.applied.type === 'create'" :to="`/me/works/${e.applied.postId}/edit`">去编辑</RouterLink>
+                <RouterLink v-else-if="e.applied && e.applied.type === 'update'" :to="`/me/works/${targetId.value}/edit`">去编辑</RouterLink>
               </p>
               <button v-else type="button" @click="applyAction(e, a, ai)">应用</button>
             </div>

@@ -1,4 +1,5 @@
 <script setup>
+import UserAvatar from './UserAvatar.vue'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { request, write, session } from '../api/client'
@@ -81,7 +82,7 @@ onMounted(load)
     </div>
     <template v-if="session.user">
       <div class="comment-box">
-      <span class="avatar">{{ session.user ? (session.user.nickname || session.user.username || 'U').charAt(0).toUpperCase() : '游' }}</span>
+      <UserAvatar :user="session.user" :size="34" class="avatar" />
       <form @submit.prevent="submit">
         <textarea v-model="draft" :maxlength="500" :placeholder="replyTarget ? `回复 @${replyTarget.author?.nickname || ''}` : '写下你的评论…'"></textarea>
         <div class="row">
@@ -96,7 +97,7 @@ onMounted(load)
     <template v-else>
       <div v-if="!comments.length" class="empty">还没有评论，来抢沙发～</div>
       <div v-for="c in comments" :key="c.comment_id" class="comment">
-        <span class="avatar">{{ (c.author?.nickname || c.author?.username || 'U').charAt(0).toUpperCase() }}</span>
+        <UserAvatar :user="c.author" :size="34" class="avatar" />
         <div class="body">
           <div class="head">
             <span class="nick">{{ c.author?.nickname }}</span>
@@ -109,7 +110,7 @@ onMounted(load)
           </div>
           <div v-if="c.replies?.length" class="replies">
             <div v-for="r in c.replies" :key="r.comment_id" class="comment">
-              <span class="avatar">{{ (r.author?.nickname || 'U').charAt(0).toUpperCase() }}</span>
+              <UserAvatar :user="r.author" :size="28" class="avatar" />
               <div class="body">
                 <div class="head">
                   <span class="nick">{{ r.author?.nickname }}</span>

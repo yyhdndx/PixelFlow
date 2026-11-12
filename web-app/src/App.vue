@@ -1,4 +1,5 @@
 <script setup>
+import UserAvatar from './components/UserAvatar.vue'
 import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { request, session, logout } from './api/client'
@@ -102,7 +103,7 @@ async function leave() { try { await logout() } catch {} }
         <RouterLink to="/me/notifications" class="nav-messages">消息<span v-if="unreadCount > 0" class="nav-badge" :aria-label="`${unreadCount} 条未读通知`">{{ unreadCount > 99 ? '99+' : unreadCount }}</span></RouterLink>
       </nav>
       <div class="account" v-if="session.user">
-        <RouterLink to="/me" class="account-link"><span class="account-avatar" aria-hidden="true">{{ initial }}</span>
+        <RouterLink to="/me" class="account-link"><UserAvatar :user="session.user" :size="32" class="account-avatar" />
         <span class="account-meta">{{ session.user.nickname }}<small>个人中心</small></span></RouterLink>
         <button class="quiet" @click="leave">退出</button>
       </div>
