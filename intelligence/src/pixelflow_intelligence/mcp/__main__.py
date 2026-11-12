@@ -11,6 +11,10 @@ import asyncio
 import os
 import sys
 
+from urllib.parse import urlsplit
+
+from mcp.server.transport_security import TransportSecuritySettings
+
 from .config import McpSettings
 from .server import create_server
 
@@ -44,9 +48,15 @@ def main(argv=None) -> int:
         return 1
     try:
         # 8MB 图片经 base64 后约 11MB，默认 4MB 请求体上限会先拒绝。
+        public_host = urlsplit(settings.public_url).netloc
+        security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=[public_host, "127.0.0.1:*", "localhost:*"],
+            allowed_origins=[settings.public_url, "http://127.0.0.1:*", "http://localhost:*"])
         asyncio.run(server.run_streamable_http_async(
             host=args.host, port=args.port,
             streamable_http_path="/mcp",
+            transport_security=security,
             max_request_body_size=12 * 1024 * 1024))
     except KeyboardInterrupt:
         return 130
