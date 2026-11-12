@@ -13,11 +13,13 @@ const sessionKey = computed(() => `${screen.value}:${targetId.value}`)
 const label = computed(() => {
   if (screen.value === 'detail') return `作品讨论 · #${targetId.value}`
   if (screen.value === 'create') return `创作建议 · #${targetId.value}`
+  if (screen.value === 'messages') return `私信助手 · #${targetId.value}`
   return '通用对话'
 })
 const back = computed(() => {
   if (screen.value === 'detail' && /^[1-9][0-9]*$/.test(targetId.value)) return `/post/${targetId.value}`
   if (screen.value === 'create' && /^[1-9][0-9]*$/.test(targetId.value)) return `/me/works/${targetId.value}/edit`
+  if (screen.value === 'messages' && /^[1-9][0-9]*$/.test(targetId.value)) return `/me/messages/${targetId.value}`
   return '/me'
 })
 
@@ -70,6 +72,7 @@ async function send() {
     const body = { screen: screen.value, message: text, history }
     if (screen.value === 'detail') body.postId = targetId.value
     if (screen.value === 'create') body.draftId = targetId.value
+    if (screen.value === 'messages') body.conversationIds = [targetId.value]
     const reply = await write('/api/agent/copilot', 'POST', body)
     s.entries.push({ role: 'assistant', text: reply.reply || '', actions: reply.actions || [] })
     s.updatedAt = Date.now()
