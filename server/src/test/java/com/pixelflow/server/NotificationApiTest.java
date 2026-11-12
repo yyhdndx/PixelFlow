@@ -82,13 +82,13 @@ class NotificationApiTest {
         comment(bob,post,"回复一楼",aliceComment);
         comment(carol,post,"@alice @bob 来看看这个",null);
         var aliceReply=list(alice,"REPLY").get("notification_list");
-        assertEquals(1,aliceReply.size());
-        assertEquals("bob",aliceReply.get(0).get("actor").get("nickname").asText());
+        assertEquals(2,aliceReply.size());
+        assertEquals("carol",aliceReply.get(0).get("actor").get("nickname").asText());
+        assertEquals("bob",aliceReply.get(1).get("actor").get("nickname").asText());
         assertEquals(post,aliceReply.get(0).get("post_id").asText());
         assertEquals("作品",aliceReply.get(0).get("post_title").asText());
         var aliceMention=list(alice,"MENTION").get("notification_list");
-        assertEquals(1,aliceMention.size());
-        assertEquals("carol",aliceMention.get(0).get("actor").get("nickname").asText());
+        assertEquals(0,aliceMention.size()); // Root-comment REPLY suppresses duplicate mention.
         var bobMention=list(bob,"MENTION").get("notification_list");
         assertEquals(1,bobMention.size());
         // 自己 @ 自己不产生通知；被回复者收到 REPLY 后不再收 MENTION。
@@ -138,7 +138,8 @@ class NotificationApiTest {
         mvc.perform(post("/api/users/me/notifications/read").header("Authorization",alice).contentType(MediaType.APPLICATION_JSON)
                 .content(encode(Map.of()))).andExpect(status().isOk());
         assertEquals(0,unread(alice));
-        assertEquals(1,list(alice,"MENTION").get("notification_list").size());
+        assertEquals(0,list(alice,"MENTION").get("notification_list").size());
+        assertEquals(1,list(alice,"REPLY").get("notification_list").size());
     }
 
     @Test void prefsRoundtripAndValidation() throws Exception {
