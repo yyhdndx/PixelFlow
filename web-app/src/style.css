@@ -304,3 +304,18 @@ label input { display: block; margin-top: 6px; font-weight: 400; }
   .create-options { left: 50%; right: auto; transform: translateX(-50%); }
   .account-meta { display: none; }
 }
+
+/* ============ Copilot 对话 ============ */
+.copilot-conversation { display: flex; flex-direction: column; gap: 12px; max-height: 56vh; overflow-y: auto; padding: 8px 0 16px; }
+.copilot-bubble { max-width: min(680px, 100%); padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.copilot-bubble.user { align-self: flex-end; background: #eef1fe; border-color: #dfe5fd; }
+.copilot-bubble.assistant { align-self: flex-start; }
+.copilot-text { margin: 0; white-space: pre-wrap; }
+.copilot-actions { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.copilot-action { border: 1px dashed var(--line-strong); border-radius: 10px; padding: 10px 12px; background: #fafbfe; }
+.copilot-action-title { margin: 0 0 4px; font-weight: 700; font-size: 13px; color: var(--brand-600); }
+.copilot-action-text { margin: 0 0 6px; white-space: pre-wrap; font-size: 13.5px; }
+.copilot-history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.copilot-history-item { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.copilot-history-item small { grid-column: 1; }
+.copilot-history-item button { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
