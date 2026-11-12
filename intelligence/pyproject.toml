@@ -6,13 +6,11 @@ build-backend = "setuptools.build_meta"
 name = "pixelflow-intelligence"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["fastapi==0.142.2", "uvicorn==0.54.0", "httpx==0.28.1", "PyMySQL[rsa]==1.1.1"]
+dependencies = ["fastapi==0.142.2", "uvicorn==0.54.0", "httpx==0.28.1", "PyMySQL[rsa]==1.1.1", "mcp==2.3.0"]
 
 [project.optional-dependencies]
 test = ["pytest==9.1.1"]
-# MCP 创作者工具服务；保持可选，不改变分析服务现有依赖集合。
-# 安装：pip install -e ".[mcp]"（或按 requirements-lock.txt 的 MCP 段落安装）
-mcp = ["mcp==2.3.0"]
+# MCP 创作者工具服务已并入主依赖，保证部署脚本一次性装好（见 systemd pixelflow-mcp.service）
 
 [tool.setuptools.packages.find]
 where = ["src"]
