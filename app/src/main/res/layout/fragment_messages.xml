@@ -108,7 +108,7 @@
                 android:layout_height="match_parent"
                 android:clipToPadding="false"
                 android:paddingTop="4dp"
-                android:paddingBottom="12dp"
+                android:paddingBottom="88dp"
                 android:overScrollMode="never" />
 
             <!-- 空态：图标 + 文案 -->
