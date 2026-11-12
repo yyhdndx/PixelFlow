@@ -8,8 +8,8 @@ from ..skills import Context, create_registry
 
 GOAL_INSTRUCTION = {
     "improve_title": "请直接输出优化后的标题纯文本，不要JSON、不要Markdown、不要解释，最多120字。",
-    "polish_content": "请直接输出润色后的正文纯文本，不要JSON、不要Markdown、不要解释，正文最多3000字。保留原意和事实，除非用户明确要求缩短，不主动删减关键细节。",
-    "write_content": "请直接输出你生成的正文纯文本，不要JSON、不要Markdown、不要解释，正文最多3000字。只依据草稿和主题，不编造事实。",
+    "polish_content": "请直接输出润色后的正文纯文本，不要JSON、不要Markdown、不要解释，正文最多2000字。保留原意和事实，除非用户明确要求缩短，不主动删减关键细节。",
+    "write_content": "请直接输出你生成的正文纯文本，不要JSON、不要Markdown、不要解释，正文最多2000字。只依据草稿和主题，不编造事实。",
     "suggest_tags": "请直接输出推荐话题标签，用空格分隔，每个以#开头，最多5个，每个最多20字。",
 }
 
@@ -46,15 +46,16 @@ def assist_events(*, draft, goal, prompt, audience, previous, token, upstream, s
                     raise TimeoutError()
                 text += chunk
                 if len(text) > 8192:
-                    raise ValueError("Oversized result")
+                    text = text[:8192]  # 超长截断，避免整个生成失败
+                    break
                 yield event("delta", text=chunk)
             text = text.strip()
             if not text:
                 raise ValueError("Empty result")
             if goal == "improve_title" and len(text) > 120:
-                raise ValueError("Title too long")
+                text = text[:120]  # 标题超长截断
             if goal in ("polish_content", "write_content") and len(text) > 5000:
-                raise ValueError("Content too long")
+                text = text[:5000]  # 正文超长截断到上限，避免整个生成失败
 
             title_candidates = [text] if goal == "improve_title" else []
             content_candidates = [text] if goal in ("polish_content", "write_content") else []

@@ -344,7 +344,8 @@ public class CreateWorkActivity extends BaseActivity {
         input.setHint(R.string.ai_creation_revision_hint);
         input.setSingleLine(true);
         input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)});
-        input.setText(model.state.assistPrompt == null ? "" : model.state.assistPrompt);
+        // 继续修改不复用首次生成的提示词，输入框保持空白
+        input.setText("");
         new androidx.appcompat.app.AlertDialog.Builder(this, R.style.PixelFlowAppCompatDialog)
                 .setTitle(R.string.ai_creation_refine)
                 .setView(input)

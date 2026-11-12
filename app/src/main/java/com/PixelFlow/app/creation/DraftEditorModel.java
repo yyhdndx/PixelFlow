@@ -413,7 +413,7 @@ public final class DraftEditorModel extends AndroidViewModel {
     }
     private void afterSave() {
         if (!current()) return;
-        if (!state.publishRequested) { complete("草稿已保存"); return; }
+        if (!state.publishRequested) { savedDraft("草稿已保存"); return; }
         state.phase = "PUBLISH"; state.needsReconcile = true;
         state.message = "草稿已保存，正在提交审核…";
         if (!notifyChange()) return;
@@ -445,9 +445,13 @@ public final class DraftEditorModel extends AndroidViewModel {
                 if (state.publishRequested && ("PENDING".equals(status) || "PUBLISHED".equals(status))) {
                     complete("已确认作品已提交审核或公开"); return;
                 }
-                fail("PENDING".equals(status) || "PUBLISHED".equals(status)
-                        ? "作品已提交审核或公开，请到我的作品查看。"
-                        : "已核对作品状态，已上传的图片和草稿会复用，可继续编辑或提交。");
+                if ("PENDING".equals(status) || "PUBLISHED".equals(status)) {
+                    fail("作品已提交审核或公开，请到我的作品查看。");
+                } else {
+                    // 草稿/驳回/撤回：静默恢复可编辑状态，不弹无意义提示
+                    busy = false; state.phase = "IDLE"; state.message = "";
+                    notifyChange();
+                }
             }
             public void onFailure(String error) { fail(error + "；请先重新核对作品状态。"); }
         });
@@ -459,6 +463,12 @@ public final class DraftEditorModel extends AndroidViewModel {
     }
     private void complete(String message) {
         busy = false; state.phase = "IDLE"; state.needsReconcile = false; state.done = true; state.message = message;
+        notifyChange();
+    }
+    /** 仅保存草稿：不退出界面，用户可继续编辑。 */
+    private void savedDraft(String message) {
+        if (!current()) return;
+        busy = false; state.phase = "IDLE"; state.needsReconcile = false; state.done = false; state.message = message;
         notifyChange();
     }
     @Override protected void onCleared() {

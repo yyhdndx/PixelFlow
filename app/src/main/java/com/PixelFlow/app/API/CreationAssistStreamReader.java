@@ -28,8 +28,10 @@ final class CreationAssistStreamReader {
                 case "delta":
                     String piece = data.get("text").getAsString();
                     text.append(piece);
-                    if (text.codePointCount(0, text.length()) > 5000) throw new IOException("Content exceeds size limit");
-                    delta.accept(piece);
+                    if (text.codePointCount(0, text.length()) <= 5000) {
+                        delta.accept(piece);
+                    }
+                    // 超长时忽略超出增量，最终以服务端 done 的截断内容为准
                     break;
                 case "done": {
                     CreationSuggestion result = json.fromJson(data, CreationSuggestion.class);
