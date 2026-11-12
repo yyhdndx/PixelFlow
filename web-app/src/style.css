@@ -58,7 +58,8 @@ a:hover { color: var(--brand-700); }
 .account-meta small { font-weight: 500; }
 .login-link { font-weight: 650; text-decoration: none; padding: 8px 16px; border-radius: var(--radius-s); }
 .login-link:hover { background: var(--brand-50); }
-main { max-width: 1160px; margin: 0 auto; padding: 24px; min-height: calc(100vh - 62px); }
+main { width: 100%; max-width: 1640px; margin: 0 auto; padding: 28px 32px; min-height: calc(100vh - 62px); }
+@media (max-width: 900px) { main { padding: 20px; } }
 
 /* ============ Buttons & forms ============ */
 button {
@@ -95,8 +96,16 @@ label input { display: block; margin-top: 6px; font-weight: 400; }
 .feed-toolbar .hint { color: var(--ink-400); font-size: 12.5px; }
 
 /* ============ Waterfall ============ */
-.waterfall { columns: 2; column-gap: 16px; }
-@media (max-width: 640px) { .waterfall { columns: 1; } }
+.waterfall { columns: 2; column-gap: 18px; }
+/* 宽屏铺更多列 */
+@media (min-width: 1900px) { .waterfall { columns: 6; } }
+@media (min-width: 1700px) and (max-width: 1899px) { .waterfall { columns: 5; } }
+@media (min-width: 1450px) and (max-width: 1699px) { .waterfall { columns: 4; } }
+@media (min-width: 1120px) and (max-width: 1449px) { .waterfall { columns: 3; } }
+@media (min-width: 820px) and (max-width: 1119px) { .waterfall { columns: 2; } }
+@media (max-width: 819px) { .waterfall { columns: 1; } }
+/* 列多时卡片略收窄封面比例，避免卡片过高 */
+@media (min-width: 1120px) { .card .cover { aspect-ratio: 4/5; } }
 .card {
   break-inside: avoid; margin: 0 0 16px; background: var(--surface);
   border: 1px solid var(--line); border-radius: var(--radius-m); overflow: hidden;
@@ -269,7 +278,9 @@ label input { display: block; margin-top: 6px; font-weight: 400; }
 .notification-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 .notification-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
 .notification-tabs button[aria-pressed="true"] { background: var(--brand-100); color: var(--brand-700); }
-.content-page, .work-editor { width: min(100%, 760px); margin-inline: auto; }
+.content-page, .work-editor { width: min(100%, 1080px); margin-inline: auto; }
+.work-editor { max-width: 1200px; }
+@media (min-width: 1500px) { .content-page { width: min(100%, 1240px); } }
 .image-picker-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 16px 0 8px; font-size: 13.5px; font-weight: 600; color: var(--ink-700); }
 .image-picker { position: relative; display: inline-flex; align-items: center; justify-content: center; margin: 0; padding: 8px 14px; border: 1px solid var(--brand-100); border-radius: 8px; background: var(--surface); color: var(--brand-600); font-size: 13px; font-weight: 600; cursor: pointer; overflow: hidden; }
 .image-picker:hover { background: var(--brand-50); }
