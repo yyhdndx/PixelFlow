@@ -12,6 +12,33 @@ public final class AccountMedia {
     private static final class Binding {
         CommunityClient.Job job;
     }
+
+    /** 私有媒体仅内存缓存（不落盘、会话内有效），避免每次进详情页都重新下载。 */
+    private static final android.util.LruCache<String, byte[]> PRIVATE_BYTES =
+            new android.util.LruCache<String, byte[]>(32 * 1024 * 1024) {
+                @Override protected int sizeOf(String key, byte[] value) { return value.length; }
+            };
+
+    private static void bindBytes(ImageView view, byte[] bytes, boolean centerCrop, Runnable onDone) {
+        com.bumptech.glide.RequestBuilder<android.graphics.drawable.Drawable> req =
+                Glide.with(view.getContext().getApplicationContext())
+                        .load(bytes).diskCacheStrategy(DiskCacheStrategy.NONE).skipMemoryCache(true)
+                        .error(R.drawable.ic_image_error);
+        if (centerCrop) req = req.centerCrop();
+        req.listener(new com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable>() {
+            @Override public boolean onLoadFailed(@Nullable com.bumptech.glide.load.engine.GlideException e, Object model,
+                    com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target, boolean first) {
+                if (onDone != null) onDone.run();
+                return false;
+            }
+            @Override public boolean onResourceReady(android.graphics.drawable.Drawable resource, Object model,
+                    com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target,
+                    com.bumptech.glide.load.DataSource source, boolean first) {
+                if (onDone != null) onDone.run();
+                return false;
+            }
+        }).into(view);
+    }
     public static void clear(ImageView view) {
         Object previous = view.getTag(R.id.account_media_binding);
         if (previous instanceof Binding && ((Binding) previous).job != null) ((Binding) previous).job.cancel();
@@ -60,29 +87,20 @@ public final class AccountMedia {
         Binding binding = new Binding();
         view.setTag(R.id.account_media_binding, binding);
         long session = api.sessionVersion();
+        // 命中内存缓存直接复用，避免重复下载
+        byte[] cached = PRIVATE_BYTES.get(url);
+        if (cached != null) {
+            bindBytes(view, cached, centerCrop, onDone);
+            return;
+        }
         binding.job = api.getMediaContent(url, new CommunityClient.Callback<byte[]>() {
             private boolean current() {
                 return view.getTag(R.id.account_media_binding) == binding && session == api.sessionVersion();
             }
             public void onSuccess(byte[] bytes) {
                 if (!current()) return;
-            com.bumptech.glide.RequestBuilder<android.graphics.drawable.Drawable> req = Glide.with(view.getContext().getApplicationContext())
-                        .load(bytes).diskCacheStrategy(DiskCacheStrategy.NONE).skipMemoryCache(true)
-                        .error(R.drawable.ic_image_error);
-                if (centerCrop) req = req.centerCrop();
-                req.listener(new com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable>() {
-                    @Override public boolean onLoadFailed(@Nullable com.bumptech.glide.load.engine.GlideException e, Object model,
-                            com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target, boolean first) {
-                        if (onDone != null) onDone.run();
-                        return false;
-                    }
-                    @Override public boolean onResourceReady(android.graphics.drawable.Drawable resource, Object model,
-                            com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target,
-                            com.bumptech.glide.load.DataSource source, boolean first) {
-                        if (onDone != null) onDone.run();
-                        return false;
-                    }
-                }).into(view);
+                PRIVATE_BYTES.put(url, bytes);
+                bindBytes(view, bytes, centerCrop, onDone);
             }
             public void onFailure(String ignored) {
                 if (!current()) return;

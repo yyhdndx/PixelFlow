@@ -38,7 +38,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements HomeFragment.OnScrollListener, MessagesFragment.OnMessagesChangedListener {
+public class MainActivity extends BaseActivity implements HomeFragment.OnScrollListener, MessagesFragment.OnMessagesChangedListener {
 
     private BottomNavigationView bottomNavigationView;
     private FloatingActionButton fabCamera;

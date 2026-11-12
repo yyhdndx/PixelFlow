@@ -1,5 +1,7 @@
 package com.PixelFlow.app.DetailPage;
 
+import com.PixelFlow.app.BaseActivity;
+
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -63,7 +65,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class WorkDetailActivity extends AppCompatActivity implements GestureDetector.OnGestureListener {
+public class WorkDetailActivity extends BaseActivity implements GestureDetector.OnGestureListener {
     // 顶部作者区（修改：移除MaterialToolbar，添加backButton）
     private View backgroundOverlay;
     private View topBar;
@@ -145,7 +147,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     private long viewingSession;
     private String viewingUser;
     private boolean clickTracked;
-    private android.app.Dialog fullscreenImageDialog;
 
     // 拖拽退出相关
     private View contentLayout;
@@ -848,7 +849,7 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     }
 
     private void openFullScreenImage(int position) {
-        if (isFinishing() || isDestroyed() || fullscreenImageDialog != null) return;
+        if (isFinishing() || isDestroyed()) return;
         if (imageAdapter == null) return;
         List<WorkItem.Clip> media = imageAdapter.getMediaItems();
         if (media == null || media.isEmpty()) return;
@@ -862,27 +863,31 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
             }
         }
         if (imageUrls.isEmpty()) return;
-        FullScreenImagePagerDialog dialog = new FullScreenImagePagerDialog(this, imageUrls, imageStart);
-        fullscreenImageDialog = dialog;
-        dialog.setOnDismissListener(ignored -> {
-            if (fullscreenImageDialog == dialog) fullscreenImageDialog = null;
-        });
-        Window window = dialog.getWindow();
-        if (window != null) window.setWindowAnimations(R.style.FullScreenDialogAnimation);
-        dialog.show();
+        Intent intent = new Intent(this, FullScreenImageActivity.class);
+        intent.putStringArrayListExtra(FullScreenImageActivity.EXTRA_IMAGE_URLS, new ArrayList<>(imageUrls));
+        intent.putExtra(FullScreenImageActivity.EXTRA_START_POSITION, imageStart);
+        startActivity(intent);
+        overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
     }
 
     private void setupListeners() {
         // 关注按钮
         followButton.setOnClickListener(v -> {
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM);
             if (ownedByMe) showOwnerSettings(); else toggleFollowStatus();
         });
 
         // 点赞按钮
-        likeButton.setOnClickListener(v -> toggleLikeStatus());
+        likeButton.setOnClickListener(v -> {
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM);
+            toggleLikeStatus();
+        });
 
         // 收藏按钮
-        collectButton.setOnClickListener(v -> toggleFavoriteStatus());
+        collectButton.setOnClickListener(v -> {
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM);
+            toggleFavoriteStatus();
+        });
 
         // 分享按钮
         shareButton.setOnClickListener(v -> shareWork());
@@ -1543,7 +1548,6 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
     protected void onDestroy() {
         if (summarySubscription != null) summarySubscription.close();
         if (summaryReadJob != null) summaryReadJob.cancel();
-        if (fullscreenImageDialog != null) fullscreenImageDialog.dismiss();
         if (imageAdapter != null) imageAdapter.releaseAllPlayers();
         if (likeJob != null) likeJob.cancel();
         if (followJob != null) followJob.cancel();
@@ -1564,9 +1568,23 @@ public class WorkDetailActivity extends AppCompatActivity implements GestureDete
         super.onTrimMemory(level);
     }
 
+    /** 与首页保持一致：沉浸式隐藏状态栏与导航栏。 */
+    private void hideSystemBars() {
+        android.view.Window window = getWindow();
+        if (window == null) return;
+        window.getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
+        hideSystemBars();
         if (summaryTask != null && !AiTaskRegistry.get().isCurrent(summaryTask)) {
             if (summarySubscription != null) summarySubscription.close();
             summaryTask = null;

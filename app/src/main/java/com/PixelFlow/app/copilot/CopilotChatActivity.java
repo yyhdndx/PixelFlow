@@ -1,5 +1,7 @@
 package com.PixelFlow.app.copilot;
 
+import com.PixelFlow.app.BaseActivity;
+
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -38,7 +40,7 @@ import java.util.Map;
  * 全屏 Copilot 会话页：从 AI 历史进入后像聊天一样展开整段对话，
  * 左上角返回回到历史列表。
  */
-public class CopilotChatActivity extends AppCompatActivity {
+public class CopilotChatActivity extends BaseActivity {
 
     private static final String EXTRA_SCREEN = "screen";
     private static final String EXTRA_POST = "post_id";

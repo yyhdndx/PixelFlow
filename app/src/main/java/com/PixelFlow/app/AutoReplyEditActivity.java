@@ -21,7 +21,7 @@ import java.util.List;
  * 新增/编辑一条自动回复规则。新增时可在同一页用 AI 把一句话拆成多条候选，
  * 勾选（可全选）后一次「应用选中」批量创建；也可以只手动填一条保存。
  */
-public class AutoReplyEditActivity extends AppCompatActivity {
+public class AutoReplyEditActivity extends BaseActivity {
     public static final String EXTRA_POST_ID = "auto_reply_post_id";
     public static final String EXTRA_RULE_ID = "auto_reply_rule_id";
     public static final String EXTRA_QUESTION = "auto_reply_question";

@@ -12,7 +12,7 @@ import com.PixelFlow.app.API.ApiClient;
 import com.bumptech.glide.Glide;
 import com.google.android.material.textfield.TextInputEditText;
 
-public class EditProfileActivity extends AppCompatActivity {
+public class EditProfileActivity extends BaseActivity {
     private ProfileEditorModel model;
     private TextInputEditText nickname, bio;
     private TextView status;

@@ -67,4 +67,11 @@
     <string name="detail_settings">设置</string>
     <string name="detail_withdraw">撤回投稿</string>
     <string name="detail_withdrawn">已撤回，可在「我的作品」里点开继续编辑</string>
-    <string name="detail_withdraw_unavailable">当前状态无需撤回</string></resources>
+    <string name="detail_withdraw_unavailable">当前状态无需撤回</string>
+
+    <string name="font_size_title">字号</string>
+    <string name="font_size_desc">调整界面文字大小</string>
+    <string name="font_size_small">小</string>
+    <string name="font_size_normal">标准</string>
+    <string name="font_size_large">大</string>
+</resources>

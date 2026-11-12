@@ -8,7 +8,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.PixelFlow.app.API.*;
 import com.google.gson.*;
 
-public class InterestProfileActivity extends AppCompatActivity {
+public class InterestProfileActivity extends BaseActivity {
     private ApiClient api;
     private CommunityClient.Job job;
     private LinearLayout topics;

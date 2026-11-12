@@ -7,7 +7,7 @@ import com.PixelFlow.app.API.ApiClient;
 import com.PixelFlow.app.API.CommunityClient;
 
 /** Main-thread lifecycle policy for account pages. Reads may cancel; writes must reconcile. */
-public abstract class AccountDataActivity extends AppCompatActivity {
+public abstract class AccountDataActivity extends BaseActivity {
     protected ApiClient api;
     protected CommunityClient.Job job;
     private int version;

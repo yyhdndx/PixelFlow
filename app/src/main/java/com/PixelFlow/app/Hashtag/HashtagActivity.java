@@ -1,5 +1,7 @@
 package com.PixelFlow.app.Hashtag;
 
+import com.PixelFlow.app.BaseActivity;
+
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.graphics.Color;
@@ -50,7 +52,7 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-public class HashtagActivity extends AppCompatActivity {
+public class HashtagActivity extends BaseActivity {
 
     private static final String DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
     // Model access must be routed through the business server; never ship credentials.

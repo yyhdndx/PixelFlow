@@ -22,7 +22,7 @@ import java.util.List;
  * 作品作者配置「场景 → 答案」：Agent 判断一级评论是否属于该场景，命中才以作者身份自动回复。
  * 新增/编辑走独立页面（AutoReplyEditActivity），这里只负责列表与删除。
  */
-public class AutoReplyActivity extends AppCompatActivity {
+public class AutoReplyActivity extends BaseActivity {
     public static final String EXTRA_POST_ID = "auto_reply_post_id";
 
     private String postId;
