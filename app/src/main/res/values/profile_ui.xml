@@ -8,14 +8,14 @@
     <color name="profile_soft">#EFEDFF</color>
     <color name="profile_border">#E7E6F0</color>
     <color name="profile_error">#B3261E</color>
-    <style name="Theme.PixelFlow.ProfileBase" parent="Theme.MaterialComponents.Light.NoActionBar">
+    <style name="Theme.PixelFlow.ProfileBase" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/profile_accent</item>
         <item name="colorPrimaryVariant">@color/profile_accent</item>
         <item name="colorSecondary">@color/profile_accent</item>
         <item name="colorOnPrimary">@color/white</item>
         <item name="android:windowBackground">@color/profile_bg</item>
         <item name="android:statusBarColor">@color/profile_bg</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightStatusBar">@bool/light_status_bar</item>
         <item name="android:navigationBarColor">@color/profile_surface</item>
         <item name="android:fontFamily">sans</item>
         <item name="colorError">@color/profile_error</item>
