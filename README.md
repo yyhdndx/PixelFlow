@@ -1,74 +1,75 @@
 # PixelFlow 智能社区
 
-PixelFlow 面向图文与视频内容的发布、浏览和交流，计划通过用户画像、推荐 Agent 与可组合 Skill 提供个性化内容发现和创作辅助。
+一个图文 / 视频创作与分享社区：浏览推荐内容、发布作品、互动交流，还能借助 AI 助手完成创作与检索。
 
-首次领取后端 issue 请先阅读 **[后端开发上手指南](docs/后端开发上手指南.md)**：统一环境、建库、配置模板、启动、测试和交付流程都从这里开始。云端实际运行版本见 [服务器部署记录](deploy/服务器部署记录.md)，不一定等于仓库最新提交。本期只开发 Android、Java 和 Python，不需要运行 Web。
+## 社区功能
+
+### 浏览与发现
+
+- **信息流**：首页浏览图文 / 视频作品，支持视频播放、多图切换、话题标签；
+- **个性化推荐**：根据你的点赞、浏览、停留行为推荐感兴趣的内容，每条都标注"为什么推荐给你"；
+- **图片秒开**：预加载 + 多级缓存，滑到哪里图就加载到哪，不卡顿；
+- **智能搜索**：用一句话提问（比如"推荐几家咖啡店"），AI 检索站内作品并综合回答；
+- **长文摘要**：长文一键压成摘要，快速了解内容。
+
+### 发布与创作
+
+- **发布作品**：标题 + 正文 + 标签，支持多图与视频；
+- **草稿**：自动保存，随时继续编辑，不丢失；
+- **AI 辅助创作**：AI 帮你起草标题 / 正文 / 标签，流式预览、一键采用，并做内容安全校验；
+- **Copilot 助手**：在任意页面唤起 AI 对话，生成内容提案，帮你整理思路。
+
+### 互动与社交
+
+- **点赞 / 收藏**：喜欢就点赞、收藏，随时可取消；
+- **评论 / 回复**：两级评论，回复挂在对应评论下；
+- **关注**：关注喜欢的作者，看 TA 的最新动态，也积累自己的粉丝；
+- **通知**：有人评论 / 回复你时收到提醒，点开自动已读。
+
+### 审核与安全
+
+- 作品发布前经**人工审核**，AI 辅助给出风险提示；
+- 内置**内容安全校验**，违规内容拦截；
+- 支持**屏蔽作者 / 不感兴趣**，让推荐更懂你。
+
+### 体验细节
+
+- 深色模式、字号调节、触感反馈等贴心的交互细节。
+
+## 技术栈
+
+Android / Web 客户端 + Java（Spring Boot）+ Python（FastAPI）；数据存储用 MySQL，缓存用 Caffeine，限流用 Redis，AI 能力接 DeepSeek。
+
+## 系统架构
+
+```text
+客户端（Android / Web） → Java 业务服务 → Python 智能服务（推荐 / Agent）
+```
+
+- Java 负责账号、作品、互动与审核；
+- Python 负责画像、推荐与 AI 能力；
+- AI 遵循「模型提案、系统校验、人保留最终控制」，不代用户发布。
 
 ## 项目结构
 
 ```text
-pixel-flow/
-├── app/                  # Android 用户端（Gradle :app）
-├── server/               # Java 核心业务服务
-├── intelligence/         # Python 数据分析、Agent、Skill 与 MCP
-├── admin-web/            # 历史预留目录，本期不开发、不启动
-├── contracts/            # 跨服务 API、事件和 Schema 契约
-├── docs/                 # 需求、架构与客户端设计资料
-├── deploy/               # 部署配置与数据库初始化
-├── tests/                # 跨服务测试和固定评测数据
-├── gradle/               # Android Gradle Wrapper 与依赖目录
-├── build.gradle.kts
-└── settings.gradle.kts
+app/           Android 客户端
+server/        Java 业务服务
+intelligence/  Python 智能服务
+web-app/       Web 用户端
+admin-web/     Web 管理端
+docs/          需求、架构与验收文档
 ```
 
-## 当前版本
+## 快速开始
 
-服务端默认数据库为 MySQL，Java 业务库与 Python 分析库分开。环境准备、旧 H2/SQLite 导入和备份方式见 [MySQL 部署与迁移](deploy/MySQL部署与迁移.md)。
+- **Android**：`.\gradlew.bat :app:assembleDebug`
+- **Java**：`cd server && mvn package && java -jar target/pixelflow-server-0.1.0.jar`
+- **Python**：`cd intelligence && python -m venv .venv && .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt`
+- **Web**：`cd web-app && npm ci && npm run dev`
 
-Android 源码位于 `app/`，已接入注册登录、内存会话与令牌刷新、首页游标分页、服务端点赞、首版浏览遥测及本人画像查询。Java 服务提供账号、Feed、草稿与人工审核、互动、行为事件、只读分析导出及画像代理；Python 已实现增量同步、规则画像，以及画像解读、候选召回、排序过滤三个业务 Skill。推荐预览已接入真实 Java 公开 Feed、候选复核、持久化作品排除及个性化开关，但尚未接入首页；Agent/MCP 仍待实现。客户端发布、关注/收藏、推荐偏好控制及完整设备联调仍待完成。
-
-## Android 开发
-
-使用 Android Studio 打开仓库根目录，配置 Android SDK 后同步 Gradle。保持 `:app` 模块及应用包名不变；后端项目独立管理依赖，不加入 Android Gradle 构建。
-
-```powershell
-.\gradlew.bat :app:assembleDebug
-```
-
-APK 输出到 `app/build/outputs/apk/debug/`。服务地址由 `app/src/main/assets/api.properties` 的 `url` 设置，填写基础 origin，不附带路径，默认 http://10.0.2.2:8080。Java 后端启动见 [server/README.md](server/README.md)；登录、分页和点赞的配置及验收见 [Android 联调说明](docs/android/Java服务联调说明.md)。
-
-话题 AI 入口暂时显示服务未接入提示，后续通过 Java 服务调用智能服务。禁止在 Android 或 Web 客户端配置模型密钥。
-
-## 文档与模块入口
-
-- [新对话交接说明（背景、进度、分支与待办）](docs/新对话交接说明.md)
-- [后端现状与 Android 开发排期](docs/后端现状与Android开发排期.md)
-- [软件需求说明](docs/requirements/软件需求说明.md)
-- [总体架构与模块边界](docs/architecture/README.md)
-- [后续接口与实现方案](docs/architecture/后续接口与实现方案.md)
-- [Java 服务](server/README.md)
-- [Java 服务端实现说明](docs/server/服务端实现说明.md)
-- [社区演示素材与来源许可](docs/server/演示素材说明.md)
-- [Python 智能服务](intelligence/README.md)
-- [后端开发上手指南](docs/后端开发上手指南.md)
-- [收藏分页与Java历史画像代理验收](docs/testing/后端接口补全验收.md)
-- [跨服务契约](contracts/README.md)
-- [Android 设计资料](docs/android/技术方案设计文档.md)
-- [Android 代码审查与整改计划](docs/android/代码审查与整改计划.md)
-- [Android 端侧性能研究调研与选题建议](docs/android/端侧性能研究调研.md)
-- [Android 端侧性能实验方案](docs/android/端侧性能实验方案.md)
-- [部署说明](deploy/README.md)
-- [测试组织](tests/README.md)
-
-## 协作约定
-
-后端任务以仓库 Markdown 记录，分工说明见 [任务索引](docs/issues/README.md)。最新能力状态、尚未合并的功能和 Android 迭代顺序见 [后端现状与 Android 开发排期](docs/后端现状与Android开发排期.md)；任务草稿存在不代表功能尚未实现，合并也不代表已部署。
-
-按业务 Story 建分支，例如 `feature/us-01-auth`，提交信息说明模块与目的。接口变化先更新 `contracts/`，再同步调用方；业务实现同步补充模块测试和使用说明。密钥、上传内容、数据库文件、构建产物及本地配置不提交。
-
-Java 依赖版本由 `server/pom.xml` 管理，Python 直接依赖由 `intelligence/pyproject.toml` 声明，安装版本由 `intelligence/requirements-lock.txt` 固定。依赖变更同时更新声明、锁定文件和验证结果。
+各模块细节见对应目录下的 README；环境准备与建库见 [后端开发上手指南](docs/后端开发上手指南.md)。
 
 ## 许可证
 
 [MIT](LICENSE)
-
