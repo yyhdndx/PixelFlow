@@ -1,0 +1,727 @@
+{
+  "release": "/opt/pixelflow/releases/35f1253fda6c3ee78531b9347d97bbcd049f0d58-20261107-2",
+  "checks": {
+    "guest_search": 401,
+    "guest_summary": 401,
+    "non_admin_trace": 403,
+    "ordinary_search_during_ai": {
+      "http": 200,
+      "ms": 26.91
+    },
+    "search_trace": {
+      "http": 200,
+      "trace_id": "2c36bfa9-2955-4cbc-a97a-fb0156cc1549",
+      "degraded": 0
+    },
+    "cancelled_trace": {
+      "http": 200,
+      "degraded": 1,
+      "successful_sessions": 0
+    }
+  },
+  "search": {
+    "first_event_ms": 272.62,
+    "first_content_ms": 1905.46,
+    "total_ms": 2894.49,
+    "events": [
+      {
+        "event": "meta",
+        "ms": 272.62
+      },
+      {
+        "event": "phase",
+        "ms": 272.66
+      },
+      {
+        "event": "sources",
+        "ms": 938.15
+      },
+      {
+        "event": "phase",
+        "ms": 986.3
+      },
+      {
+        "event": "delta",
+        "ms": 1905.46
+      },
+      {
+        "event": "delta",
+        "ms": 2008.73
+      },
+      {
+        "event": "delta",
+        "ms": 2008.79
+      },
+      {
+        "event": "delta",
+        "ms": 2012.42
+      },
+      {
+        "event": "delta",
+        "ms": 2012.47
+      },
+      {
+        "event": "delta",
+        "ms": 2012.5
+      },
+      {
+        "event": "delta",
+        "ms": 2012.54
+      },
+      {
+        "event": "delta",
+        "ms": 2012.58
+      },
+      {
+        "event": "delta",
+        "ms": 2012.6
+      },
+      {
+        "event": "delta",
+        "ms": 2061.81
+      },
+      {
+        "event": "delta",
+        "ms": 2063.16
+      },
+      {
+        "event": "delta",
+        "ms": 2063.2
+      },
+      {
+        "event": "delta",
+        "ms": 2064.05
+      },
+      {
+        "event": "delta",
+        "ms": 2064.09
+      },
+      {
+        "event": "delta",
+        "ms": 2064.12
+      },
+      {
+        "event": "delta",
+        "ms": 2066.26
+      },
+      {
+        "event": "delta",
+        "ms": 2066.31
+      },
+      {
+        "event": "delta",
+        "ms": 2066.34
+      },
+      {
+        "event": "delta",
+        "ms": 2117.4
+      },
+      {
+        "event": "delta",
+        "ms": 2118.81
+      },
+      {
+        "event": "delta",
+        "ms": 2118.85
+      },
+      {
+        "event": "delta",
+        "ms": 2118.89
+      },
+      {
+        "event": "delta",
+        "ms": 2119.78
+      },
+      {
+        "event": "delta",
+        "ms": 2119.81
+      },
+      {
+        "event": "delta",
+        "ms": 2119.84
+      },
+      {
+        "event": "delta",
+        "ms": 2119.88
+      },
+      {
+        "event": "delta",
+        "ms": 2121.18
+      },
+      {
+        "event": "delta",
+        "ms": 2172.34
+      },
+      {
+        "event": "delta",
+        "ms": 2174.43
+      },
+      {
+        "event": "delta",
+        "ms": 2174.47
+      },
+      {
+        "event": "delta",
+        "ms": 2176.0
+      },
+      {
+        "event": "delta",
+        "ms": 2176.76
+      },
+      {
+        "event": "delta",
+        "ms": 2176.82
+      },
+      {
+        "event": "delta",
+        "ms": 2176.85
+      },
+      {
+        "event": "delta",
+        "ms": 2176.94
+      },
+      {
+        "event": "delta",
+        "ms": 2176.97
+      },
+      {
+        "event": "delta",
+        "ms": 2177.0
+      },
+      {
+        "event": "delta",
+        "ms": 2177.02
+      },
+      {
+        "event": "delta",
+        "ms": 2228.38
+      },
+      {
+        "event": "delta",
+        "ms": 2229.1
+      },
+      {
+        "event": "delta",
+        "ms": 2229.14
+      },
+      {
+        "event": "delta",
+        "ms": 2229.18
+      },
+      {
+        "event": "delta",
+        "ms": 2230.45
+      },
+      {
+        "event": "delta",
+        "ms": 2230.49
+      },
+      {
+        "event": "delta",
+        "ms": 2230.52
+      },
+      {
+        "event": "delta",
+        "ms": 2230.55
+      },
+      {
+        "event": "delta",
+        "ms": 2230.76
+      },
+      {
+        "event": "delta",
+        "ms": 2287.04
+      },
+      {
+        "event": "delta",
+        "ms": 2287.09
+      },
+      {
+        "event": "delta",
+        "ms": 2287.12
+      },
+      {
+        "event": "delta",
+        "ms": 2287.15
+      },
+      {
+        "event": "delta",
+        "ms": 2289.2
+      },
+      {
+        "event": "delta",
+        "ms": 2289.25
+      },
+      {
+        "event": "delta",
+        "ms": 2289.29
+      },
+      {
+        "event": "delta",
+        "ms": 2290.04
+      },
+      {
+        "event": "delta",
+        "ms": 2290.09
+      },
+      {
+        "event": "delta",
+        "ms": 2337.68
+      },
+      {
+        "event": "delta",
+        "ms": 2341.0
+      },
+      {
+        "event": "delta",
+        "ms": 2341.04
+      },
+      {
+        "event": "delta",
+        "ms": 2343.65
+      },
+      {
+        "event": "delta",
+        "ms": 2343.7
+      },
+      {
+        "event": "delta",
+        "ms": 2343.73
+      },
+      {
+        "event": "delta",
+        "ms": 2343.76
+      },
+      {
+        "event": "delta",
+        "ms": 2344.78
+      },
+      {
+        "event": "delta",
+        "ms": 2344.82
+      },
+      {
+        "event": "delta",
+        "ms": 2344.85
+      },
+      {
+        "event": "delta",
+        "ms": 2344.97
+      },
+      {
+        "event": "delta",
+        "ms": 2345.0
+      },
+      {
+        "event": "delta",
+        "ms": 2397.46
+      },
+      {
+        "event": "delta",
+        "ms": 2398.36
+      },
+      {
+        "event": "delta",
+        "ms": 2398.42
+      },
+      {
+        "event": "delta",
+        "ms": 2398.44
+      },
+      {
+        "event": "delta",
+        "ms": 2398.47
+      },
+      {
+        "event": "delta",
+        "ms": 2399.49
+      },
+      {
+        "event": "delta",
+        "ms": 2399.55
+      },
+      {
+        "event": "delta",
+        "ms": 2399.59
+      },
+      {
+        "event": "delta",
+        "ms": 2399.62
+      },
+      {
+        "event": "delta",
+        "ms": 2452.02
+      },
+      {
+        "event": "delta",
+        "ms": 2454.37
+      },
+      {
+        "event": "delta",
+        "ms": 2454.42
+      },
+      {
+        "event": "delta",
+        "ms": 2454.46
+      },
+      {
+        "event": "delta",
+        "ms": 2454.5
+      },
+      {
+        "event": "delta",
+        "ms": 2454.53
+      },
+      {
+        "event": "delta",
+        "ms": 2454.56
+      },
+      {
+        "event": "delta",
+        "ms": 2454.59
+      },
+      {
+        "event": "delta",
+        "ms": 2511.04
+      },
+      {
+        "event": "delta",
+        "ms": 2511.08
+      },
+      {
+        "event": "delta",
+        "ms": 2511.11
+      },
+      {
+        "event": "delta",
+        "ms": 2511.14
+      },
+      {
+        "event": "delta",
+        "ms": 2511.17
+      },
+      {
+        "event": "delta",
+        "ms": 2511.74
+      },
+      {
+        "event": "delta",
+        "ms": 2511.77
+      },
+      {
+        "event": "delta",
+        "ms": 2511.8
+      },
+      {
+        "event": "delta",
+        "ms": 2511.82
+      },
+      {
+        "event": "delta",
+        "ms": 2561.36
+      },
+      {
+        "event": "delta",
+        "ms": 2562.35
+      },
+      {
+        "event": "delta",
+        "ms": 2562.38
+      },
+      {
+        "event": "delta",
+        "ms": 2563.2
+      },
+      {
+        "event": "delta",
+        "ms": 2563.26
+      },
+      {
+        "event": "delta",
+        "ms": 2563.29
+      },
+      {
+        "event": "delta",
+        "ms": 2564.48
+      },
+      {
+        "event": "delta",
+        "ms": 2564.52
+      },
+      {
+        "event": "delta",
+        "ms": 2565.69
+      },
+      {
+        "event": "delta",
+        "ms": 2616.9
+      },
+      {
+        "event": "delta",
+        "ms": 2617.56
+      },
+      {
+        "event": "delta",
+        "ms": 2617.59
+      },
+      {
+        "event": "delta",
+        "ms": 2623.07
+      },
+      {
+        "event": "delta",
+        "ms": 2623.14
+      },
+      {
+        "event": "delta",
+        "ms": 2628.68
+      },
+      {
+        "event": "delta",
+        "ms": 2628.73
+      },
+      {
+        "event": "delta",
+        "ms": 2628.77
+      },
+      {
+        "event": "delta",
+        "ms": 2628.8
+      },
+      {
+        "event": "delta",
+        "ms": 2628.84
+      },
+      {
+        "event": "delta",
+        "ms": 2628.97
+      },
+      {
+        "event": "delta",
+        "ms": 2629.0
+      },
+      {
+        "event": "delta",
+        "ms": 2629.03
+      },
+      {
+        "event": "delta",
+        "ms": 2677.49
+      },
+      {
+        "event": "delta",
+        "ms": 2680.3
+      },
+      {
+        "event": "delta",
+        "ms": 2680.34
+      },
+      {
+        "event": "delta",
+        "ms": 2680.44
+      },
+      {
+        "event": "delta",
+        "ms": 2680.78
+      },
+      {
+        "event": "delta",
+        "ms": 2680.95
+      },
+      {
+        "event": "delta",
+        "ms": 2680.99
+      },
+      {
+        "event": "delta",
+        "ms": 2681.04
+      },
+      {
+        "event": "delta",
+        "ms": 2681.08
+      },
+      {
+        "event": "delta",
+        "ms": 2730.67
+      },
+      {
+        "event": "delta",
+        "ms": 2731.54
+      },
+      {
+        "event": "delta",
+        "ms": 2731.59
+      },
+      {
+        "event": "delta",
+        "ms": 2733.38
+      },
+      {
+        "event": "delta",
+        "ms": 2733.41
+      },
+      {
+        "event": "delta",
+        "ms": 2733.44
+      },
+      {
+        "event": "delta",
+        "ms": 2735.09
+      },
+      {
+        "event": "delta",
+        "ms": 2735.14
+      },
+      {
+        "event": "delta",
+        "ms": 2735.17
+      },
+      {
+        "event": "delta",
+        "ms": 2786.79
+      },
+      {
+        "event": "delta",
+        "ms": 2786.84
+      },
+      {
+        "event": "delta",
+        "ms": 2786.88
+      },
+      {
+        "event": "delta",
+        "ms": 2786.91
+      },
+      {
+        "event": "delta",
+        "ms": 2787.57
+      },
+      {
+        "event": "phase",
+        "ms": 2787.61
+      },
+      {
+        "event": "done",
+        "ms": 2894.42
+      }
+    ],
+    "trace_id": "2c36bfa9-2955-4cbc-a97a-fb0156cc1549",
+    "session_id": "9e089a82-d5dc-4212-b45a-45665fef370a",
+    "source_count": 2,
+    "degraded": 0,
+    "answer": "社区内与“咖啡”相关的内容有两类：\n\n一是把咖啡当作生活场景：有作品提到“一个有咖啡和面包的早晨”，并讨论用清单安排早餐、轻任务和深度阅读，强调舒适的桌面不会自动带来专注，真正有用的是知道今天要完成什么，又愿意给休息留位置〔2〕。\n\n二是标题中带“咖啡”的家居用品：一款美式铁艺、可升降的简约咖啡茶几／小圆桌〔1〕，从标题看属于家具，而非饮品本身。\n\n如果你问的是咖啡饮品或咖啡知识，社区内暂未找到足够依据；目前只有上述晨间生活方式和咖啡桌两类相关内容。"
+  },
+  "zero_results": {
+    "first_event_ms": 59.5,
+    "first_content_ms": 370.47,
+    "total_ms": 401.81,
+    "events": [
+      {
+        "event": "meta",
+        "ms": 59.5
+      },
+      {
+        "event": "phase",
+        "ms": 59.54
+      },
+      {
+        "event": "sources",
+        "ms": 370.39
+      },
+      {
+        "event": "delta",
+        "ms": 370.47
+      },
+      {
+        "event": "phase",
+        "ms": 371.76
+      },
+      {
+        "event": "done",
+        "ms": 401.75
+      }
+    ],
+    "trace_id": "d0e0d127-56a3-41ca-8719-4294331aa17a",
+    "session_id": "da241196-1e05-4d92-a543-ba72e95c069c",
+    "source_count": 0,
+    "degraded": 0,
+    "answer": "社区内暂未找到与这个问题足够相关的公开作品。可以换个说法、减少限定词，或到推荐页浏览更多内容。"
+  },
+  "summary": {
+    "first_event_ms": 2299.03,
+    "first_content_ms": 2299.03,
+    "total_ms": 3078.63,
+    "events": [
+      {
+        "event": "summary",
+        "ms": 2299.03
+      },
+      {
+        "event": "point",
+        "ms": 2451.03
+      },
+      {
+        "event": "point",
+        "ms": 2656.57
+      },
+      {
+        "event": "point",
+        "ms": 2761.33
+      },
+      {
+        "event": "point",
+        "ms": 2915.74
+      },
+      {
+        "event": "point",
+        "ms": 3069.64
+      },
+      {
+        "event": "done",
+        "ms": 3078.55
+      }
+    ],
+    "trace_id": "d7462f7f-274a-4fd3-ae2f-4e32eecacac6",
+    "summary": "校园慢生活笔记：用早餐、三项轻任务和深度阅读安排不赶时间的周末上午。",
+    "points": [
+      "先吃完早餐再决定上午第一件事；面包搭配平常食物，饮品不必是咖啡，白水、热牛奶等均可，重点是给早晨明确开始。",
+      "清单写一个必须完成、一个可选任务和一个休息安排，其他想法先记旁边；清单太长会抵消成就感，缩小范围更容易开始。",
+      "把任务写成具体动作，如\"准备展示\"改为选出三个概念并各写一例；动作明确减少犹豫，也能判断是否达成。",
+      "讨论构思用可交谈空间，连续阅读用安静图书馆；不把环境不完美解释成没有自制力，公共空间使用电脑要尊重他人。",
+      "离开前留十分钟写下已完成内容、卡住的问题和下一步动作；未完成任务可重新安排，不必带内疚延长时间。"
+    ]
+  },
+  "cancelled": {
+    "first_event_ms": 56.35,
+    "first_content_ms": 3266.35,
+    "total_ms": 3266.41,
+    "events": [
+      {
+        "event": "meta",
+        "ms": 56.35
+      },
+      {
+        "event": "phase",
+        "ms": 56.39
+      },
+      {
+        "event": "sources",
+        "ms": 477.16
+      },
+      {
+        "event": "phase",
+        "ms": 477.21
+      },
+      {
+        "event": "delta",
+        "ms": 3266.35
+      }
+    ],
+    "trace_id": "355c250d-6753-4a82-8912-5ebe53b53a48",
+    "session_id": "9653ffce-159a-4422-9930-e1bb9e38562f"
+  },
+  "passed": true,
+  "backup": "/root/pixelflow-backups/20261107-stream-35f1253-3",
+  "migration": "V18 success",
+  "counts": "users\t21\nposts\t1016\ncorpus\t1000"
+}
